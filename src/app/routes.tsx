@@ -5,6 +5,9 @@ const Home = lazy(() => import('../pages/Home/Home').then((m) => ({ default: m.H
 const Activity = lazy(() =>
   import('../pages/Activity/Activity').then((m) => ({ default: m.Activity }))
 );
+const Arena = lazy(() =>
+  import('../pages/Arena/Arena').then((m) => ({ default: m.Arena }))
+);
 const Profile = lazy(() =>
   import('../pages/Profile/Profile').then((m) => ({ default: m.Profile }))
 );
@@ -40,6 +43,14 @@ export const routes: RouteObject[] = [
     element: (
       <Suspense fallback={<PageFallback />}>
         <Activity />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/arena',
+    element: (
+      <Suspense fallback={<PageFallback />}>
+        <Arena />
       </Suspense>
     ),
   },

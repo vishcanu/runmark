@@ -1,4 +1,4 @@
-import { Flame, TrendingUp, Clock, MapPin, Activity as ActivityIcon } from 'lucide-react';
+import { Flame, TrendingUp, Clock, MapPin, Activity as ActivityIcon, Zap, Timer } from 'lucide-react';
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { TerritoryCard } from '../../features/territory/components/TerritoryCard';
 import { Modal } from '../../components/Modal/Modal';
@@ -14,6 +14,24 @@ export function Activity() {
   const totalDistance = store.territories.reduce((sum, t) => sum + t.distance, 0);
   const totalDuration = store.territories.reduce((sum, t) => sum + t.duration, 0);
   const runCount = store.territories.length;
+
+  // Health metrics
+  const totalCalories = Math.round((totalDistance / 1000) * 60); // ~60 kcal/km
+  const totalSteps = Math.round(totalDistance / 0.82);           // ~82 cm avg stride
+  const avgPaceSec = totalDistance > 0 ? totalDuration / (totalDistance / 1000) : 0;
+  const avgPaceLabel = totalDistance > 0
+    ? `${Math.floor(avgPaceSec / 60)}:${String(Math.round(avgPaceSec % 60)).padStart(2, '0')}`
+    : '—';
+
+  // Weekly activity strip — last 7 days
+  const now = Date.now();
+  const weeklyDays = Array.from({ length: 7 }, (_, i) => {
+    const dayStart = now - (6 - i) * 86_400_000;
+    const dayEnd = dayStart + 86_400_000;
+    return store.territories.some(t => t.createdAt >= dayStart && t.createdAt < dayEnd);
+  });
+  const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const activeDays = weeklyDays.filter(Boolean).length;
 
   const selectedTerritory = store.selectedId
     ? store.getTerritory(store.selectedId)
@@ -40,10 +58,20 @@ export function Activity() {
         <div className={styles.streakPill}>
           <Flame size={13} strokeWidth={2.2} className={styles.streakIcon} />
           <span className={styles.streakText}>
-            {runCount > 0
-              ? `${runCount} run${runCount !== 1 ? 's' : ''} completed`
-              : 'Start your first run!'}
+            {activeDays > 0
+              ? `${activeDays} active day${activeDays !== 1 ? 's' : ''} this week`
+              : runCount > 0 ? `${runCount} run${runCount !== 1 ? 's' : ''} total` : 'Start your first run!'}
           </span>
+        </div>
+
+        {/* ── Weekly strip ───────────────────────────────── */}
+        <div className={styles.weekStrip}>
+          {weeklyDays.map((active, i) => (
+            <div key={i} className={styles.weekDay}>
+              <div className={active ? styles.weekDotActive : styles.weekDot} />
+              <span className={styles.weekLabel}>{DAY_LABELS[i]}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -61,7 +89,7 @@ export function Activity() {
             <Clock size={15} strokeWidth={2.2} />
           </div>
           <span className={styles.statValue}>{formatDuration(totalDuration)}</span>
-          <span className={styles.statLabel}>Total Time</span>
+          <span className={styles.statLabel}>Active Time</span>
         </div>
         <div className={styles.statCard}>
           <div className={styles.statIcon}>
@@ -69,6 +97,27 @@ export function Activity() {
           </div>
           <span className={styles.statValue}>{runCount}</span>
           <span className={styles.statLabel}>Territories</span>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon} style={{ background: 'rgba(251,191,36,0.12)', color: '#d97706' }}>
+            <Flame size={15} strokeWidth={2.2} />
+          </div>
+          <span className={styles.statValue}>{totalCalories > 0 ? totalCalories.toLocaleString() : '—'}</span>
+          <span className={styles.statLabel}>Calories</span>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon} style={{ background: 'rgba(124,58,237,0.10)', color: '#7c3aed' }}>
+            <Zap size={15} strokeWidth={2.2} />
+          </div>
+          <span className={styles.statValue}>{totalSteps > 0 ? totalSteps.toLocaleString() : '—'}</span>
+          <span className={styles.statLabel}>Steps</span>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon} style={{ background: 'rgba(5,150,105,0.10)', color: '#059669' }}>
+            <Timer size={15} strokeWidth={2.2} />
+          </div>
+          <span className={styles.statValue}>{avgPaceLabel}</span>
+          <span className={styles.statLabel}>Avg Pace</span>
         </div>
       </div>
 

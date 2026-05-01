@@ -81,6 +81,47 @@
     letter-spacing: 0.01em;
 }
 
+/* ── Weekly strip ────────────────────────────────────────── */
+.weekStrip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: var(--radius-lg);
+    padding: 10px 14px;
+}
+
+.weekDay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.weekDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.weekDotActive {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
+}
+
+.weekLabel {
+    font-size: 9px;
+    font-weight: var(--font-semibold);
+    color: rgba(255, 255, 255, 0.60);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
 /* ── Stats grid ──────────────────────────────────────────── */
 .statsGrid {
     display: grid;
