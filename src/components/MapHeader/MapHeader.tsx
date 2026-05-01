@@ -34,8 +34,9 @@ export function MapHeader({ isActive = false }: MapHeaderProps) {
   return (
     <div className={styles.header}>
       <div className={styles.left}>
+        <p className={styles.brandName}>RunMark</p>
         <div className={styles.locationRow}>
-          <MapPin size={14} strokeWidth={2.5} className={styles.pinIcon} />
+          <MapPin size={12} strokeWidth={2.5} className={styles.pinIcon} />
           <span className={styles.locationLabel}>
             {isActive ? 'Recording' : 'Near you'}
           </span>

@@ -13,7 +13,7 @@
 
 /* ── Header ──────────────────────────────────────────────── */
 .header {
-    background: linear-gradient(150deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+    background: linear-gradient(150deg, #38bdf8 0%, #0284c7 100%);
     padding: calc(var(--space-8) + var(--safe-area-top)) var(--space-5) var(--space-5);
 }
 
@@ -26,7 +26,7 @@
 .headerEyebrow {
     font-size: 11px;
     font-weight: var(--font-semibold);
-    color: rgba(165, 180, 252, 0.80);
+    color: rgba(255, 255, 255, 0.65);
     text-transform: uppercase;
     letter-spacing: 0.10em;
     margin-bottom: 3px;
@@ -108,9 +108,13 @@
     gap: var(--space-3);
 }
 
-.rankEmoji {
-    font-size: 28px;
-    line-height: 1;
+.rankIconWrap {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
 }
 
@@ -206,9 +210,15 @@
     gap: var(--space-3);
 }
 
-.challengeEmoji {
-    font-size: 24px;
-    line-height: 1;
+.challengeIconWrap {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-md);
+    background: var(--color-park-tint);
+    color: var(--color-accent-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
 }
 
@@ -252,7 +262,7 @@
 
 .challengeBarFill {
     height: 100%;
-    background: linear-gradient(90deg, #4338ca 0%, #7c3aed 100%);
+    background: linear-gradient(90deg, #38bdf8 0%, #0284c7 100%);
     border-radius: var(--radius-full);
     transition: width 0.5s ease;
 }
@@ -364,6 +374,132 @@
     color: var(--color-text-secondary);
     font-variant-numeric: tabular-nums;
     flex-shrink: 0;
+}
+
+.leaderRankNum {
+    font-size: 12px;
+    font-weight: var(--font-bold);
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Nearby runners ────────────────────────────────────── */
+.nearbyLive {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: var(--font-semibold);
+    color: #059669;
+}
+
+.nearbyLiveDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulseLive 2s ease-in-out infinite;
+}
+
+@keyframes pulseLive {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(0.85);
+    }
+}
+
+.nearbyList {
+    background: var(--color-bg-surface);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-border-subtle);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.nearbyRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 11px var(--space-4);
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.nearbyRow:last-child {
+    border-bottom: none;
+}
+
+.nearbyAvatarWrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.nearbyAvatar {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: var(--font-bold);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.nearbyOnlineDot {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #10b981;
+    border: 2px solid var(--color-bg-surface);
+}
+
+.nearbyInfo {
+    flex: 1;
+    min-width: 0;
+}
+
+.nearbyName {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+}
+
+.nearbyMeta {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 1px;
+}
+
+.nearbyRight {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.nearbyRankPill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: var(--font-semibold);
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+}
+
+.nearbyLastSeen {
+    font-size: 10px;
+    color: var(--color-text-muted);
 }
 
 /* ── Feed ────────────────────────────────────────────────── */

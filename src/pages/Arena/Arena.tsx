@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Shield, Zap, Flag } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { Shield, Zap, Flag, Crown, Star, Award, Eye, Target, TrendingUp, Navigation, CheckCircle2 } from 'lucide-react';
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { formatDistance } from '../../features/map/utils/geo';
@@ -7,21 +8,21 @@ import styles from './Arena.module.css';
 
 // ── Ghost runners (seeded, consistent) ─────────────────────
 const GHOST_RUNNERS = [
-  { id: 'g1', name: 'Alex K.',    color: '#dc2626', territories: 12, distanceM: 18500 },
-  { id: 'g2', name: 'Maya R.',    color: '#7c3aed', territories: 9,  distanceM: 14200 },
-  { id: 'g3', name: 'Jordan T.', color: '#ea580c', territories: 7,  distanceM: 11800 },
-  { id: 'g4', name: 'Sam W.',    color: '#0891b2', territories: 4,  distanceM: 7100  },
-  { id: 'g5', name: 'Riley P.',  color: '#16a34a', territories: 2,  distanceM: 3200  },
+  { id: 'g1', name: 'Alex K.',   color: '#dc2626', territories: 12, distanceM: 18500, lastSeen: 'Active now' },
+  { id: 'g2', name: 'Maya R.',   color: '#7c3aed', territories: 9,  distanceM: 14200, lastSeen: '3 min ago'  },
+  { id: 'g3', name: 'Jordan T.', color: '#ea580c', territories: 7,  distanceM: 11800, lastSeen: 'Active now' },
+  { id: 'g4', name: 'Sam W.',    color: '#0891b2', territories: 4,  distanceM: 7100,  lastSeen: '11 min ago' },
+  { id: 'g5', name: 'Riley P.',  color: '#16a34a', territories: 2,  distanceM: 3200,  lastSeen: '22 min ago' },
 ];
 
 // ── Rank system ─────────────────────────────────────────────
-type Rank = { title: string; color: string; min: number; max: number; icon: string };
+type Rank = { title: string; color: string; min: number; max: number; Icon: LucideIcon };
 const RANKS: Rank[] = [
-  { title: 'Scout',     color: '#64748b', min: 0,  max: 2,  icon: '🔭' },
-  { title: 'Raider',    color: '#0284c7', min: 3,  max: 5,  icon: '⚔️' },
-  { title: 'Warlord',   color: '#7c3aed', min: 6,  max: 10, icon: '🏴' },
-  { title: 'Commander', color: '#ea580c', min: 11, max: 20, icon: '🔥' },
-  { title: 'Overlord',  color: '#dc2626', min: 21, max: Infinity, icon: '👑' },
+  { title: 'Scout',     color: '#64748b', min: 0,  max: 2,  Icon: Eye        },
+  { title: 'Raider',    color: '#0284c7', min: 3,  max: 5,  Icon: Zap        },
+  { title: 'Warlord',   color: '#7c3aed', min: 6,  max: 10, Icon: Flag       },
+  { title: 'Commander', color: '#ea580c', min: 11, max: 20, Icon: Star       },
+  { title: 'Overlord',  color: '#dc2626', min: 21, max: Infinity, Icon: Crown },
 ];
 function getRank(territories: number): Rank {
   return RANKS.find(r => territories >= r.min && territories <= r.max) ?? RANKS[0];
@@ -31,15 +32,23 @@ function siegeScore(territories: number, distanceM: number) {
 }
 
 // ── Daily challenges (rotate by day of year) ────────────────
-const CHALLENGES = [
-  { title: 'Speed Demon',     desc: 'Run at least 0.5 km today',     emoji: '⚡', goalKm: 0.5 },
-  { title: 'Territory Day',   desc: 'Claim 1 new territory today',   emoji: '🏴', goalZones: 1 },
-  { title: 'Distance King',   desc: 'Cover 1 km of ground today',    emoji: '👑', goalKm: 1   },
-  { title: 'Zone Rusher',     desc: 'Claim 2 territories today',     emoji: '🚀', goalZones: 2 },
-  { title: 'City Marathoner', desc: 'Rack up 2 km of paths today',   emoji: '🏃', goalKm: 2   },
-  { title: 'Iron Siege',      desc: 'Claim 3 territories today',     emoji: '⚙️', goalZones: 3 },
-  { title: 'Urban Explorer',  desc: 'Cover 1.5 km of new ground',    emoji: '🗺️', goalKm: 1.5 },
+type Challenge = { title: string; desc: string; Icon: LucideIcon; goalKm?: number; goalZones?: number };
+const CHALLENGES: Challenge[] = [
+  { title: 'Speed Demon',     desc: 'Run at least 0.5 km today',   Icon: Zap,        goalKm: 0.5   },
+  { title: 'Territory Day',   desc: 'Claim 1 new territory today', Icon: Flag,       goalZones: 1  },
+  { title: 'Distance King',   desc: 'Cover 1 km of ground today',  Icon: Crown,      goalKm: 1     },
+  { title: 'Zone Rusher',     desc: 'Claim 2 territories today',   Icon: Target,     goalZones: 2  },
+  { title: 'City Marathoner', desc: 'Rack up 2 km today',          Icon: TrendingUp, goalKm: 2     },
+  { title: 'Iron Siege',      desc: 'Claim 3 territories today',   Icon: Shield,     goalZones: 3  },
+  { title: 'Urban Explorer',  desc: 'Cover 1.5 km of new ground',  Icon: Navigation, goalKm: 1.5  },
 ];
+
+function LeaderRankBadge({ pos }: { pos: number }) {
+  if (pos === 0) return <Award size={15} strokeWidth={2} style={{ color: '#f59e0b' }} />;
+  if (pos === 1) return <Award size={15} strokeWidth={2} style={{ color: '#9ca3af' }} />;
+  if (pos === 2) return <Award size={15} strokeWidth={2} style={{ color: '#b45309' }} />;
+  return <span className={styles.leaderRankNum}>{pos + 1}</span>;
+}
 
 export function Arena() {
   const store = useTerritoryStore();
@@ -94,6 +103,9 @@ export function Arena() {
 
   const myRank = leaderboard.findIndex(e => e.isMe) + 1;
 
+  const RankIcon = rank.Icon;
+  const ChallengeIcon = challenge.Icon;
+
   return (
     <div className={styles.page}>
 
@@ -115,7 +127,9 @@ export function Arena() {
         {/* ── Rank card ─────────────────────────────────────── */}
         <div className={styles.rankCard} style={{ '--rank-color': rank.color } as React.CSSProperties}>
           <div className={styles.rankTop}>
-            <span className={styles.rankEmoji}>{rank.icon}</span>
+            <div className={styles.rankIconWrap} style={{ background: rank.color + '18', color: rank.color }}>
+              <RankIcon size={20} strokeWidth={1.75} />
+            </div>
             <div>
               <p className={styles.rankEyebrow}>Your Rank</p>
               <p className={styles.rankTitle} style={{ color: rank.color }}>{rank.title}</p>
@@ -141,7 +155,7 @@ export function Arena() {
             </div>
           )}
           {!nextRank && (
-            <p className={styles.rankProgressHint}>Maximum rank — you rule the city. 👑</p>
+            <p className={styles.rankProgressHint}>Maximum rank — you rule the city.</p>
           )}
         </div>
 
@@ -150,15 +164,17 @@ export function Arena() {
           <p className={styles.sectionLabel}>Today's Siege</p>
           <div className={challengeDone ? styles.challengeCardDone : styles.challengeCard}>
             <div className={styles.challengeTop}>
-              <span className={styles.challengeEmoji}>{challenge.emoji}</span>
+              <div className={styles.challengeIconWrap}>
+                <ChallengeIcon size={18} strokeWidth={1.75} />
+              </div>
               <div className={styles.challengeInfo}>
                 <p className={styles.challengeTitle}>{challenge.title}</p>
                 <p className={styles.challengeDesc}>{challenge.desc}</p>
               </div>
               {challengeDone && (
                 <div className={styles.challengeDoneBadge}>
-                  <Zap size={12} strokeWidth={2.5} />
-                  Done!
+                  <CheckCircle2 size={12} strokeWidth={2.5} />
+                  Done
                 </div>
               )}
             </div>
@@ -194,7 +210,7 @@ export function Arena() {
                 className={entry.isMe ? styles.leaderRowMe : styles.leaderRow}
               >
                 <span className={styles.leaderRank}>
-                  {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                  <LeaderRankBadge pos={i} />
                 </span>
                 <div className={styles.leaderAvatar} style={{ background: entry.color }}>
                   {entry.name[0]}
