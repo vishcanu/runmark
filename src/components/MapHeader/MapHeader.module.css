@@ -3,155 +3,174 @@
    ───────────────────────────────────────────────────────── */
 
 .header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: var(--z-controls);
-  height: calc(var(--map-header-height) + var(--safe-area-top));
-  padding-top: var(--safe-area-top);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-left: var(--space-4);
-  padding-right: var(--space-4);
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid var(--color-border-subtle);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: var(--z-controls);
+    height: calc(var(--map-header-height) + var(--safe-area-top));
+    padding-top: var(--safe-area-top);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--color-border-subtle);
 }
 
 /* ─── Left cluster ───────────────────────────────────────── */
 .left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
 }
 
 .locationRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .pinIcon {
-  color: var(--color-accent-primary);
-  flex-shrink: 0;
+    color: var(--color-accent-primary);
+    flex-shrink: 0;
 }
 
 .locationLabel {
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  color: var(--color-text-primary);
-  letter-spacing: -0.02em;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    letter-spacing: -0.02em;
 }
 
 /* Blinking red dot during recording */
 .recordDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ef4444;
-  flex-shrink: 0;
-  animation: blink 1.4s ease-in-out infinite;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+    flex-shrink: 0;
+    animation: blink 1.4s ease-in-out infinite;
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.2; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.2;
+    }
 }
 
 /* ─── Right: avatar ──────────────────────────────────────── */
-.right { display: flex; align-items: center; }
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: var(--font-bold);
-  color: rgba(255, 255, 255, 0.95);
-  cursor: pointer;
-  transition: transform var(--transition-fast);
-  box-shadow: var(--shadow-sm);
+.right {
+    display: flex;
+    align-items: center;
 }
 
-.avatar:active { transform: scale(0.94); }
+.avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: var(--font-bold);
+    color: rgba(255, 255, 255, 0.95);
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+}
+
+.avatar:active {
+    transform: scale(0.94);
+}
 
 
 /* ─── Left ───────────────────────────────────────────────── */
 .left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
 }
 
 .locationIcon {
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  background: var(--color-park-tint);
-  border: 1px solid rgba(22, 163, 74, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-accent-park);
-  flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    background: var(--color-park-tint);
+    border: 1px solid rgba(22, 163, 74, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-accent-park);
+    flex-shrink: 0;
 }
 
 .locationText {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
 }
 
 .locationLabel {
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  color: var(--color-text-primary);
-  letter-spacing: -0.01em;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
 }
 
 /* Live recording indicator */
 .recordingDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-accent-danger);
-  animation: recordBlink 1.2s ease-in-out infinite;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-accent-danger);
+    animation: recordBlink 1.2s ease-in-out infinite;
 }
 
 @keyframes recordBlink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
 }
 
 /* ─── Right ──────────────────────────────────────────────── */
 .right {
-  display: flex;
-  align-items: center;
+    display: flex;
+    align-items: center;
 }
 
 .avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-sm);
-  font-weight: var(--font-bold);
-  color: rgba(255, 255, 255, 0.95);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-  border: 2px solid rgba(255, 255, 255, 0.8);
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+    color: rgba(255, 255, 255, 0.95);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    border: 2px solid rgba(255, 255, 255, 0.8);
 }
 
 .avatar:hover {
-  transform: scale(1.08);
-  box-shadow: var(--shadow-md);
+    transform: scale(1.08);
+    box-shadow: var(--shadow-md);
 }

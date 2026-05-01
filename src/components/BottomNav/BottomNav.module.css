@@ -35,7 +35,9 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.item:active .iconWrap { transform: scale(0.90); }
+.item:active .iconWrap {
+  transform: scale(0.90);
+}
 
 /* ─── Icon wrapper — holds the pill on active ─────────────── */
 .iconWrap {
