@@ -17,26 +17,28 @@ export type TerritoryStoreContextType = TerritoryStoreState & TerritoryStoreActi
 
 export const TerritoryStoreContext = createContext<TerritoryStoreContextType | null>(null);
 
-// ── TEST TERRITORY — Sri SK Nataraj Park, Bengaluru ──────────
-// Approximate polygon (~300 × 200 m) near Jayanagar / South Bengaluru.
-// REMOVE this before production.
+// ── TEST TERRITORY — Sri SK Nataraj Park, JP Nagar 1st Phase ─
+// Real OSM way #32258996. Remove before production.
 const TEST_TERRITORY: Territory = {
   id: 'test-nataraj-park',
   name: 'Sri SK Nataraj Park',
   color: '#0284c7',
   createdAt: Date.now(),
-  distance: 980,
-  duration: 720,
+  distance: 430,   // ~one loop of the park perimeter
+  duration: 380,
   coordinates: [
-    [77.5930, 12.9240],
-    [77.5958, 12.9240],
-    [77.5958, 12.9258],
-    [77.5930, 12.9258],
-    [77.5930, 12.9240], // closed ring
+    [77.5808963, 12.9080499],
+    [77.5811258, 12.9074393],
+    [77.5819348, 12.9074199],
+    [77.5819142, 12.9084285],
+    [77.5814871, 12.9084415],
+    [77.5809874, 12.9084571],
+    [77.5808963, 12.9080499], // closed ring
   ],
   buildings: [
-    { id: 'tb1', position: [77.5938, 12.9246], height: 12, type: 'cottage' },
-    { id: 'tb2', position: [77.5948, 12.9250], height: 18, type: 'tower'   },
+    { id: 'tb1', position: [77.5812, 12.9078], height: 10, type: 'cottage' },
+    { id: 'tb2', position: [77.5816, 12.9080], height: 16, type: 'tower'   },
+    { id: 'tb3', position: [77.5814, 12.9075], height: 8,  type: 'cottage' },
   ],
 };
 // ─────────────────────────────────────────────────────────────
