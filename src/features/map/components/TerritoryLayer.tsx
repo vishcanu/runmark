@@ -6,7 +6,8 @@ import type { Territory } from '../../../types';
 const SRC          = 'territories-source';
 const SRC_VERTS    = 'territories-verts-source';
 const SRC_LABELS   = 'territories-labels-source';
-const L_EXTRUSION  = 'territories-extrusion';   // 3D prism
+const L_FILL       = 'territories-fill';         // solid floor/interior
+const L_EXTRUSION  = 'territories-extrusion';   // 3D prism walls
 const L_GLOW       = 'territories-glow';         // outer blurred aura
 const L_BORDER     = 'territories-border';       // crisp solid edge
 const L_PULSE      = 'territories-pulse';        // animated white scan
@@ -51,7 +52,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         id: t.id,
         color: t.color,
         height: zoneHeight(t.distance, t.id === selectedId),
-        isSelected: t.id === selectedId,
+        sel: t.id === selectedId ? 1 : 0,  // integer — more reliable in MapLibre expressions
       },
     }));
 
@@ -60,7 +61,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       t.coordinates.slice(0, -1).map((coord) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: coord },
-        properties: { color: t.color, isSelected: t.id === selectedId },
+        properties: { color: t.color, sel: t.id === selectedId ? 1 : 0 },
       }))
     );
 
@@ -86,7 +87,18 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       map.addSource(SRC_VERTS,  { type: 'geojson', data: vertGeo  });
       map.addSource(SRC_LABELS, { type: 'geojson', data: labelGeo });
 
-      // ── 1. Holographic 3D prism ───────────────────────────
+      // ── 0. Solid fill floor — the base the prism sits on ─
+      map.addLayer({
+        id: L_FILL,
+        type: 'fill',
+        source: SRC,
+        paint: {
+          'fill-color': ['get', 'color'],
+          'fill-opacity': ['case', ['==', ['get', 'sel'], 1], 0.45, 0.28],
+        },
+      });
+
+      // ── 1. Holographic 3D prism walls ────────────────────
       map.addLayer({
         id: L_EXTRUSION,
         type: 'fill-extrusion',
@@ -95,9 +107,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
           'fill-extrusion-color': ['get', 'color'],
           'fill-extrusion-height': ['get', 'height'],
           'fill-extrusion-base': 0,
-          'fill-extrusion-opacity': [
-            'case', ['get', 'isSelected'], 0.72, 0.50,
-          ],
+          'fill-extrusion-opacity': ['case', ['==', ['get', 'sel'], 1], 0.82, 0.62],
         },
       });
 
@@ -108,8 +118,8 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         source: SRC,
         paint: {
           'line-color': ['get', 'color'],
-          'line-width': 10,
-          'line-opacity': 0.20,
+          'line-width': 12,
+          'line-opacity': 0.22,
           'line-blur': 8,
         },
       });
@@ -121,13 +131,12 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         source: SRC,
         paint: {
           'line-color': ['get', 'color'],
-          'line-width': ['case', ['get', 'isSelected'], 2.5, 1.8],
+          'line-width': ['case', ['==', ['get', 'sel'], 1], 2.8, 2.0],
           'line-opacity': 1.0,
         },
       });
 
       // ── 4. Animated white scan pulse ──────────────────────
-      //    (opacity + width driven by requestAnimationFrame)
       map.addLayer({
         id: L_PULSE,
         type: 'line',
@@ -145,10 +154,10 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         type: 'circle',
         source: SRC_VERTS,
         paint: {
-          'circle-radius': ['case', ['get', 'isSelected'], 4.5, 3.5],
+          'circle-radius': ['case', ['==', ['get', 'sel'], 1], 5, 4],
           'circle-color': ['get', 'color'],
           'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 1.8,
+          'circle-stroke-width': 2,
           'circle-opacity': 1.0,
         },
       });
@@ -175,10 +184,16 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       });
 
       // ── Interaction ───────────────────────────────────────
+      map.on('click', L_FILL, (e) => {
+        const id = e.features?.[0]?.properties?.id as string | undefined;
+        if (id) onTerritoryClick(id);
+      });
       map.on('click', L_EXTRUSION, (e) => {
         const id = e.features?.[0]?.properties?.id as string | undefined;
         if (id) onTerritoryClick(id);
       });
+      map.on('mouseenter', L_FILL,      () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', L_FILL,      () => { map.getCanvas().style.cursor = '';        });
       map.on('mouseenter', L_EXTRUSION, () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', L_EXTRUSION, () => { map.getCanvas().style.cursor = '';        });
     }

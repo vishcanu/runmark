@@ -189,13 +189,15 @@ export function useParkSearch(
       })
       .catch(() => {
         // Keep existing parks visible on failure — don't clear to empty
+        // Do NOT reset lastFetchPosRef here — that caused an endless GPS-triggered retry loop
         setState((s) => ({ ...s, loading: false, error: null }));
-        lastFetchPosRef.current = null;
-        // Auto-retry after 9s so parks appear without requiring GPS movement
-        retryTimerRef.current = setTimeout(
-          () => setRetryTrigger((t) => t + 1),
-          9000
-        );
+        // Auto-retry after 9s only if we truly have no parks yet
+        if (_lastKnownParks.length === 0) {
+          retryTimerRef.current = setTimeout(
+            () => setRetryTrigger((t) => t + 1),
+            9000
+          );
+        }
       })
       .finally(() => {
         fetchingRef.current = false;
