@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRoutes, BrowserRouter } from 'react-router-dom';
 import { TerritoryStoreProvider } from '../features/territory/hooks/TerritoryStoreProvider';
 import { BottomNav } from '../components/BottomNav/BottomNav';
@@ -17,6 +17,13 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(() =>
     localStorage.getItem('rg_user_name') ? 'app' : 'welcome'
   );
+
+  // Listen for logout events dispatched by any child (e.g. Profile page)
+  useEffect(() => {
+    const handleLogout = () => setScreen('welcome');
+    window.addEventListener('app-logout', handleLogout);
+    return () => window.removeEventListener('app-logout', handleLogout);
+  }, []);
 
   if (screen === 'welcome') {
     return <Welcome onContinue={() => setScreen('login')} />;

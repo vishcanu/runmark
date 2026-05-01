@@ -1,14 +1,15 @@
 import { useCallback, useState, useMemo } from 'react';
+import { Trees, Waves, MapPin, X } from 'lucide-react';
 import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
 import { Modal } from '../../components/Modal/Modal';
 import { TerritoryDetails } from '../../features/territory/components/TerritoryDetails';
-import { NearbyParkCard } from '../../features/parks/components/NearbyParkCard';
 import { MapHeader } from '../../components/MapHeader/MapHeader';
 import { useGeolocation } from '../../features/map/hooks/useGeolocation';
 import { useActivityTracker } from '../../features/activity/hooks/useActivityTracker';
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
+import { formatParkDistance } from '../../features/parks/utils/parkUtils';
 import { pathToPolygon, colorFromId } from '../../features/map/utils/geo';
 import { generateBuildings } from '../../features/building/utils/buildingGenerator';
 import type { Territory } from '../../types';
@@ -25,12 +26,12 @@ export function Home() {
 
   const { parks } = useParkSearch(geo.position, claimedParkIds);
 
-  // Closest park within 5km
+  // Closest park for map highlight
   const closestPark = parks.length > 0 && parks[0].distance <= 5000 ? parks[0] : null;
 
-  const showParkCard =
+  const showParksTray =
     !parkCardDismissed &&
-    closestPark !== null &&
+    parks.length > 0 &&
     tracker.session.status === 'idle';
 
   const handleStart = useCallback(() => {
@@ -95,15 +96,47 @@ export function Home() {
         closestParkId={closestPark?.id ?? null}
       />
 
-      {/* Park nudge card — shown above the FAB when idle near a park */}
-      {showParkCard && closestPark && (
-        <div className={styles.parkCardWrap}>
-          <NearbyParkCard
-            park={closestPark}
-            estimatedBuildings={Math.max(3, Math.round(closestPark.distance / 30))}
-            onStartActivityHere={handleStart}
-            onDismiss={() => setParkCardDismissed(true)}
-          />
+      {/* Parks tray — horizontal scroll list, shown when idle */}
+      {showParksTray && (
+        <div className={styles.parksTray}>
+          <div className={styles.parksTrayHeader}>
+            <MapPin size={12} strokeWidth={2.5} className={styles.parksTrayPin} />
+            <span className={styles.parksTrayTitle}>
+              {parks.length} nearby place{parks.length !== 1 ? 's' : ''}
+            </span>
+            <button
+              className={styles.parksTrayDismiss}
+              onClick={() => setParkCardDismissed(true)}
+              aria-label="Dismiss"
+            >
+              <X size={13} strokeWidth={2.5} />
+            </button>
+          </div>
+          <div className={styles.parksTrayScroll}>
+            {parks.slice(0, 8).map((park) => {
+              const isLake = park.placeType === 'lake';
+              return (
+                <button
+                  key={park.id}
+                  className={[styles.parkChip, isLake ? styles.parkChipLake : ''].filter(Boolean).join(' ')}
+                  onClick={handleStart}
+                >
+                  <div className={styles.parkChipIcon}>
+                    {isLake
+                      ? <Waves size={16} strokeWidth={1.75} />
+                      : <Trees size={16} strokeWidth={1.75} />
+                    }
+                  </div>
+                  <div className={styles.parkChipBody}>
+                    <span className={styles.parkChipName}>{park.name}</span>
+                    <span className={styles.parkChipMeta}>
+                      {formatParkDistance(park.distance)} · {park.walkMinutes} min walk
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

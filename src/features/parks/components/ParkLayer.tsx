@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { Map, GeoJSONSource } from 'maplibre-gl';
 import type { Park } from '../types';
+import { formatParkDistance } from '../utils/parkUtils';
 
 interface ParkLayerProps {
   map: Map;
@@ -11,6 +12,7 @@ interface ParkLayerProps {
 const SOURCE_ID = 'parks-source';
 const CIRCLE_LAYER = 'parks-circle';
 const PULSE_LAYER = 'parks-pulse';
+const LABEL_LAYER = 'parks-label';
 
 export function ParkLayer({ map, parks, closestParkId }: ParkLayerProps) {
   useEffect(() => {
@@ -28,6 +30,7 @@ export function ParkLayer({ map, parks, closestParkId }: ParkLayerProps) {
           isClosest: p.id === closestParkId,
           isClaimed: p.isClaimed,
           walkMinutes: p.walkMinutes,
+          distLabel: formatParkDistance(p.distance),
         },
       })),
     };
@@ -77,6 +80,27 @@ export function ParkLayer({ map, parks, closestParkId }: ParkLayerProps) {
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 2,
         'circle-stroke-opacity': 1,
+      },
+    });
+
+    // Name + distance label beneath each dot
+    map.addLayer({
+      id: LABEL_LAYER,
+      type: 'symbol',
+      source: SOURCE_ID,
+      layout: {
+        'text-field': ['concat', ['get', 'name'], '\n', ['get', 'distLabel']],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 11,
+        'text-offset': [0, 1.4],
+        'text-anchor': 'top',
+        'text-max-width': 9,
+        'text-allow-overlap': false,
+      },
+      paint: {
+        'text-color': '#18181b',
+        'text-halo-color': 'rgba(255,255,255,0.92)',
+        'text-halo-width': 1.5,
       },
     });
   }, [map, parks, closestParkId]);

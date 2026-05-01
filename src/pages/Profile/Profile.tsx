@@ -109,7 +109,7 @@ export function Profile() {
           onClick={() => {
             localStorage.removeItem('rg_user_name');
             localStorage.removeItem('rg_user_color');
-            window.location.reload();
+            window.dispatchEvent(new CustomEvent('app-logout'));
           }}
         >
           <LogOut size={15} strokeWidth={2} />

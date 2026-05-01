@@ -3,7 +3,10 @@ import type { Park } from '../types';
 import { enrichPark } from '../utils/parkUtils';
 import type { Coordinate } from '../../../types';
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
 const SEARCH_RADIUS_M = 5000; // 5km radius
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -42,16 +45,11 @@ async function fetchParksFromOSM(
     out center tags;
   `;
 
-  const resp = await fetch(OVERPASS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`,
-    signal: AbortSignal.timeout(15000),
-  });
+  // Use manual AbortController — AbortSignal.timeout() not supported on iOS < 17
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), 18000);
 
-  if (!resp.ok) throw new Error('Overpass API error');
-
-  const data = (await resp.json()) as {
+  type OsmData = {
     elements: {
       id: number;
       type: string;
@@ -61,6 +59,26 @@ async function fetchParksFromOSM(
       tags?: { name?: string; leisure?: string; natural?: string };
     }[];
   };
+
+  let data: OsmData | null = null;
+  for (const url of OVERPASS_ENDPOINTS) {
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: controller.signal,
+      });
+      if (!resp.ok) continue; // try next endpoint
+      data = (await resp.json()) as OsmData;
+      break;
+    } catch {
+      if (controller.signal.aborted) break; // timeout — stop retrying
+    }
+  }
+
+  clearTimeout(timerId);
+  if (!data) throw new Error('Overpass API error');
 
   return data.elements
     .filter((el) => {

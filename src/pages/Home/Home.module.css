@@ -5,17 +5,134 @@
     height: 100%;
 }
 
-/* Park nudge card — sits above the activity controls */
-.parkCardWrap {
+/* Parks tray — sits above ActivityControls FAB */
+.parksTray {
     position: absolute;
-    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 120px);
+    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 108px);
     left: 0;
     right: 0;
-    display: flex;
-    justify-content: center;
-    padding: 0 var(--space-4);
     z-index: var(--z-controls);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 var(--space-4);
     pointer-events: auto;
+}
+
+.parksTrayHeader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.parksTrayPin {
+    color: var(--color-accent-primary);
+    flex-shrink: 0;
+}
+
+.parksTrayTitle {
+    flex: 1;
+    font-size: 10px;
+    font-weight: var(--font-semibold);
+    color: rgba(255, 255, 255, 0.85);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.parksTrayDismiss {
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.18);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.parksTrayDismiss:active {
+    background: rgba(255, 255, 255, 0.30);
+}
+
+.parksTrayScroll {
+    display: flex;
+    gap: var(--space-2);
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+.parksTrayScroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* Individual park chip card */
+.parkChip {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    flex-shrink: 0;
+    width: 148px;
+    background: rgba(255, 255, 255, 0.93);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.50);
+    padding: var(--space-3);
+    cursor: pointer;
+    text-align: left;
+    scroll-snap-align: start;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
+    transition: transform var(--transition-fast);
+}
+
+.parkChip:active {
+    transform: scale(0.95);
+}
+
+.parkChipIcon {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    background: var(--color-park-tint);
+    color: var(--color-accent-park);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.parkChipLake .parkChipIcon {
+    background: var(--color-lake-tint);
+    color: var(--color-accent-lake);
+}
+
+.parkChipBody {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.parkChipName {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.parkChipMeta {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    display: block;
 }
 
 .geoError {
