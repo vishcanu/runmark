@@ -8,7 +8,7 @@ interface UserMarkerProps {
 }
 
 // Lucide-style person SVG — rendered white on green circle
-const PERSON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+const PERSON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
   fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2.5"
   stroke-linecap="round" stroke-linejoin="round">
   <circle cx="12" cy="8" r="4"/>
@@ -28,7 +28,7 @@ export function UserMarker({ map, position }: UserMarkerProps) {
           position: absolute;
           top: 50%; left: 50%;
           transform: translate(-50%, -50%);
-          width: 60px; height: 60px;
+          width: 46px; height: 46px;
           border-radius: 50%;
           background: rgba(21, 128, 61, 0.16);
           animation: um-pulse 2.4s ease-out infinite;
@@ -44,7 +44,7 @@ export function UserMarker({ map, position }: UserMarkerProps) {
 
     // Wrapper — positions pulse ring behind the icon
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'position:relative;width:40px;height:40px;';
+    wrap.style.cssText = 'position:relative;width:30px;height:30px;';
 
     // Pulsing ring
     const ring = document.createElement('div');
@@ -57,8 +57,8 @@ export function UserMarker({ map, position }: UserMarkerProps) {
       position: absolute; inset: 0;
       background: #15803d;
       border-radius: 50%;
-      border: 3px solid #ffffff;
-      box-shadow: 0 2px 10px rgba(21,128,61,0.45), 0 1px 4px rgba(0,0,0,0.18);
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(21,128,61,0.40), 0 1px 3px rgba(0,0,0,0.15);
       display: flex; align-items: center; justify-content: center;
       z-index: 1;
     `;

@@ -17,6 +17,8 @@ interface MapViewProps {
   onTerritoryClick: (id: string) => void;
   parks: Park[];
   closestParkId: string | null;
+  /** When set, map flies to this coordinate (used when user taps a park chip) */
+  centerTarget: Coordinate | null;
 }
 
 export function MapView({
@@ -27,6 +29,7 @@ export function MapView({
   onTerritoryClick,
   parks,
   closestParkId,
+  centerTarget,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { map, isReady, flyTo } = useMap(containerRef);
@@ -39,6 +42,13 @@ export function MapView({
       hasCenteredRef.current = true;
     }
   }, [userPosition, isReady, flyTo]);
+
+  // Fly to selected park when user taps a chip
+  useEffect(() => {
+    if (centerTarget && isReady) {
+      flyTo(centerTarget, 17);
+    }
+  }, [centerTarget, isReady, flyTo]);
 
   return (
     <div className={styles.container} ref={containerRef}>

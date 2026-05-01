@@ -1,5 +1,5 @@
 import { useCallback, useState, useMemo } from 'react';
-import { Trees, Waves, MapPin, X } from 'lucide-react';
+import { Trees, Waves, MapPin, X, Play, Navigation } from 'lucide-react';
 import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
 import { Modal } from '../../components/Modal/Modal';
@@ -9,10 +9,11 @@ import { useGeolocation } from '../../features/map/hooks/useGeolocation';
 import { useActivityTracker } from '../../features/activity/hooks/useActivityTracker';
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
-import { formatParkDistance } from '../../features/parks/utils/parkUtils';
+import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
 import { pathToPolygon, colorFromId } from '../../features/map/utils/geo';
 import { generateBuildings } from '../../features/building/utils/buildingGenerator';
-import type { Territory } from '../../types';
+import type { Park } from '../../features/parks/types';
+import type { Territory, Coordinate } from '../../types';
 import styles from './Home.module.css';
 
 export function Home() {
@@ -20,6 +21,7 @@ export function Home() {
   const tracker = useActivityTracker();
   const store = useTerritoryStore();
   const [parkCardDismissed, setParkCardDismissed] = useState(false);
+  const [selectedPark, setSelectedPark] = useState<Park | null>(null);
 
   // Set of claimed park IDs for context
   const claimedParkIds = useMemo(() => new Set<string>(), []);
@@ -32,12 +34,24 @@ export function Home() {
   const showParksTray =
     !parkCardDismissed &&
     parks.length > 0 &&
-    tracker.session.status === 'idle';
+    tracker.session.status === 'idle' &&
+    selectedPark === null;
+
+  // When a park chip is tapped — fly map to it, show confirm sheet
+  const handleParkChipTap = useCallback((park: Park) => {
+    setSelectedPark(park);
+  }, []);
+
+  // Derive center target for the map from selected park
+  const mapCenterTarget: Coordinate | null = selectedPark
+    ? [selectedPark.lng, selectedPark.lat]
+    : null;
 
   const handleStart = useCallback(() => {
     geo.startWatching();
     tracker.start();
     setParkCardDismissed(true);
+    setSelectedPark(null);
   }, [geo, tracker]);
 
   const handleStop = useCallback(() => {
@@ -76,6 +90,7 @@ export function Home() {
     store.addTerritory(territory);
     tracker.reset();
     setParkCardDismissed(false); // re-show park nudge after activity
+    setSelectedPark(null);
   }, [geo, tracker, store]);
 
   const selectedTerritory = store.selectedId
@@ -94,6 +109,7 @@ export function Home() {
         onTerritoryClick={store.selectTerritory}
         parks={parks}
         closestParkId={closestPark?.id ?? null}
+        centerTarget={mapCenterTarget}
       />
 
       {/* Parks tray — horizontal scroll list, shown when idle */}
@@ -102,7 +118,7 @@ export function Home() {
           <div className={styles.parksTrayHeader}>
             <MapPin size={12} strokeWidth={2.5} className={styles.parksTrayPin} />
             <span className={styles.parksTrayTitle}>
-              {parks.length} nearby place{parks.length !== 1 ? 's' : ''}
+              {parks.length} place{parks.length !== 1 ? 's' : ''} nearby
             </span>
             <button
               className={styles.parksTrayDismiss}
@@ -119,7 +135,7 @@ export function Home() {
                 <button
                   key={park.id}
                   className={[styles.parkChip, isLake ? styles.parkChipLake : ''].filter(Boolean).join(' ')}
-                  onClick={handleStart}
+                  onClick={() => handleParkChipTap(park)}
                 >
                   <div className={styles.parkChipIcon}>
                     {isLake
@@ -130,12 +146,55 @@ export function Home() {
                   <div className={styles.parkChipBody}>
                     <span className={styles.parkChipName}>{park.name}</span>
                     <span className={styles.parkChipMeta}>
-                      {formatParkDistance(park.distance)} · {park.walkMinutes} min walk
+                      {formatParkDistance(park.distance)} · {park.walkMinutes} min
                     </span>
                   </div>
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Park confirm sheet — shown after tapping a chip */}
+      {selectedPark && tracker.session.status === 'idle' && (
+        <div className={styles.parkConfirm}>
+          <button
+            className={styles.parkConfirmDismiss}
+            onClick={() => setSelectedPark(null)}
+            aria-label="Back"
+          >
+            <X size={14} strokeWidth={2.5} />
+          </button>
+          <div className={styles.parkConfirmInfo}>
+            <div className={[
+              styles.parkConfirmIcon,
+              selectedPark.placeType === 'lake' ? styles.parkConfirmIconLake : ''
+            ].filter(Boolean).join(' ')}>
+              {selectedPark.placeType === 'lake'
+                ? <Waves size={18} strokeWidth={1.75} />
+                : <Trees size={18} strokeWidth={1.75} />
+              }
+            </div>
+            <div>
+              <p className={styles.parkConfirmName}>{selectedPark.name}</p>
+              <p className={styles.parkConfirmMeta}>
+                {formatParkDistance(selectedPark.distance)} · {selectedPark.walkMinutes} min walk
+              </p>
+            </div>
+          </div>
+          <div className={styles.parkConfirmActions}>
+            <button
+              className={styles.parkConfirmNav}
+              onClick={() => navigateToPark(selectedPark.lat, selectedPark.lng)}
+            >
+              <Navigation size={15} strokeWidth={2} />
+              Directions
+            </button>
+            <button className={styles.parkConfirmStart} onClick={handleStart}>
+              <Play size={15} strokeWidth={2.5} />
+              Start Run Here
+            </button>
           </div>
         </div>
       )}

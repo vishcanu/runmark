@@ -1,3 +1,7 @@
+/* ─────────────────────────────────────────────────────────
+   Home page — full-screen map with floating UI
+   ───────────────────────────────────────────────────────── */
+
 .page {
     position: relative;
     flex: 1;
@@ -5,10 +9,10 @@
     height: 100%;
 }
 
-/* Parks tray — sits above ActivityControls FAB */
+/* ─── Parks tray — above bottom nav + FAB ────────────────── */
 .parksTray {
     position: absolute;
-    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 108px);
+    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 72px);
     left: 0;
     right: 0;
     z-index: var(--z-controls);
@@ -34,17 +38,17 @@
     flex: 1;
     font-size: 10px;
     font-weight: var(--font-semibold);
-    color: rgba(255, 255, 255, 0.85);
+    color: rgba(255, 255, 255, 0.90);
     text-transform: uppercase;
     letter-spacing: 0.09em;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.40);
 }
 
 .parksTrayDismiss {
     width: 22px;
     height: 22px;
     border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.18);
+    background: rgba(0, 0, 0, 0.22);
     border: none;
     display: flex;
     align-items: center;
@@ -55,40 +59,38 @@
 }
 
 .parksTrayDismiss:active {
-    background: rgba(255, 255, 255, 0.30);
+    background: rgba(0, 0, 0, 0.36);
 }
 
 .parksTrayScroll {
     display: flex;
     gap: var(--space-2);
     overflow-x: auto;
-    padding-bottom: 2px;
+    padding-bottom: 4px;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
 }
 
-.parksTrayScroll::-webkit-scrollbar {
-    display: none;
-}
+.parksTrayScroll::-webkit-scrollbar { display: none; }
 
-/* Individual park chip card */
+/* ─── Individual park chip card ──────────────────────────── */
 .parkChip {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: var(--space-2);
     flex-shrink: 0;
-    width: 148px;
-    background: rgba(255, 255, 255, 0.93);
-    backdrop-filter: saturate(180%) blur(16px);
-    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
     border-radius: var(--radius-lg);
-    border: 1px solid rgba(255, 255, 255, 0.50);
-    padding: var(--space-3);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    padding: 10px 14px 10px 10px;
     cursor: pointer;
     text-align: left;
     scroll-snap-align: start;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.14);
     transition: transform var(--transition-fast);
+    max-width: 200px;
 }
 
 .parkChip:active {
@@ -96,8 +98,8 @@
 }
 
 .parkChipIcon {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-sm);
     background: var(--color-park-tint);
     color: var(--color-accent-park);
@@ -115,11 +117,12 @@
 .parkChipBody {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
+    min-width: 0;
 }
 
 .parkChipName {
-    font-size: var(--text-sm);
+    font-size: 13px;
     font-weight: var(--font-semibold);
     color: var(--color-text-primary);
     letter-spacing: -0.01em;
@@ -130,11 +133,147 @@
 }
 
 .parkChipMeta {
-    font-size: var(--text-xs);
+    font-size: 11px;
     color: var(--color-text-muted);
     display: block;
+    white-space: nowrap;
 }
 
+/* ─── Park confirm sheet ─────────────────────────────────── */
+/* Shown after tapping a chip — sits above bottom nav */
+.parkConfirm {
+    position: absolute;
+    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 72px);
+    left: var(--space-4);
+    right: var(--space-4);
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-radius: var(--radius-xl);
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.16);
+    padding: 14px var(--space-4);
+    z-index: var(--z-controls);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: confirmSlideUp 220ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes confirmSlideUp {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.parkConfirmDismiss {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-primary);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.parkConfirmDismiss:active {
+    background: var(--color-border-default);
+}
+
+.parkConfirmInfo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding-right: 28px;
+}
+
+.parkConfirmIcon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--color-park-tint);
+    color: var(--color-accent-park);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.parkConfirmIconLake {
+    background: var(--color-lake-tint);
+    color: var(--color-accent-lake);
+}
+
+.parkConfirmName {
+    font-size: var(--text-base);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.parkConfirmMeta {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin-top: 2px;
+}
+
+.parkConfirmActions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.parkConfirmNav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 42px;
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--color-border-default);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--transition-fast);
+}
+
+.parkConfirmNav:active {
+    background: var(--color-bg-primary);
+}
+
+.parkConfirmStart {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 42px;
+    flex: 1;
+    border-radius: var(--radius-md);
+    border: none;
+    background: var(--gradient-park);
+    color: #ffffff;
+    font-family: var(--font-family);
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+    cursor: pointer;
+    box-shadow: 0 3px 14px rgba(21, 128, 61, 0.35);
+    transition: transform var(--transition-fast);
+}
+
+.parkConfirmStart:active {
+    transform: scale(0.96);
+}
+
+/* ─── Geo error toast ────────────────────────────────────── */
 .geoError {
     position: absolute;
     top: var(--space-4);

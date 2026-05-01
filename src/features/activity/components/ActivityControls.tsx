@@ -43,16 +43,15 @@ export function ActivityControls({
       {!isActive ? (
         <div className={styles.fabWrap}>
           <button className={styles.fab} onClick={onStart} aria-label="Start activity">
-            <Play size={30} strokeWidth={2.5} />
+            <Play size={18} strokeWidth={2.5} />
+            Start Run
           </button>
-          <span className={styles.fabLabel}>Start Run</span>
         </div>
       ) : (
         <div className={styles.fabWrap}>
           <button className={styles.fabStop} onClick={onStop} aria-label="Stop activity">
-            <Square size={24} strokeWidth={2.5} />
+            <Square size={18} strokeWidth={2.5} />
           </button>
-          <span className={styles.fabLabel}>Finish</span>
         </div>
       )}
     </div>
