@@ -1,0 +1,135 @@
+import { useState, useEffect, useRef } from 'react';
+import type { Park } from '../types';
+import { enrichPark } from '../utils/parkUtils';
+import type { Coordinate } from '../../../types';
+
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const SEARCH_RADIUS_M = 3000;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry {
+  parks: Omit<Park, 'distance' | 'walkMinutes' | 'isClaimed'>[];
+  timestamp: number;
+  lat: number;
+  lng: number;
+}
+
+
+let cache: CacheEntry | null = null;
+
+function isCacheValid(lat: number, lng: number): boolean {
+  if (!cache) return false;
+  if (Date.now() - cache.timestamp > CACHE_TTL_MS) return false;
+  // Re-use if user hasn't moved more than 500m
+  const dlat = Math.abs(cache.lat - lat) * 111320;
+  const dlng = Math.abs(cache.lng - lng) * 111320;
+  return Math.sqrt(dlat ** 2 + dlng ** 2) < 500;
+}
+
+async function fetchParksFromOSM(
+  lat: number,
+  lng: number
+): Promise<Omit<Park, 'distance' | 'walkMinutes' | 'isClaimed'>[]> {
+  const query = `
+    [out:json][timeout:15];
+    (
+      way[leisure=park](around:${SEARCH_RADIUS_M},${lat},${lng});
+      relation[leisure=park](around:${SEARCH_RADIUS_M},${lat},${lng});
+      way[leisure=garden](around:${SEARCH_RADIUS_M},${lat},${lng});
+      way[natural=water][name](around:${SEARCH_RADIUS_M},${lat},${lng});
+      relation[natural=water][name](around:${SEARCH_RADIUS_M},${lat},${lng});
+    );
+    out center tags;
+  `;
+
+  const resp = await fetch(OVERPASS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `data=${encodeURIComponent(query)}`,
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!resp.ok) throw new Error('Overpass API error');
+
+  const data = (await resp.json()) as {
+    elements: {
+      id: number;
+      type: string;
+      center?: { lat: number; lon: number };
+      lat?: number;
+      lon?: number;
+      tags?: { name?: string; leisure?: string; natural?: string };
+    }[];
+  };
+
+  return data.elements
+    .filter((el) => {
+      const name = el.tags?.name;
+      return name && (el.center || (el.lat && el.lon));
+    })
+    .map((el) => ({
+      id: `osm-${el.id}`,
+      name: el.tags!.name!,
+      lat: el.center?.lat ?? el.lat!,
+      lng: el.center?.lon ?? el.lon!,
+      placeType:
+        el.tags?.natural === 'water'
+          ? ('lake' as const)
+          : el.tags?.leisure === 'garden'
+          ? ('garden' as const)
+          : ('park' as const),
+    }));
+}
+
+export interface ParkSearchState {
+  parks: Park[];
+  loading: boolean;
+  error: string | null;
+}
+
+export function useParkSearch(
+  userPosition: Coordinate | null,
+  claimedParkIds?: Set<string>
+): ParkSearchState {
+  const [state, setState] = useState<ParkSearchState>({
+    parks: [],
+    loading: false,
+    error: null,
+  });
+  const fetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (!userPosition || fetchedRef.current) return;
+
+    const [lng, lat] = userPosition;
+
+    if (isCacheValid(lat, lng)) {
+      const enriched = cache!.parks
+        .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 10);
+      setState({ parks: enriched, loading: false, error: null });
+      return;
+    }
+
+    fetchedRef.current = true;
+    setState((s) => ({ ...s, loading: true, error: null }));
+
+    fetchParksFromOSM(lat, lng)
+      .then((raw) => {
+        cache = { parks: raw, timestamp: Date.now(), lat, lng };
+        const enriched = raw
+          .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 10);
+        setState({ parks: enriched, loading: false, error: null });
+      })
+      .catch(() => {
+        // Silently fail — parks are a nice-to-have, not critical
+        setState({ parks: [], loading: false, error: null });
+        fetchedRef.current = false; // allow retry on next position fix
+      });
+  }, [userPosition, claimedParkIds]);
+
+  return state;
+}

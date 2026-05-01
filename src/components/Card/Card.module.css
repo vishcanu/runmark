@@ -1,0 +1,20 @@
+.card {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.elevated {
+  box-shadow: var(--shadow-md);
+}
+
+.interactive {
+  cursor: pointer;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.interactive:active {
+  transform: scale(0.98);
+  box-shadow: var(--shadow-sm);
+}

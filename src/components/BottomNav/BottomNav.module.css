@@ -1,0 +1,164 @@
+/* ─────────────────────────────────────────────────────────
+   BottomNav — iOS-native tab bar feel
+   ───────────────────────────────────────────────────────── */
+
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--bottom-nav-height) + var(--safe-area-bottom));
+  padding-bottom: var(--safe-area-bottom);
+  background: rgba(255, 255, 255, 0.92);
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  z-index: var(--z-nav);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* ─── Tab item ───────────────────────────────────────────── */
+.item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  padding-top: 10px;
+  padding-bottom: 4px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-base);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.item:active .iconWrap { transform: scale(0.90); }
+
+/* ─── Icon wrapper — holds the pill on active ─────────────── */
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 28px;
+  border-radius: 10px;
+  transition: background var(--transition-base), transform var(--transition-base);
+}
+
+/* ─── Active state ───────────────────────────────────────── */
+.active {
+  color: var(--color-text-primary);
+}
+
+.active .iconWrap {
+  background: rgba(21, 128, 61, 0.10);
+}
+
+/* ─── Label ──────────────────────────────────────────────── */
+.label {
+  font-size: 10px;
+  font-weight: var(--font-medium);
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.active .label {
+  font-weight: var(--font-semibold);
+  color: var(--color-accent-primary);
+}
+
+
+.item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: var(--space-2) var(--space-2);
+  padding-top: 10px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-base);
+}
+
+.item:hover {
+  color: var(--color-text-secondary);
+}
+
+.active {
+  color: var(--color-accent-primary);
+}
+
+/* Pill background on active icon */
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 30px;
+  border-radius: 10px;
+  transition: background var(--transition-base), transform var(--transition-fast);
+}
+
+.active .iconWrap {
+  background: var(--color-park-tint);
+  transform: translateY(-1px);
+}
+
+.label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.active .label {
+  font-weight: var(--font-semibold);
+  color: var(--color-accent-primary);
+}
+
+
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  min-width: 64px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-base);
+  padding-top: var(--space-3);
+}
+
+.item:hover {
+  color: var(--color-text-secondary);
+}
+
+.active {
+  color: var(--color-accent-primary);
+}
+
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform var(--transition-base);
+}
+
+.active .iconWrap {
+  transform: translateY(-1px);
+}
+
+.label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  line-height: 1;
+  letter-spacing: 0.02em;
+}

@@ -1,0 +1,111 @@
+:root {
+  /* ─── Backgrounds ─────────────────────────────────────── */
+  /* Warm off-white base — not cold, not stark */
+  --color-bg-primary:   #f6f6f4;
+  --color-bg-secondary: #efefec;
+  --color-bg-surface:   #ffffff;
+  --color-bg-elevated:  #ffffff;
+  --color-bg-input:     #f6f6f4;
+
+  /* ─── Accent (single, used intentionally) ─────────────── */
+  --color-accent-primary:   #15803d;   /* forest green — primary CTA */
+  --color-accent-secondary: #0369a1;   /* ocean blue   — lakes */
+  --color-accent-danger:    #dc2626;
+  --color-accent-warning:   #d97706;
+  --color-accent-park:      #15803d;
+  --color-accent-lake:      #0369a1;
+
+  /* Tints — very subtle, used sparingly */
+  --color-park-tint:   #f0fdf4;
+  --color-lake-tint:   #e0f2fe;
+  --color-danger-tint: #fef2f2;
+
+  /* ─── Text hierarchy ──────────────────────────────────── */
+  --color-text-primary:   #18181b;   /* zinc-900 — not pure black */
+  --color-text-secondary: #52525b;   /* zinc-600 */
+  --color-text-muted:     #a1a1aa;   /* zinc-400 */
+  --color-text-inverse:   #ffffff;
+
+  /* ─── Borders — elevation-first, borders second ──────── */
+  --color-border-subtle:  rgba(24, 24, 27, 0.06);
+  --color-border-default: rgba(24, 24, 27, 0.10);
+  --color-border-strong:  rgba(24, 24, 27, 0.18);
+
+  --color-overlay: rgba(18, 18, 20, 0.50);
+
+  /* ─── Elevation (prefer over heavy borders) ───────────── */
+  --shadow-sm:  0 1px 2px rgba(18,18,20,0.06);
+  --shadow-md:  0 2px 8px rgba(18,18,20,0.08), 0 1px 2px rgba(18,18,20,0.04);
+  --shadow-lg:  0 8px 24px rgba(18,18,20,0.10), 0 2px 6px rgba(18,18,20,0.06);
+  --shadow-xl:  0 20px 48px rgba(18,18,20,0.12), 0 4px 12px rgba(18,18,20,0.06);
+  --shadow-float: 0 4px 20px rgba(18,18,20,0.14);
+
+  /* ─── Gradients (used minimally) ─────────────────────── */
+  --gradient-park:     linear-gradient(150deg, #16a34a 0%, #15803d 100%);
+  --gradient-lake:     linear-gradient(150deg, #0284c7 0%, #0369a1 100%);
+  --gradient-danger:   linear-gradient(150deg, #ef4444 0%, #dc2626 100%);
+  --gradient-onboard:  linear-gradient(170deg, #f0fdf4 0%, #f6f6f4 60%, #e0f2fe 100%);
+
+  /* ─── Border Radius ───────────────────────────────────── */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-2xl:  28px;
+  --radius-full: 9999px;
+
+  /* ─── Spacing (8px base grid) ─────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ─── Typography ──────────────────────────────────────── */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-md:   16px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  26px;
+  --text-3xl:  32px;
+  --text-4xl:  40px;
+
+  --font-regular:   400;
+  --font-medium:    500;
+  --font-semibold:  600;
+  --font-bold:      700;
+  --font-extrabold: 800;
+
+  --leading-tight:  1.15;
+  --leading-snug:   1.35;
+  --leading-normal: 1.60;
+
+  /* ─── Transitions ─────────────────────────────────────── */
+  --transition-fast: 100ms ease;
+  --transition-base: 180ms ease;
+  --transition-slow: 320ms cubic-bezier(0.4, 0, 0.2, 1);
+  --spring:          380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ─── Z-Index ─────────────────────────────────────────── */
+  --z-map:      0;
+  --z-overlay: 10;
+  --z-controls: 20;
+  --z-nav:      30;
+  --z-modal:   100;
+
+  /* ─── Layout ──────────────────────────────────────────── */
+  --bottom-nav-height: 64px;
+  --map-header-height: 52px;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-top:    env(safe-area-inset-top, 0px);
+}
