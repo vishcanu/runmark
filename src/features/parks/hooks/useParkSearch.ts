@@ -20,6 +20,11 @@ interface CacheEntry {
 
 let cache: CacheEntry | null = null;
 
+// Module-level: persists across Home unmount/remount (page navigation)
+// Parks are shown INSTANTLY when user returns to map tab
+let _lastKnownParks: Park[] = [];
+let _lastKnownPosition: { lat: number; lng: number } | null = null;
+
 function isCacheValid(lat: number, lng: number): boolean {
   if (!cache) return false;
   if (Date.now() - cache.timestamp > CACHE_TTL_MS) return false;
@@ -109,13 +114,14 @@ export function useParkSearch(
   userPosition: Coordinate | null,
   claimedParkIds?: Set<string>
 ): ParkSearchState {
-  const [state, setState] = useState<ParkSearchState>({
-    parks: [],
+  // Initialize from module-level state — parks show INSTANTLY on remount
+  const [state, setState] = useState<ParkSearchState>(() => ({
+    parks: _lastKnownParks,
     loading: false,
     error: null,
-  });
+  }));
   const fetchingRef = useRef(false);
-  const lastFetchPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastFetchPosRef = useRef<{ lat: number; lng: number } | null>(_lastKnownPosition);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
@@ -140,6 +146,8 @@ export function useParkSearch(
           .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 10);
+        _lastKnownParks = enriched;
+        _lastKnownPosition = { lat, lng };
         setState({ parks: enriched, loading: false, error: null });
         return;
       }
@@ -151,13 +159,18 @@ export function useParkSearch(
         .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
         .sort((a, b) => a.distance - b.distance)
         .slice(0, 10);
+      _lastKnownParks = enriched;
+      _lastKnownPosition = { lat, lng };
       setState({ parks: enriched, loading: false, error: null });
       return;
     }
 
     fetchingRef.current = true;
     lastFetchPosRef.current = { lat, lng };
-    setState((s) => ({ ...s, loading: true, error: null }));
+    // Only show loading spinner if we have no parks to show yet
+    if (_lastKnownParks.length === 0) {
+      setState((s) => ({ ...s, loading: true, error: null }));
+    }
 
     fetchParksFromOSM(lat, lng)
       .then((raw) => {
@@ -166,6 +179,8 @@ export function useParkSearch(
           .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 10);
+        _lastKnownParks = enriched;
+        _lastKnownPosition = { lat, lng };
         setState({ parks: enriched, loading: false, error: null });
         if (retryTimerRef.current) {
           clearTimeout(retryTimerRef.current);

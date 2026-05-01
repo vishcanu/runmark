@@ -22,6 +22,7 @@ export function Home() {
   const store = useTerritoryStore();
   const [parkCardDismissed, setParkCardDismissed] = useState(false);
   const [selectedPark, setSelectedPark] = useState<Park | null>(null);
+  const [parkArea, setParkArea] = useState<string | null>(null);
 
   // Set of claimed park IDs for context
   const claimedParkIds = useMemo(() => new Set<string>(), []);
@@ -40,6 +41,7 @@ export function Home() {
   // When a park chip is tapped — fly map to it, show confirm sheet
   const handleParkChipTap = useCallback((park: Park) => {
     setSelectedPark(park);
+    setParkArea(null); // reset while new boundary loads
   }, []);
 
   // Derive center target for the map from selected park
@@ -113,6 +115,7 @@ export function Home() {
         closestParkId={closestPark?.id ?? null}
         centerTarget={mapCenterTarget}
         selectedPark={selectedPark}
+        onParkArea={setParkArea}
       />
 
       {/* Parks tray — horizontal scroll list, shown when idle */}
@@ -187,6 +190,7 @@ export function Home() {
               <p className={styles.parkConfirmName}>{selectedPark.name}</p>
               <p className={styles.parkConfirmMeta}>
                 {formatParkDistance(selectedPark.distance)} · {selectedPark.walkMinutes} min walk
+                {parkArea && <> · {parkArea}</>}
               </p>
             </div>
           </div>

@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 import type { Map } from 'maplibre-gl';
 import type { Park } from '../types';
+import { polygonAreaM2, formatParkArea } from '../types/index';
 
 interface ParkBoundaryLayerProps {
   map: Map;
   park: Park | null;
+  onArea?: (label: string) => void;
 }
 
 const BOUNDARY_SOURCE = 'park-boundary-source';
@@ -22,18 +24,17 @@ type OsmElement =
   | { type: 'way';      id: number; geometry?: OsmNode[] }
   | { type: 'relation'; id: number; members?: { role: string; geometry?: OsmNode[] }[] };
 
-/** Convert OSM way/relation geometry to a GeoJSON Polygon */
-function osmToPolygon(elements: OsmElement[]): GeoJSON.Geometry | null {
+/** Convert OSM way/relation geometry to a GeoJSON Polygon + outer ring for area calc */
+function osmToPolygon(elements: OsmElement[]): { geom: GeoJSON.Geometry; outerRing: [number, number][] } | null {
   if (!elements.length) return null;
 
   const el = elements[0];
 
   if (el.type === 'way' && el.geometry && el.geometry.length >= 3) {
     const coords = el.geometry.map((n) => [n.lon, n.lat] as [number, number]);
-    // Close ring
     const first = coords[0], last = coords[coords.length - 1];
     if (first[0] !== last[0] || first[1] !== last[1]) coords.push(first);
-    return { type: 'Polygon', coordinates: [coords] };
+    return { geom: { type: 'Polygon', coordinates: [coords] }, outerRing: coords };
   }
 
   if (el.type === 'relation' && el.members) {
@@ -46,7 +47,7 @@ function osmToPolygon(elements: OsmElement[]): GeoJSON.Geometry | null {
         return coords;
       });
     if (!outerRings.length) return null;
-    return { type: 'Polygon', coordinates: outerRings };
+    return { geom: { type: 'Polygon', coordinates: outerRings }, outerRing: outerRings[0] };
   }
 
   return null;
@@ -55,9 +56,7 @@ function osmToPolygon(elements: OsmElement[]): GeoJSON.Geometry | null {
 async function fetchBoundary(
   numericId: string,
   signal: AbortSignal
-): Promise<GeoJSON.Geometry | null> {
-  // Query both way and relation — OSM IDs are unique within a type, not globally,
-  // but in practice the numeric ID from our data corresponds to one element type.
+): Promise<{ geom: GeoJSON.Geometry; outerRing: [number, number][] } | null> {
   const query = `[out:json][timeout:12];(way(id:${numericId});relation(id:${numericId}););out geom;`;
 
   for (const url of OVERPASS_ENDPOINTS) {
@@ -71,8 +70,8 @@ async function fetchBoundary(
       });
       if (!resp.ok) continue;
       const data = await resp.json() as { elements: OsmElement[] };
-      const geom = osmToPolygon(data.elements);
-      if (geom) return geom;
+      const result = osmToPolygon(data.elements);
+      if (result) return result;
     } catch {
       continue;
     }
@@ -80,7 +79,7 @@ async function fetchBoundary(
   return null;
 }
 
-export function ParkBoundaryLayer({ map, park }: ParkBoundaryLayerProps) {
+export function ParkBoundaryLayer({ map, park, onArea }: ParkBoundaryLayerProps) {
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -103,13 +102,19 @@ export function ParkBoundaryLayer({ map, park }: ParkBoundaryLayerProps) {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    fetchBoundary(numericId, controller.signal).then((geom) => {
-      if (controller.signal.aborted || !geom) return;
+    fetchBoundary(numericId, controller.signal).then((result) => {
+      if (controller.signal.aborted || !result) return;
+
+      // Compute and surface area to parent
+      if (onArea) {
+        const m2 = polygonAreaM2(result.outerRing);
+        if (m2 > 0) onArea(formatParkArea(m2));
+      }
 
       try {
         map.addSource(BOUNDARY_SOURCE, {
           type: 'geojson',
-          data: { type: 'Feature', geometry: geom, properties: {} },
+          data: { type: 'Feature', geometry: result.geom, properties: {} },
         });
 
         const isLake = park.placeType === 'lake';
