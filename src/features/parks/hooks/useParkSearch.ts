@@ -4,7 +4,7 @@ import { enrichPark } from '../utils/parkUtils';
 import type { Coordinate } from '../../../types';
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
-const SEARCH_RADIUS_M = 3000;
+const SEARCH_RADIUS_M = 5000; // 5km radius
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 interface CacheEntry {
@@ -96,14 +96,33 @@ export function useParkSearch(
     loading: false,
     error: null,
   });
-  const fetchedRef = useRef(false);
+  const fetchingRef = useRef(false);
+  const lastFetchPosRef = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
-    if (!userPosition || fetchedRef.current) return;
+    if (!userPosition || fetchingRef.current) return;
 
     const [lng, lat] = userPosition;
 
+    // Skip if already fetched near this position
+    if (lastFetchPosRef.current) {
+      const dlat = Math.abs(lastFetchPosRef.current.lat - lat) * 111320;
+      const dlng = Math.abs(lastFetchPosRef.current.lng - lng) * 111320;
+      if (Math.sqrt(dlat ** 2 + dlng ** 2) < 500) {
+        // Just re-enrich with updated claimed set if needed
+        if (isCacheValid(lat, lng)) {
+          const enriched = cache!.parks
+            .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
+            .sort((a, b) => a.distance - b.distance)
+            .slice(0, 10);
+          setState({ parks: enriched, loading: false, error: null });
+        }
+        return;
+      }
+    }
+
     if (isCacheValid(lat, lng)) {
+      lastFetchPosRef.current = { lat, lng };
       const enriched = cache!.parks
         .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
         .sort((a, b) => a.distance - b.distance)
@@ -112,7 +131,8 @@ export function useParkSearch(
       return;
     }
 
-    fetchedRef.current = true;
+    fetchingRef.current = true;
+    lastFetchPosRef.current = { lat, lng };
     setState((s) => ({ ...s, loading: true, error: null }));
 
     fetchParksFromOSM(lat, lng)
@@ -127,7 +147,10 @@ export function useParkSearch(
       .catch(() => {
         // Silently fail — parks are a nice-to-have, not critical
         setState({ parks: [], loading: false, error: null });
-        fetchedRef.current = false; // allow retry on next position fix
+        lastFetchPosRef.current = null; // allow retry on next position fix
+      })
+      .finally(() => {
+        fetchingRef.current = false;
       });
   }, [userPosition, claimedParkIds]);
 

@@ -115,7 +115,7 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 1px;
     background: var(--color-border-subtle);
-    margin-top: var(--space-4);
+    margin: var(--space-4) var(--space-4) 0;
     border-radius: var(--radius-lg);
     overflow: hidden;
     box-shadow: var(--shadow-sm);
@@ -179,7 +179,7 @@
 
 /* ─── Achievements ───────────────────────────────────────── */
 .section {
-    padding: var(--space-5);
+    padding: var(--space-5) var(--space-4) var(--space-3);
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -256,216 +256,32 @@
     flex-shrink: 0;
 }
 
-
-.header {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-3);
-    padding-top: var(--space-4);
+/* ─── Sign out ───────────────────────────────────────────── */
+.signOutSection {
+    padding: var(--space-5);
+    padding-bottom: 0;
 }
 
-.avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: var(--radius-full);
+.signOut {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: var(--shadow-md), var(--shadow-glow-park);
-    border: 3px solid rgba(255, 255, 255, 0.8);
-    transition: background var(--transition-base);
-}
-
-.avatarInitial {
-    font-size: var(--text-3xl);
-    font-weight: var(--font-extrabold);
-    color: rgba(255, 255, 255, 0.95);
-    line-height: 1;
-    letter-spacing: -0.02em;
-}
-
-.username {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-bold);
-    color: var(--color-text-primary);
-}
-
-.levelBadge {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    background: rgba(79, 70, 229, 0.08);
-    border: 1px solid rgba(79, 70, 229, 0.25);
-    border-radius: var(--radius-full);
-    padding: var(--space-1) var(--space-3);
-    font-size: var(--text-sm);
-    font-weight: var(--font-semibold);
-    color: var(--color-accent-primary);
-}
-
-/* ─── Progress ──────────────────────────────────────── */
-.progressSection {
-    display: flex;
-    flex-direction: column;
     gap: var(--space-2);
-    background: var(--color-bg-surface);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-lg);
-    padding: var(--space-4);
-}
-
-.progressHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.progressLabel {
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    color: var(--color-text-secondary);
-}
-
-.progressPct {
-    font-size: var(--text-sm);
-    font-weight: var(--font-bold);
-    color: var(--color-accent-primary);
-}
-
-.progressTrack {
-    height: 6px;
-    background: var(--color-bg-elevated);
-    border-radius: var(--radius-full);
-    overflow: hidden;
-}
-
-.progressFill {
-    height: 100%;
-    background: var(--gradient-accent);
-    border-radius: var(--radius-full);
-    transition: width var(--transition-slow);
-    min-width: 4px;
-}
-
-.progressHint {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-}
-
-/* ─── Stats Grid ─────────────────────────────────────── */
-.statsGrid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-3);
-}
-
-.statCard {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-2);
-    padding: var(--space-4);
-}
-
-.statCardIcon {
-    color: var(--color-accent-primary);
-}
-
-.statCardValue {
-    font-size: var(--text-xl);
-    font-weight: var(--font-bold);
-    color: var(--color-text-primary);
-    display: block;
-}
-
-.statCardLabel {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    font-weight: var(--font-medium);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    display: block;
-}
-
-.wideStatRow {
-    display: flex;
-    align-items: center;
-    gap: var(--space-5);
     width: 100%;
-}
-
-.wideStatRow>div {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: 1;
-}
-
-.wideDivider {
-    width: 1px;
-    height: 36px;
-    background: var(--color-border-subtle);
-}
-
-/* ─── Achievements ───────────────────────────────────── */
-.section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-}
-
-.sectionTitle {
-    font-size: var(--text-lg);
-    font-weight: var(--font-semibold);
-    color: var(--color-text-primary);
-}
-
-.achievementList {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.achievement {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    background: var(--color-bg-surface);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    padding: var(--space-3) var(--space-4);
-    opacity: 0.45;
-}
-
-.achievementDone {
-    opacity: 1;
-    border-color: rgba(79, 70, 229, 0.20);
-    background: rgba(79, 70, 229, 0.04);
-}
-
-.achievementIcon {
-    color: var(--color-text-muted);
-    flex-shrink: 0;
-}
-
-.achievementDone .achievementIcon {
-    color: var(--color-accent-primary);
-}
-
-.achievement>div {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.achievementLabel {
-    font-size: var(--text-base);
-    font-weight: var(--font-semibold);
-    color: var(--color-text-primary);
-}
-
-.achievementDesc {
+    height: 48px;
+    border-radius: var(--radius-lg);
+    background: transparent;
+    border: 1.5px solid var(--color-border-default);
+    color: #dc2626;
+    font-family: var(--font-family);
     font-size: var(--text-sm);
-    color: var(--color-text-muted);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    letter-spacing: -0.01em;
+}
+
+.signOut:active {
+    background: rgba(220, 38, 38, 0.06);
+    border-color: rgba(220, 38, 38, 0.30);
 }

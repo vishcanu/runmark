@@ -25,8 +25,8 @@ export function Home() {
 
   const { parks } = useParkSearch(geo.position, claimedParkIds);
 
-  // Closest park within 2km
-  const closestPark = parks.length > 0 && parks[0].distance <= 2000 ? parks[0] : null;
+  // Closest park within 5km
+  const closestPark = parks.length > 0 && parks[0].distance <= 5000 ? parks[0] : null;
 
   const showParkCard =
     !parkCardDismissed &&

@@ -21,8 +21,15 @@ export function Activity() {
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Hey, {user.name}</h1>
-        <p className={styles.subtitle}>Your territory history</p>
+        <div className={styles.headerRow}>
+          <div>
+            <h1 className={styles.title}>Activity</h1>
+            <p className={styles.subtitle}>Hey, {user.name} 👋</p>
+          </div>
+          <div className={styles.avatarSmall} style={{ background: user.color }}>
+            <span className={styles.avatarInitial}>{user.initial}</span>
+          </div>
+        </div>
       </div>
 
       <div className={styles.summary}>

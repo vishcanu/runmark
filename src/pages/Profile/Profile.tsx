@@ -1,4 +1,4 @@
-﻿import { Building2, Trophy, Map, TrendingUp, Clock, Check } from "lucide-react";
+﻿import { Building2, Trophy, Map, TrendingUp, Clock, Check, LogOut } from "lucide-react";
 import { useTerritoryStore } from "../../features/territory/hooks/useTerritoryStore";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import { formatDistance, formatDuration } from "../../features/map/utils/geo";
@@ -101,6 +101,20 @@ export function Profile() {
             );
           })}
         </div>
+      </div>
+
+      <div className={styles.signOutSection}>
+        <button
+          className={styles.signOut}
+          onClick={() => {
+            localStorage.removeItem('rg_user_name');
+            localStorage.removeItem('rg_user_color');
+            window.location.reload();
+          }}
+        >
+          <LogOut size={15} strokeWidth={2} />
+          Sign Out
+        </button>
       </div>
     </div>
   );

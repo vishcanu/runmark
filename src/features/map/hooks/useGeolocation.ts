@@ -18,6 +18,26 @@ export function useGeolocation() {
 
   const watchIdRef = useRef<number | null>(null);
 
+  // Auto-fetch a one-shot initial position on mount so parks load immediately
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setState((prev) =>
+          prev.position
+            ? prev // already have a more accurate position from watchPosition
+            : {
+                ...prev,
+                position: [pos.coords.longitude, pos.coords.latitude],
+                accuracy: pos.coords.accuracy,
+              }
+        );
+      },
+      () => { /* silently ignore — watchPosition will surface the error */ },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+    );
+  }, []);
+
   const startWatching = () => {
     if (!('geolocation' in navigator)) {
       setState((prev) => ({ ...prev, error: 'Geolocation not supported.' }));
