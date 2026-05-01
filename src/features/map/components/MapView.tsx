@@ -22,7 +22,6 @@ interface MapViewProps {
   closestParkId: string | null;
   centerTarget: Coordinate | null;
   selectedPark: Park | null;
-  onParkArea?: (label: string) => void;
 }
 
 export function MapView({
@@ -37,7 +36,6 @@ export function MapView({
   closestParkId,
   centerTarget,
   selectedPark,
-  onParkArea,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { map, isReady, flyTo } = useMap(containerRef);
@@ -63,7 +61,7 @@ export function MapView({
       {isReady && map && (
         <>
           <ParkLayer map={map} parks={parks} closestParkId={closestParkId} />
-          <ParkBoundaryLayer map={map} park={selectedPark} onArea={onParkArea} />
+          <ParkBoundaryLayer map={map} park={selectedPark} />
           <UserMarker map={map} position={userPosition} heading={userHeading} accuracy={userAccuracy} />
           <TerritoryLayer
             map={map}
