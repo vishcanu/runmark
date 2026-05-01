@@ -1,103 +1,212 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { Map, GeoJSONSource } from 'maplibre-gl';
 import type { Territory } from '../../../types';
 
-interface TerritoryLayerProps {
+// ── Layer / Source IDs ────────────────────────────────────────
+const SRC          = 'territories-source';
+const SRC_VERTS    = 'territories-verts-source';
+const SRC_LABELS   = 'territories-labels-source';
+const L_EXTRUSION  = 'territories-extrusion';   // 3D prism
+const L_GLOW       = 'territories-glow';         // outer blurred aura
+const L_BORDER     = 'territories-border';       // crisp solid edge
+const L_PULSE      = 'territories-pulse';        // animated white scan
+const L_VERTS      = 'territories-verts';        // corner pins
+const L_LABEL      = 'territories-label';        // name text
+
+// ── Height: how much territory "rises" off the ground ────────
+//   each 100 m run = +5 m height, floor 15 m, ceiling 90 m
+function zoneHeight(distanceM: number, selected: boolean): number {
+  const h = Math.min(Math.max(distanceM * 0.05, 15), 90);
+  return selected ? h * 1.35 : h;
+}
+
+// ── Centroid of a closed polygon ring ────────────────────────
+function centroid(coords: [number, number][]): [number, number] {
+  const pts = coords.slice(0, -1);  // drop closing vertex
+  const n = pts.length;
+  let x = 0, y = 0;
+  for (const [lng, lat] of pts) { x += lng; y += lat; }
+  return [x / n, y / n];
+}
+
+interface Props {
   map: Map;
   territories: Territory[];
   selectedId: string | null;
   onTerritoryClick: (id: string) => void;
 }
 
-export function TerritoryLayer({
-  map,
-  territories,
-  selectedId,
-  onTerritoryClick,
-}: TerritoryLayerProps) {
+export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick }: Props) {
+  const rafRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!map) return;
 
-    const SOURCE_ID = 'territories-source';
-    const FILL_LAYER_ID = 'territories-fill';
-    const LINE_LAYER_ID = 'territories-line';
-    const SELECT_LAYER_ID = 'territories-selected';
-
-    // Build GeoJSON FeatureCollection
-    const geojson: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: territories.map((t) => ({
-        type: 'Feature',
+    // ── GeoJSON: main polygon features ───────────────────────
+    const polyFeatures = territories.map((t) => ({
+      type: 'Feature' as const,
+      id: t.id,
+      geometry: { type: 'Polygon' as const, coordinates: [t.coordinates] },
+      properties: {
         id: t.id,
-        geometry: {
-          type: 'Polygon',
-          coordinates: [t.coordinates],
-        },
-        properties: {
-          id: t.id,
-          name: t.name,
-          color: t.color,
-          isSelected: t.id === selectedId,
-        },
-      })),
-    };
+        color: t.color,
+        height: zoneHeight(t.distance, t.id === selectedId),
+        isSelected: t.id === selectedId,
+      },
+    }));
 
-    // Add or update source
-    const existing = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
-    if (existing) {
-      existing.setData(geojson);
+    // ── GeoJSON: vertex corner points ─────────────────────────
+    const vertFeatures = territories.flatMap((t) =>
+      t.coordinates.slice(0, -1).map((coord) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: coord },
+        properties: { color: t.color, isSelected: t.id === selectedId },
+      }))
+    );
+
+    // ── GeoJSON: label centroids ─────────────────────────────
+    const labelFeatures = territories.map((t) => ({
+      type: 'Feature' as const,
+      geometry: { type: 'Point' as const, coordinates: centroid(t.coordinates) },
+      properties: { name: t.name, color: t.color },
+    }));
+
+    const polyGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: polyFeatures  };
+    const vertGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: vertFeatures  };
+    const labelGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: labelFeatures };
+
+    // ── Update or initialise sources + layers ─────────────────
+    const existingSrc = map.getSource(SRC) as GeoJSONSource | undefined;
+    if (existingSrc) {
+      existingSrc.setData(polyGeo);
+      (map.getSource(SRC_VERTS)  as GeoJSONSource)?.setData(vertGeo);
+      (map.getSource(SRC_LABELS) as GeoJSONSource)?.setData(labelGeo);
     } else {
-      map.addSource(SOURCE_ID, { type: 'geojson', data: geojson });
+      map.addSource(SRC,        { type: 'geojson', data: polyGeo  });
+      map.addSource(SRC_VERTS,  { type: 'geojson', data: vertGeo  });
+      map.addSource(SRC_LABELS, { type: 'geojson', data: labelGeo });
 
-      // Fill layer
+      // ── 1. Holographic 3D prism ───────────────────────────
       map.addLayer({
-        id: FILL_LAYER_ID,
-        type: 'fill',
-        source: SOURCE_ID,
+        id: L_EXTRUSION,
+        type: 'fill-extrusion',
+        source: SRC,
         paint: {
-          'fill-color': ['get', 'color'],
-          'fill-opacity': ['case', ['get', 'isSelected'], 0.35, 0.2],
+          'fill-extrusion-color': ['get', 'color'],
+          'fill-extrusion-height': ['get', 'height'],
+          'fill-extrusion-base': 0,
+          'fill-extrusion-opacity': [
+            'case', ['get', 'isSelected'], 0.72, 0.50,
+          ],
         },
       });
 
-      // Border layer
+      // ── 2. Soft outer aura / glow ─────────────────────────
       map.addLayer({
-        id: LINE_LAYER_ID,
+        id: L_GLOW,
         type: 'line',
-        source: SOURCE_ID,
+        source: SRC,
         paint: {
           'line-color': ['get', 'color'],
-          'line-width': ['case', ['get', 'isSelected'], 3, 2],
-          'line-opacity': 0.9,
+          'line-width': 10,
+          'line-opacity': 0.20,
+          'line-blur': 8,
         },
       });
 
-      // Selected glow overlay
+      // ── 3. Crisp solid border ─────────────────────────────
       map.addLayer({
-        id: SELECT_LAYER_ID,
-        type: 'fill',
-        source: SOURCE_ID,
-        filter: ['==', ['get', 'isSelected'], true],
+        id: L_BORDER,
+        type: 'line',
+        source: SRC,
         paint: {
-          'fill-color': ['get', 'color'],
-          'fill-opacity': 0.12,
+          'line-color': ['get', 'color'],
+          'line-width': ['case', ['get', 'isSelected'], 2.5, 1.8],
+          'line-opacity': 1.0,
         },
       });
 
-      // Click handler
-      map.on('click', FILL_LAYER_ID, (e) => {
-        const feature = e.features?.[0];
-        const id = feature?.properties?.id as string | undefined;
+      // ── 4. Animated white scan pulse ──────────────────────
+      //    (opacity + width driven by requestAnimationFrame)
+      map.addLayer({
+        id: L_PULSE,
+        type: 'line',
+        source: SRC,
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 1.0,
+          'line-opacity': 0.7,
+        },
+      });
+
+      // ── 5. Corner vertex pins ─────────────────────────────
+      map.addLayer({
+        id: L_VERTS,
+        type: 'circle',
+        source: SRC_VERTS,
+        paint: {
+          'circle-radius': ['case', ['get', 'isSelected'], 4.5, 3.5],
+          'circle-color': ['get', 'color'],
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 1.8,
+          'circle-opacity': 1.0,
+        },
+      });
+
+      // ── 6. Territory name label ────────────────────────────
+      map.addLayer({
+        id: L_LABEL,
+        type: 'symbol',
+        source: SRC_LABELS,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 11,
+          'text-anchor': 'center',
+          'text-letter-spacing': 0.04,
+          'text-max-width': 9,
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': ['get', 'color'],
+          'text-halo-width': 2,
+          'text-halo-blur': 0.5,
+        },
+      });
+
+      // ── Interaction ───────────────────────────────────────
+      map.on('click', L_EXTRUSION, (e) => {
+        const id = e.features?.[0]?.properties?.id as string | undefined;
         if (id) onTerritoryClick(id);
       });
-
-      map.on('mouseenter', FILL_LAYER_ID, () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-      map.on('mouseleave', FILL_LAYER_ID, () => {
-        map.getCanvas().style.cursor = '';
-      });
+      map.on('mouseenter', L_EXTRUSION, () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', L_EXTRUSION, () => { map.getCanvas().style.cursor = '';        });
     }
+
+    // ── Pulse animation (throttled ~24 fps) ───────────────────
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    let phase = Math.random() * Math.PI * 2; // random start so not all in sync
+    let lastFrame = 0;
+    const FRAME_MS = 1000 / 24;
+
+    const animate = (now: number) => {
+      rafRef.current = requestAnimationFrame(animate);
+      if (now - lastFrame < FRAME_MS) return;
+      lastFrame = now;
+      phase += 0.04;
+      const wave = 0.35 + 0.65 * Math.abs(Math.sin(phase));
+      try {
+        if (map.getLayer(L_PULSE)) {
+          map.setPaintProperty(L_PULSE, 'line-opacity', wave);
+          map.setPaintProperty(L_PULSE, 'line-width',   0.5 + wave * 1.8);
+        }
+      } catch { /* map may be mid-teardown */ }
+    };
+    rafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, [map, territories, selectedId, onTerritoryClick]);
 
   return null;
