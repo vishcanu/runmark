@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MapPin, LogOut, ChevronDown } from 'lucide-react';
+import { Navigation2, LogOut, ChevronDown } from 'lucide-react';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import styles from './MapHeader.module.css';
 
@@ -12,7 +12,6 @@ export function MapHeader({ isActive = false }: MapHeaderProps) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent) => {
@@ -33,17 +32,26 @@ export function MapHeader({ isActive = false }: MapHeaderProps) {
 
   return (
     <div className={styles.header}>
-      <div className={styles.left}>
-        <p className={styles.brandName}>RunMark</p>
-        <div className={styles.locationRow}>
-          <MapPin size={12} strokeWidth={2.5} className={styles.pinIcon} />
-          <span className={styles.locationLabel}>
-            {isActive ? 'Recording' : 'Near you'}
-          </span>
-          {isActive && <div className={styles.recordDot} />}
+
+      {/* ── Logo mark + wordmark ─────────────────────────── */}
+      <div className={styles.brand}>
+        <div className={styles.brandIcon}>
+          <Navigation2 size={14} strokeWidth={2.5} />
         </div>
+        <span className={styles.brandWord}>RunMark</span>
       </div>
 
+      {/* ── Center: recording pill (only when active) ─────── */}
+      <div className={styles.center}>
+        {isActive && (
+          <div className={styles.recPill}>
+            <span className={styles.recDot} />
+            Recording
+          </div>
+        )}
+      </div>
+
+      {/* ── Right: avatar + dropdown ─────────────────────── */}
       <div className={styles.right} ref={dropdownRef}>
         <button
           className={styles.avatarBtn}
@@ -55,7 +63,7 @@ export function MapHeader({ isActive = false }: MapHeaderProps) {
             {user.initial}
           </div>
           <ChevronDown
-            size={12}
+            size={11}
             strokeWidth={2.5}
             className={[styles.chevron, open ? styles.chevronOpen : ''].join(' ')}
           />
@@ -63,7 +71,6 @@ export function MapHeader({ isActive = false }: MapHeaderProps) {
 
         {open && (
           <div className={styles.dropdown}>
-            {/* User identity */}
             <div className={styles.dropdownUser}>
               <div className={styles.dropdownAvatar} style={{ background: user.color }}>
                 {user.initial}
@@ -73,9 +80,7 @@ export function MapHeader({ isActive = false }: MapHeaderProps) {
                 <span className={styles.dropdownSubtitle}>Runner</span>
               </div>
             </div>
-
             <div className={styles.dropdownDivider} />
-
             <button className={styles.dropdownLogout} onClick={handleLogout}>
               <LogOut size={14} strokeWidth={2.2} />
               <span>Sign out</span>
@@ -86,4 +91,5 @@ export function MapHeader({ isActive = false }: MapHeaderProps) {
     </div>
   );
 }
+
 

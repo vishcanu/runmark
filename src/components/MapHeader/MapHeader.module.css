@@ -19,16 +19,31 @@
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
     border-bottom: 1px solid var(--color-border-subtle);
+    /* needed for center pill absolute positioning */
+    isolation: isolate;
 }
 
-/* ─── Left cluster ───────────────────────────────────────── */
-.left {
+/* ─── Brand (left) ───────────────────────────────────────── */
+.brand {
     display: flex;
-    flex-direction: column;
-    gap: 1px;
+    align-items: center;
+    gap: 7px;
+    flex: 1;
 }
 
-.brandName {
+.brandIcon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--color-accent-primary);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.brandWord {
     font-size: var(--text-base);
     font-weight: var(--font-extrabold);
     color: var(--color-text-primary);
@@ -36,26 +51,31 @@
     line-height: 1;
 }
 
-.locationRow {
+/* ─── Center: recording pill ─────────────────────────────── */
+.center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 4px;
+    pointer-events: none;
 }
 
-.pinIcon {
-    color: var(--color-accent-primary);
-    flex-shrink: 0;
+.recPill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(239, 68, 68, 0.10);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-full);
+    padding: 4px 11px;
+    font-size: 12px;
+    font-weight: var(--font-semibold);
+    color: #dc2626;
+    letter-spacing: 0.01em;
 }
 
-.locationLabel {
-    font-size: 11px;
-    font-weight: var(--font-medium);
-    color: var(--color-text-muted);
-    letter-spacing: -0.01em;
-}
-
-/* Blinking red dot during recording */
-.recordDot {
+.recDot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
@@ -75,6 +95,7 @@
         opacity: 0.2;
     }
 }
+
 
 /* ─── Right: avatar ──────────────────────────────────────── */
 .right {
