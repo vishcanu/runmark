@@ -1,5 +1,5 @@
-import { useCallback, useState, useMemo } from 'react';
-import { Trees, Waves, MapPin, X, Play, Navigation } from 'lucide-react';
+import { useCallback, useState, useMemo, useRef } from 'react';
+import { Trees, Waves, MapPin, X, Play, Navigation, FlaskConical } from 'lucide-react';
 import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
 import { Modal } from '../../components/Modal/Modal';
@@ -96,6 +96,74 @@ export function Home() {
   const selectedTerritory = store.selectedId
     ? store.getTerritory(store.selectedId)
     : null;
+
+  // ── Dev: simulate a run loop for testing territory capture ──────────────
+  const simTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const handleSimulate = useCallback(() => {
+    if (tracker.session.status === 'active') return;
+
+    // Use real GPS position or fall back to a central London square
+    const base = geo.position ?? [77.5946, 12.9716]; // Bangalore default
+    const [lng, lat] = base;
+    const d = 0.0012; // ~130m box
+
+    // 8-point loop around the base position (square with chamfered corners)
+    const loop: Coordinate[] = [
+      [lng,       lat + d  ],
+      [lng + d,   lat + d  ],
+      [lng + d*1.2, lat    ],
+      [lng + d,   lat - d  ],
+      [lng,       lat - d  ],
+      [lng - d,   lat - d  ],
+      [lng - d*1.2, lat    ],
+      [lng - d,   lat + d  ],
+    ];
+
+    // Kick off a real session
+    geo.startWatching();
+    tracker.start();
+    setParkCardDismissed(true);
+    setSelectedPark(null);
+
+    let i = 0;
+    simTimerRef.current = setInterval(() => {
+      tracker.addPosition(loop[i % loop.length]);
+      i++;
+      if (i >= loop.length) {
+        clearInterval(simTimerRef.current!);
+        simTimerRef.current = null;
+        // Auto-finish after loop is complete
+        setTimeout(() => {
+          geo.stopWatching();
+          const currentPath = tracker.session.path;
+          const currentDistance = tracker.session.distance;
+          const currentStartTime = tracker.session.startTime;
+          const sessionId = tracker.session.id;
+          const elapsed = tracker.elapsedSeconds;
+          tracker.stop();
+          if (currentPath.length >= 3) {
+            const coords = pathToPolygon(currentPath);
+            const color = colorFromId(sessionId);
+            const buildings = generateBuildings(coords, currentDistance, elapsed);
+            const territory: Territory = {
+              id: sessionId,
+              name: `Territory ${store.territories.length + 1}`,
+              coordinates: coords,
+              createdAt: currentStartTime ?? Date.now(),
+              distance: currentDistance,
+              duration: elapsed,
+              buildings,
+              color,
+            };
+            store.addTerritory(territory);
+          }
+          tracker.reset();
+          setParkCardDismissed(false);
+        }, 400);
+      }
+    }, 300);
+  }, [geo, tracker, store]);
+  // ────────────────────────────────────────────────────────────────────────
 
   return (
     <div className={styles.page}>
@@ -213,6 +281,14 @@ export function Home() {
         onStart={handleStart}
         onStop={handleStop}
       />
+
+      {/* Dev simulate button — test territory capture without walking */}
+      {tracker.session.status === 'idle' && (
+        <button className={styles.simBtn} onClick={handleSimulate} title="Simulate run (dev)">
+          <FlaskConical size={16} strokeWidth={2} />
+          <span>Simulate</span>
+        </button>
+      )}
 
       {selectedTerritory && (
         <Modal
