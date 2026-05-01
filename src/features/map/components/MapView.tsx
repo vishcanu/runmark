@@ -5,24 +5,29 @@ import { TerritoryLayer } from './TerritoryLayer';
 import { PathLayer } from './PathLayer';
 import { BuildingLayer } from '../../building/components/BuildingLayer';
 import { ParkLayer } from '../../parks/components/ParkLayer';
+import { ParkBoundaryLayer } from '../../parks/components/ParkBoundaryLayer';
 import type { Territory, Coordinate } from '../../../types';
 import type { Park } from '../../parks/types';
 import styles from './MapView.module.css';
 
 interface MapViewProps {
   userPosition: Coordinate | null;
+  userHeading?: number | null;
+  userAccuracy?: number | null;
   territories: Territory[];
   activePath: Coordinate[];
   selectedTerritoryId: string | null;
   onTerritoryClick: (id: string) => void;
   parks: Park[];
   closestParkId: string | null;
-  /** When set, map flies to this coordinate (used when user taps a park chip) */
   centerTarget: Coordinate | null;
+  selectedPark: Park | null;
 }
 
 export function MapView({
   userPosition,
+  userHeading,
+  userAccuracy,
   territories,
   activePath,
   selectedTerritoryId,
@@ -30,6 +35,7 @@ export function MapView({
   parks,
   closestParkId,
   centerTarget,
+  selectedPark,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { map, isReady, flyTo } = useMap(containerRef);
@@ -55,7 +61,8 @@ export function MapView({
       {isReady && map && (
         <>
           <ParkLayer map={map} parks={parks} closestParkId={closestParkId} />
-          <UserMarker map={map} position={userPosition} />
+          <ParkBoundaryLayer map={map} park={selectedPark} />
+          <UserMarker map={map} position={userPosition} heading={userHeading} accuracy={userAccuracy} />
           <TerritoryLayer
             map={map}
             territories={territories}

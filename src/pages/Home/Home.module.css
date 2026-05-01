@@ -71,7 +71,9 @@
     -webkit-overflow-scrolling: touch;
 }
 
-.parksTrayScroll::-webkit-scrollbar { display: none; }
+.parksTrayScroll::-webkit-scrollbar {
+    display: none;
+}
 
 /* ─── Individual park chip card ──────────────────────────── */
 .parkChip {
@@ -139,6 +141,32 @@
     white-space: nowrap;
 }
 
+/* ─── Loading skeleton chip ──────────────────────────────── */
+.parkChipSkeleton {
+    flex-shrink: 0;
+    width: 140px;
+    height: 62px;
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.40);
+    animation: shimmer 1.4s ease-in-out infinite;
+    scroll-snap-align: start;
+}
+
+@keyframes shimmer {
+
+    0%,
+    100% {
+        opacity: 0.45;
+    }
+
+    50% {
+        opacity: 0.80;
+    }
+}
+
 /* ─── Park confirm sheet ─────────────────────────────────── */
 /* Shown after tapping a chip — sits above bottom nav */
 .parkConfirm {
@@ -161,8 +189,15 @@
 }
 
 @keyframes confirmSlideUp {
-    from { opacity: 0; transform: translateY(10px) scale(0.98); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .parkConfirmDismiss {

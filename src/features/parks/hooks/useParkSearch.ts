@@ -122,19 +122,16 @@ export function useParkSearch(
 
     const [lng, lat] = userPosition;
 
-    // Skip if already fetched near this position
+    // Skip if already fetched near this position AND cache is still valid
     if (lastFetchPosRef.current) {
       const dlat = Math.abs(lastFetchPosRef.current.lat - lat) * 111320;
       const dlng = Math.abs(lastFetchPosRef.current.lng - lng) * 111320;
-      if (Math.sqrt(dlat ** 2 + dlng ** 2) < 500) {
-        // Just re-enrich with updated claimed set if needed
-        if (isCacheValid(lat, lng)) {
-          const enriched = cache!.parks
-            .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
-            .sort((a, b) => a.distance - b.distance)
-            .slice(0, 10);
-          setState({ parks: enriched, loading: false, error: null });
-        }
+      if (Math.sqrt(dlat ** 2 + dlng ** 2) < 500 && isCacheValid(lat, lng)) {
+        const enriched = cache!.parks
+          .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 10);
+        setState({ parks: enriched, loading: false, error: null });
         return;
       }
     }

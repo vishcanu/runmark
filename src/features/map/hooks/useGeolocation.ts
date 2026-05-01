@@ -4,6 +4,7 @@ import type { Coordinate } from '../../../types';
 export interface GeolocationState {
   position: Coordinate | null;
   accuracy: number | null;
+  heading: number | null;
   error: string | null;
   isWatching: boolean;
 }
@@ -12,6 +13,7 @@ export function useGeolocation() {
   const [state, setState] = useState<GeolocationState>({
     position: null,
     accuracy: null,
+    heading: null,
     error: null,
     isWatching: false,
   });
@@ -51,6 +53,7 @@ export function useGeolocation() {
         setState({
           position: [pos.coords.longitude, pos.coords.latitude],
           accuracy: pos.coords.accuracy,
+          heading: pos.coords.heading ?? null,
           error: null,
           isWatching: true,
         });

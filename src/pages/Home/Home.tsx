@@ -26,14 +26,14 @@ export function Home() {
   // Set of claimed park IDs for context
   const claimedParkIds = useMemo(() => new Set<string>(), []);
 
-  const { parks } = useParkSearch(geo.position, claimedParkIds);
+  const { parks, loading: parksLoading } = useParkSearch(geo.position, claimedParkIds);
 
   // Closest park for map highlight
   const closestPark = parks.length > 0 && parks[0].distance <= 5000 ? parks[0] : null;
 
   const showParksTray =
     !parkCardDismissed &&
-    parks.length > 0 &&
+    (parks.length > 0 || (parksLoading && geo.position !== null)) &&
     tracker.session.status === 'idle' &&
     selectedPark === null;
 
@@ -103,6 +103,8 @@ export function Home() {
 
       <MapView
         userPosition={geo.position}
+        userHeading={geo.heading}
+        userAccuracy={geo.accuracy}
         territories={store.territories}
         activePath={tracker.session.path}
         selectedTerritoryId={store.selectedId}
@@ -110,6 +112,7 @@ export function Home() {
         parks={parks}
         closestParkId={closestPark?.id ?? null}
         centerTarget={mapCenterTarget}
+        selectedPark={selectedPark}
       />
 
       {/* Parks tray — horizontal scroll list, shown when idle */}
@@ -118,40 +121,44 @@ export function Home() {
           <div className={styles.parksTrayHeader}>
             <MapPin size={12} strokeWidth={2.5} className={styles.parksTrayPin} />
             <span className={styles.parksTrayTitle}>
-              {parks.length} place{parks.length !== 1 ? 's' : ''} nearby
+              {parksLoading ? 'Finding nearby places…' : `${parks.length} place${parks.length !== 1 ? 's' : ''} nearby`}
             </span>
-            <button
-              className={styles.parksTrayDismiss}
-              onClick={() => setParkCardDismissed(true)}
-              aria-label="Dismiss"
-            >
-              <X size={13} strokeWidth={2.5} />
-            </button>
+            {!parksLoading && (
+              <button
+                className={styles.parksTrayDismiss}
+                onClick={() => setParkCardDismissed(true)}
+                aria-label="Dismiss"
+              >
+                <X size={13} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
           <div className={styles.parksTrayScroll}>
-            {parks.slice(0, 8).map((park) => {
-              const isLake = park.placeType === 'lake';
-              return (
-                <button
-                  key={park.id}
-                  className={[styles.parkChip, isLake ? styles.parkChipLake : ''].filter(Boolean).join(' ')}
-                  onClick={() => handleParkChipTap(park)}
-                >
-                  <div className={styles.parkChipIcon}>
-                    {isLake
-                      ? <Waves size={16} strokeWidth={1.75} />
-                      : <Trees size={16} strokeWidth={1.75} />
-                    }
-                  </div>
+            {parksLoading
+              ? [1, 2, 3].map((i) => <div key={i} className={styles.parkChipSkeleton} />)
+              : parks.slice(0, 8).map((park) => {
+                  const isLake = park.placeType === 'lake';
+                  return (
+                    <button
+                      key={park.id}
+                      className={[styles.parkChip, isLake ? styles.parkChipLake : ''].filter(Boolean).join(' ')}
+                      onClick={() => handleParkChipTap(park)}
+                    >
+                      <div className={styles.parkChipIcon}>
+                        {isLake
+                          ? <Waves size={16} strokeWidth={1.75} />
+                          : <Trees size={16} strokeWidth={1.75} />
+                        }
+                      </div>
                   <div className={styles.parkChipBody}>
                     <span className={styles.parkChipName}>{park.name}</span>
                     <span className={styles.parkChipMeta}>
                       {formatParkDistance(park.distance)} · {park.walkMinutes} min
                     </span>
                   </div>
-                </button>
-              );
-            })}
+                    </button>
+                  );
+                })}
           </div>
         </div>
       )}
