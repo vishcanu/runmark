@@ -33,7 +33,10 @@ export function App() {
     return (
       <Login
         onBack={() => setScreen('welcome')}
-        onLogin={() => setScreen('app')}
+        onLogin={() => {
+          window.history.replaceState(null, '', '/');
+          setScreen('app');
+        }}
       />
     );
   }

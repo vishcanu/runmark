@@ -74,6 +74,18 @@
     align-items: center;
 }
 
+/* ─── Avatar button (wrapper with chevron) ───────────────── */
+.avatarBtn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: var(--radius-full);
+}
+
 .avatar {
     width: 32px;
     height: 32px;
@@ -84,13 +96,125 @@
     font-size: 13px;
     font-weight: var(--font-bold);
     color: rgba(255, 255, 255, 0.95);
-    cursor: pointer;
+    box-shadow: var(--shadow-sm);
     transition: transform var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.avatarBtn:active .avatar {
+    transform: scale(0.93);
+}
+
+.chevron {
+    color: var(--color-text-secondary);
+    transition: transform 200ms ease;
+}
+
+.chevronOpen {
+    transform: rotate(180deg);
+}
+
+/* ─── Profile dropdown ───────────────────────────────────── */
+.dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: var(--space-4);
+    min-width: 210px;
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-float);
+    overflow: hidden;
+    animation: dropIn 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 50;
+}
+
+@keyframes dropIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.dropdownUser {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 14px var(--space-4);
+}
+
+.dropdownAvatar {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: var(--font-bold);
+    color: rgba(255, 255, 255, 0.95);
+    flex-shrink: 0;
     box-shadow: var(--shadow-sm);
 }
 
-.avatar:active {
-    transform: scale(0.94);
+.dropdownUserInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.dropdownName {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dropdownSubtitle {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    letter-spacing: 0.01em;
+}
+
+.dropdownDivider {
+    height: 1px;
+    background: var(--color-border-subtle);
+    margin: 0 var(--space-4);
+}
+
+.dropdownLogout {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: 12px var(--space-4);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: #dc2626;
+    transition: background var(--transition-fast);
+    text-align: left;
+}
+
+.dropdownLogout:hover {
+    background: rgba(220, 38, 38, 0.06);
+}
+
+.dropdownLogout:active {
+    background: rgba(220, 38, 38, 0.10);
 }
 
 
