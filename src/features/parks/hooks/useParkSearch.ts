@@ -116,6 +116,15 @@ export function useParkSearch(
   });
   const fetchingRef = useRef(false);
   const lastFetchPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [retryTrigger, setRetryTrigger] = useState(0);
+
+  // Cleanup retry timer on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!userPosition || fetchingRef.current) return;
@@ -158,16 +167,25 @@ export function useParkSearch(
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 10);
         setState({ parks: enriched, loading: false, error: null });
+        if (retryTimerRef.current) {
+          clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = null;
+        }
       })
       .catch(() => {
-        // Silently fail — parks are a nice-to-have, not critical
-        setState({ parks: [], loading: false, error: null });
-        lastFetchPosRef.current = null; // allow retry on next position fix
+        // Keep existing parks visible on failure — don't clear to empty
+        setState((s) => ({ ...s, loading: false, error: null }));
+        lastFetchPosRef.current = null;
+        // Auto-retry after 9s so parks appear without requiring GPS movement
+        retryTimerRef.current = setTimeout(
+          () => setRetryTrigger((t) => t + 1),
+          9000
+        );
       })
       .finally(() => {
         fetchingRef.current = false;
       });
-  }, [userPosition, claimedParkIds]);
+  }, [userPosition, claimedParkIds, retryTrigger]);
 
   return state;
 }

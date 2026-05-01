@@ -51,9 +51,9 @@ export function ParkLayer({ map, parks, closestParkId }: ParkLayerProps) {
       filter: ['==', ['get', 'isClosest'], true],
       paint: {
         'circle-radius': 24,
-        'circle-color': '#16a34a',
+        'circle-color': '#0284c7',
         'circle-opacity': 0.12,
-        'circle-stroke-color': '#16a34a',
+        'circle-stroke-color': '#0284c7',
         'circle-stroke-width': 2,
         'circle-stroke-opacity': 0.35,
       },
@@ -73,8 +73,8 @@ export function ParkLayer({ map, parks, closestParkId }: ParkLayerProps) {
         'circle-color': [
           'case',
           ['==', ['get', 'isClaimed'], true], '#4f46e5',
-          ['==', ['get', 'placeType'], 'lake'], '#0284c7',
-          '#16a34a',
+          ['==', ['get', 'placeType'], 'lake'], '#0369a1',
+          '#0284c7',
         ],
         'circle-opacity': 0.95,
         'circle-stroke-color': '#ffffff',

@@ -1,4 +1,4 @@
-import { Activity as ActivityIcon, TrendingUp, Clock } from 'lucide-react';
+import { Flame, TrendingUp, Clock, MapPin, Activity as ActivityIcon } from 'lucide-react';
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { TerritoryCard } from '../../features/territory/components/TerritoryCard';
 import { Modal } from '../../components/Modal/Modal';
@@ -13,52 +13,82 @@ export function Activity() {
 
   const totalDistance = store.territories.reduce((sum, t) => sum + t.distance, 0);
   const totalDuration = store.territories.reduce((sum, t) => sum + t.duration, 0);
+  const runCount = store.territories.length;
 
   const selectedTerritory = store.selectedId
     ? store.getTerritory(store.selectedId)
     : null;
 
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
+
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <div className={styles.headerRow}>
+
+      {/* ── Hero header ─────────────────────────────────────── */}
+      <div className={styles.hero}>
+        <div className={styles.heroTop}>
           <div>
-            <h1 className={styles.title}>Activity</h1>
-            <p className={styles.subtitle}>Hey, {user.name} 👋</p>
+            <p className={styles.heroDate}>{today}</p>
+            <h1 className={styles.heroName}>Hey, {user.name} 👋</h1>
           </div>
-          <div className={styles.avatarSmall} style={{ background: user.color }}>
-            <span className={styles.avatarInitial}>{user.initial}</span>
+          <div className={styles.heroAvatar} style={{ background: user.color }}>
+            {user.initial}
           </div>
+        </div>
+        <div className={styles.streakPill}>
+          <Flame size={13} strokeWidth={2.2} className={styles.streakIcon} />
+          <span className={styles.streakText}>
+            {runCount > 0
+              ? `${runCount} run${runCount !== 1 ? 's' : ''} completed`
+              : 'Start your first run!'}
+          </span>
         </div>
       </div>
 
-      <div className={styles.summary}>
-        <div className={styles.summaryItem}>
-          <TrendingUp size={18} strokeWidth={2} className={styles.summaryIcon} />
-          <span className={styles.summaryValue}>{formatDistance(totalDistance)}</span>
-          <span className={styles.summaryLabel}>Total Distance</span>
+      {/* ── Stats grid ──────────────────────────────────────── */}
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>
+            <TrendingUp size={15} strokeWidth={2.2} />
+          </div>
+          <span className={styles.statValue}>{formatDistance(totalDistance)}</span>
+          <span className={styles.statLabel}>Distance</span>
         </div>
-        <div className={styles.summaryDivider} />
-        <div className={styles.summaryItem}>
-          <Clock size={18} strokeWidth={2} className={styles.summaryIcon} />
-          <span className={styles.summaryValue}>{formatDuration(totalDuration)}</span>
-          <span className={styles.summaryLabel}>Total Time</span>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>
+            <Clock size={15} strokeWidth={2.2} />
+          </div>
+          <span className={styles.statValue}>{formatDuration(totalDuration)}</span>
+          <span className={styles.statLabel}>Total Time</span>
         </div>
-        <div className={styles.summaryDivider} />
-        <div className={styles.summaryItem}>
-          <ActivityIcon size={18} strokeWidth={2} className={styles.summaryIcon} />
-          <span className={styles.summaryValue}>{store.territories.length}</span>
-          <span className={styles.summaryLabel}>Territories</span>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>
+            <MapPin size={15} strokeWidth={2.2} />
+          </div>
+          <span className={styles.statValue}>{runCount}</span>
+          <span className={styles.statLabel}>Territories</span>
         </div>
       </div>
 
-      <div className={styles.list}>
-        {store.territories.length === 0 ? (
+      {/* ── Territory list ───────────────────────────────────── */}
+      <div className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <span className={styles.sectionTitle}>Your Territories</span>
+          {runCount > 0 && (
+            <span className={styles.sectionBadge}>{runCount}</span>
+          )}
+        </div>
+
+        {runCount === 0 ? (
           <div className={styles.empty}>
-            <ActivityIcon size={40} strokeWidth={1.5} className={styles.emptyIcon} />
+            <div className={styles.emptyIconWrap}>
+              <ActivityIcon size={28} strokeWidth={1.5} />
+            </div>
             <p className={styles.emptyTitle}>No territories yet</p>
             <p className={styles.emptyText}>
-              Go to the map and start an activity to claim your first territory.
+              Head to the Map tab, tap Start Run and walk a loop to claim your first territory.
             </p>
           </div>
         ) : (
@@ -90,3 +120,4 @@ export function Activity() {
     </div>
   );
 }
+

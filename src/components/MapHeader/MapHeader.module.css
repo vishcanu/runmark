@@ -230,7 +230,7 @@
     height: 26px;
     border-radius: var(--radius-sm);
     background: var(--color-park-tint);
-    border: 1px solid rgba(22, 163, 74, 0.15);
+    border: 1px solid rgba(2, 132, 199, 0.15);
     display: flex;
     align-items: center;
     justify-content: center;

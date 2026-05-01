@@ -4,7 +4,7 @@ import { saveUserProfile } from '../../hooks/useUserProfile';
 import styles from './Login.module.css';
 
 const COLORS = [
-  { value: '#16a34a', label: 'Forest' },
+  { value: '#0284c7', label: 'Sky' },
   { value: '#0284c7', label: 'Ocean' },
   { value: '#7c3aed', label: 'Violet' },
   { value: '#dc2626', label: 'Fire' },

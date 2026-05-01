@@ -14,9 +14,9 @@ interface UserMarkerProps {
  * White shadow applied via CSS filter for map readability.
  */
 const RUNNER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"
-  fill="none" stroke="#15803d" stroke-width="2.2"
+  fill="none" stroke="#0284c7" stroke-width="2.2"
   stroke-linecap="round" stroke-linejoin="round">
-  <circle cx="13" cy="4.5" r="2.2" fill="#15803d" stroke="none"/>
+  <circle cx="13" cy="4.5" r="2.2" fill="#0284c7" stroke="none"/>
   <line x1="12" y1="7" x2="10" y2="13"/>
   <line x1="11" y1="9" x2="7" y2="11"/>
   <line x1="11" y1="9" x2="15" y2="7"/>
@@ -41,8 +41,8 @@ export function UserMarker({ map, position, heading, accuracy: _accuracy }: User
           top: 50%; left: 50%;
           width: 60px; height: 60px;
           border-radius: 50%;
-          background: rgba(21, 128, 61, 0.10);
-          border: 1.5px solid rgba(21, 128, 61, 0.22);
+          background: rgba(2, 132, 199, 0.10);
+          border: 1.5px solid rgba(2, 132, 199, 0.22);
           transform: translate(-50%, -50%);
           pointer-events: none;
           animation: um-pulse 2.6s ease-out infinite;

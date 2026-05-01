@@ -299,7 +299,7 @@
     font-size: var(--text-sm);
     font-weight: var(--font-bold);
     cursor: pointer;
-    box-shadow: 0 3px 14px rgba(21, 128, 61, 0.35);
+    box-shadow: 0 3px 14px rgba(2, 132, 199, 0.35);
     transition: transform var(--transition-fast);
 }
 

@@ -32,7 +32,7 @@
     right: -20%;
     width: 280px;
     height: 280px;
-    background: rgba(21, 128, 61, 0.07);
+    background: rgba(2, 132, 199, 0.07);
     border-radius: 50%;
     pointer-events: none;
 }
@@ -133,7 +133,7 @@
 
 .fi_park {
     background: #f0fdf4;
-    color: #15803d;
+    color: #0284c7;
 }
 
 .fi_accent {
@@ -183,16 +183,16 @@
     cursor: pointer;
     transition: opacity var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base);
     letter-spacing: -0.01em;
-    box-shadow: 0 4px 20px rgba(21, 128, 61, 0.35);
+    box-shadow: 0 4px 20px rgba(2, 132, 199, 0.35);
 }
 
 .cta:hover {
-    box-shadow: 0 6px 24px rgba(21, 128, 61, 0.45);
+    box-shadow: 0 6px 24px rgba(2, 132, 199, 0.45);
 }
 
 .cta:active {
     transform: scale(0.97);
-    box-shadow: 0 2px 12px rgba(21, 128, 61, 0.30);
+    box-shadow: 0 2px 12px rgba(2, 132, 199, 0.30);
 }
 
 .terms {

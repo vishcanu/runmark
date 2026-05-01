@@ -113,7 +113,7 @@ export function ParkBoundaryLayer({ map, park }: ParkBoundaryLayerProps) {
         });
 
         const isLake = park.placeType === 'lake';
-        const color = isLake ? '#0284c7' : '#16a34a';
+        const color = isLake ? '#0369a1' : '#0284c7';
 
         // Soft fill inside the park boundary
         map.addLayer({

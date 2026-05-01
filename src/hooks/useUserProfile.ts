@@ -8,7 +8,7 @@ export interface UserProfile {
 
 export function useUserProfile(): UserProfile {
   const [name] = useState(() => localStorage.getItem('rg_user_name') ?? 'Explorer');
-  const [color] = useState(() => localStorage.getItem('rg_user_color') ?? '#16a34a');
+  const [color] = useState(() => localStorage.getItem('rg_user_color') ?? '#0284c7');
   return { name, color, initial: name.charAt(0).toUpperCase() };
 }
 

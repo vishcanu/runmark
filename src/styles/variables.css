@@ -8,17 +8,17 @@
   --color-bg-input: #f6f6f4;
 
   /* ─── Accent (single, used intentionally) ─────────────── */
-  --color-accent-primary: #15803d;
-  /* forest green — primary CTA */
+  --color-accent-primary: #0284c7;
+  /* sky blue — primary CTA */
   --color-accent-secondary: #0369a1;
-  /* ocean blue   — lakes */
+  /* deep ocean blue — secondary */
   --color-accent-danger: #dc2626;
   --color-accent-warning: #d97706;
-  --color-accent-park: #15803d;
+  --color-accent-park: #0284c7;
   --color-accent-lake: #0369a1;
 
   /* Tints — very subtle, used sparingly */
-  --color-park-tint: #f0fdf4;
+  --color-park-tint: #f0f9ff;
   --color-lake-tint: #e0f2fe;
   --color-danger-tint: #fef2f2;
 
@@ -46,10 +46,10 @@
   --shadow-float: 0 4px 20px rgba(18, 18, 20, 0.14);
 
   /* ─── Gradients (used minimally) ─────────────────────── */
-  --gradient-park: linear-gradient(150deg, #16a34a 0%, #15803d 100%);
+  --gradient-park: linear-gradient(150deg, #38bdf8 0%, #0284c7 100%);
   --gradient-lake: linear-gradient(150deg, #0284c7 0%, #0369a1 100%);
   --gradient-danger: linear-gradient(150deg, #ef4444 0%, #dc2626 100%);
-  --gradient-onboard: linear-gradient(170deg, #f0fdf4 0%, #f6f6f4 60%, #e0f2fe 100%);
+  --gradient-onboard: linear-gradient(170deg, #f0f9ff 0%, #f6f6f4 60%, #e0f2fe 100%);
 
   /* ─── Border Radius ───────────────────────────────────── */
   --radius-xs: 4px;
