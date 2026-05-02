@@ -111,14 +111,6 @@ function _gradColors(grad: string): [string, string] {
   return m && m.length >= 2 ? [m[0], m[1]] : ['#2563eb', '#1d4ed8'];
 }
 
-function _level(runs: number): string {
-  if (runs >= 5) return 'UNDERSTOOD THE ASSIGNMENT';
-  if (runs >= 4) return 'ATE';
-  if (runs >= 3) return 'MAIN CHARACTER';
-  if (runs >= 2) return 'ON SITE';
-  return 'LOWKEY';
-}
-
 function _grip(lastRunAt: number): number {
   const d = (Date.now() - lastRunAt) / 86_400_000;
   return Math.max(0, Math.min(100, Math.round((1 - d * 0.082) * 100)));
@@ -138,45 +130,158 @@ async function buildShareCard(
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
+  const [c1, c2] = _gradColors(themeGrad);
 
   // ── Background ──────────────────────────────────────────────
-  if (mapJpeg) {
-    await new Promise<void>((resolve, reject) => {
+  // mapJpeg is only trusted if it looks like a real image (> 8 KB encoded)
+  const mapValid = !!mapJpeg && mapJpeg.length > 8000;
+
+  if (mapValid) {
+    await new Promise<void>((resolve) => {
       const img = new Image();
       img.onload = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
-      img.onerror = reject;
-      img.src = mapJpeg;
+      img.onerror = () => resolve(); // just move on
+      img.src = mapJpeg!;
     });
+    // dark scrim so text is always legible
     const scrim = ctx.createLinearGradient(0, 0, 0, H);
-    scrim.addColorStop(0,    'rgba(0,0,0,0.08)');
-    scrim.addColorStop(0.28, 'rgba(0,0,0,0.04)');
-    scrim.addColorStop(0.58, 'rgba(0,0,0,0.55)');
+    scrim.addColorStop(0,    'rgba(0,0,0,0.10)');
+    scrim.addColorStop(0.30, 'rgba(0,0,0,0.06)');
+    scrim.addColorStop(0.55, 'rgba(0,0,0,0.60)');
     scrim.addColorStop(1,    'rgba(0,0,0,0.92)');
     ctx.fillStyle = scrim;
     ctx.fillRect(0, 0, W, H);
   } else {
-    const [c1, c2] = _gradColors(themeGrad);
-    const bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, c1);
-    bg.addColorStop(1, c2);
-    ctx.fillStyle = bg;
+    // Premium dark tactical background
+    ctx.fillStyle = '#0a0e1a';
     ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = 'rgba(255,255,255,0.07)';
-    for (let y = 22; y < H; y += 44) {
-      for (let x = 22; x < W; x += 44) {
+    // Subtle radial vignette — brighter center
+    const vignette = ctx.createRadialGradient(W / 2, H * 0.38, 0, W / 2, H * 0.38, W * 0.85);
+    vignette.addColorStop(0,   'rgba(255,255,255,0.04)');
+    vignette.addColorStop(1,   'rgba(0,0,0,0.0)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, W, H);
+    // Dot grid
+    ctx.fillStyle = 'rgba(255,255,255,0.055)';
+    for (let y = 32; y < H; y += 64) {
+      for (let x = 32; x < W; x += 64) {
         ctx.beginPath();
-        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+    // Bottom gradient fade to near-black
+    const fade = ctx.createLinearGradient(0, H * 0.52, 0, H);
+    fade.addColorStop(0, 'rgba(0,0,0,0)');
+    fade.addColorStop(1, 'rgba(0,0,0,0.72)');
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, H * 0.52, W, H * 0.48);
+  }
+
+  // ── Territory polygon ─────────────────────────────────────────
+  // Draw in upper 40% of the card — always present in both modes
+  const coords = territory.coordinates as [number, number][];
+  if (coords.length >= 3) {
+    const lngs = coords.map(c => c[0]);
+    const lats  = coords.map(c => c[1]);
+    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const lngSpan = maxLng - minLng || 0.001;
+    const latSpan = maxLat - minLat || 0.001;
+
+    // Fit shape into a 580×460 box, centered horizontally at ~38% card height
+    const BOX_W = 580, BOX_H = 460;
+    const scale  = Math.min(BOX_W / lngSpan, BOX_H / latSpan) * 0.82;
+    const drawW  = lngSpan * scale;
+    const drawH  = latSpan * scale;
+    const shapeCX = W / 2;
+    const shapeCY = H * 0.30;
+    const ox = shapeCX - drawW / 2;
+    const oy = shapeCY - drawH / 2;
+
+    const toX = (lng: number) => ox + (lng - minLng) * scale;
+    const toY = (lat: number) => oy + (maxLat - lat) * scale;
+
+    const tracePath = () => {
+      ctx.beginPath();
+      coords.forEach(([lng, lat], i) => {
+        if (i === 0) ctx.moveTo(toX(lng), toY(lat));
+        else ctx.lineTo(toX(lng), toY(lat));
+      });
+      ctx.closePath();
+    };
+
+    if (mapValid) {
+      // On top of real map: subtle highlight glow + crisp white outline
+      ctx.save();
+      tracePath();
+      ctx.shadowColor = c1;
+      ctx.shadowBlur = 50;
+      ctx.strokeStyle = 'rgba(255,255,255,0.0)';
+      ctx.lineWidth = 1;
+      ctx.stroke(); // just for the shadow
+      ctx.restore();
+
+      ctx.save();
+      tracePath();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = c1;
+      ctx.shadowBlur = 22;
+      ctx.globalAlpha = 0.90;
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      // On dark bg: prominent filled polygon with glow
+      // Wide outer glow
+      ctx.save();
+      tracePath();
+      ctx.shadowColor = c1;
+      ctx.shadowBlur = 60;
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 24;
+      ctx.stroke();
+      ctx.restore();
+
+      // Gradient fill
+      const fillGrad = ctx.createLinearGradient(ox, oy, ox + drawW, oy + drawH);
+      fillGrad.addColorStop(0, c1 + '44');
+      fillGrad.addColorStop(1, c2 + '44');
+      ctx.save();
+      tracePath();
+      ctx.fillStyle = fillGrad;
+      ctx.fill();
+      ctx.restore();
+
+      // Bright perimeter stroke
+      ctx.save();
+      tracePath();
+      ctx.shadowColor = c1;
+      ctx.shadowBlur = 28;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+      ctx.restore();
+
+      // Corner dots
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = c1;
+      ctx.shadowBlur = 14;
+      coords.slice(0, -1).forEach(([lng, lat]) => {
+        ctx.beginPath();
+        ctx.arc(toX(lng), toY(lat), 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.shadowBlur = 0;
     }
   }
 
   // ── Zone name ────────────────────────────────────────────────
-  ctx.font = `800 76px ${_CARD_FONT}`;
+  ctx.font = `800 72px ${_CARD_FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.shadowColor = 'rgba(0,0,0,0.6)';
-  ctx.shadowBlur = 28;
+  ctx.shadowColor = 'rgba(0,0,0,0.7)';
+  ctx.shadowBlur = 32;
   ctx.fillStyle = '#ffffff';
   let zoneName = territory.name;
   while (ctx.measureText(zoneName).width > W - 80 && zoneName.length > 1)
@@ -186,83 +291,58 @@ async function buildShareCard(
   ctx.shadowBlur = 0;
 
   // ── Tagline ──────────────────────────────────────────────────
-  let taglineBottomY = H - 375;
   if (territory.tagline) {
-    ctx.font = `italic 34px ${_CARD_FONT}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.76)';
-    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.font = `italic 32px ${_CARD_FONT}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.72)';
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
     ctx.shadowBlur = 12;
     let tl = `\u201c${territory.tagline}\u201d`;
     while (ctx.measureText(tl).width > W - 80 && tl.length > 3)
       tl = tl.slice(0, -2) + '\u201d';
-    ctx.fillText(tl, W / 2, taglineBottomY);
+    ctx.fillText(tl, W / 2, H - 385);
     ctx.shadowBlur = 0;
-    taglineBottomY += 8; // push pill a little lower after tagline
   }
-
-  // ── Level pill — below tagline, centered ─────────────────────
-  const level = _level(territory.runs ?? 1);
-  const PILL_FONT = `700 22px ${_CARD_FONT}`;
-  ctx.font = PILL_FONT;
-  const textW = ctx.measureText(level).width;
-  const pillPadX = 28, pillH = 56;
-  const pillW = textW + pillPadX * 2;
-  const pillLeft = (W - pillW) / 2;
-  const pillTop = taglineBottomY + 18;
-  ctx.save();
-  _rRect(ctx, pillLeft, pillTop, pillW, pillH, 100);
-  ctx.fillStyle = 'rgba(0,0,0,0.38)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.restore();
-  ctx.font = PILL_FONT;
-  ctx.fillStyle = 'rgba(255,255,255,0.88)';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(level, W / 2, pillTop + pillH / 2);
 
   // ── Stats pill ───────────────────────────────────────────────
   const grip = _grip(territory.lastRunAt ?? territory.createdAt);
-  const px = 40, py = H - 290, pw = W - 80, ph = 152;
+  const px = 40, py = H - 300, pw = W - 80, ph = 154;
   ctx.save();
   _rRect(ctx, px, py, pw, ph, 36);
-  ctx.fillStyle = 'rgba(0,0,0,0.36)';
+  ctx.fillStyle = 'rgba(0,0,0,0.40)';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.restore();
 
   const stats = [
-    { val: `${grip}%`,                       key: 'GRIP'     },
-    { val: `${territory.runs ?? 1}\u00d7`,   key: 'GRINDS'   },
-    { val: _dist(territory.distance),        key: 'DISTANCE' },
+    { val: `${grip}%`,                     key: 'GRIP'     },
+    { val: `${territory.runs ?? 1}\u00d7`, key: 'GRINDS'   },
+    { val: _dist(territory.distance),      key: 'DISTANCE' },
   ];
   const colW = pw / 3;
   stats.forEach((s, i) => {
     const cx = px + colW * i + colW / 2;
-    ctx.font = `800 48px ${_CARD_FONT}`;
+    ctx.font = `800 46px ${_CARD_FONT}`;
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(s.val, cx, py + 84);
-    ctx.font = `600 22px ${_CARD_FONT}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.58)';
-    ctx.fillText(s.key, cx, py + 118);
+    ctx.fillText(s.val, cx, py + 86);
+    ctx.font = `600 21px ${_CARD_FONT}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillText(s.key, cx, py + 122);
     if (i < 2) {
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      ctx.fillRect(px + colW * (i + 1) - 1, py + 20, 2, 112);
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
+      ctx.fillRect(px + colW * (i + 1) - 1, py + 22, 2, 110);
     }
   });
 
   // ── Brand ────────────────────────────────────────────────────
-  ctx.font = `800 26px ${_CARD_FONT}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.38)';
+  ctx.font = `800 24px ${_CARD_FONT}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText('RUNMARK', W / 2, H - 92);
+  ctx.fillText('RUNMARK', W / 2, H - 96);
 
   return canvas.toDataURL('image/png');
 }
