@@ -1,4 +1,5 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
+import { Crosshair } from 'lucide-react';
 import { useMap } from '../hooks/useMap';
 import { UserMarker } from './UserMarker';
 import { TerritoryLayer } from './TerritoryLayer';
@@ -40,13 +41,18 @@ export function MapView({
   const containerRef = useRef<HTMLDivElement>(null);
   const { map, isReady, flyTo } = useMap(containerRef);
 
-  // Fly to user on first position fix
+  // Center on user the moment first GPS fix arrives
   const hasCenteredRef = useRef(false);
   useEffect(() => {
     if (userPosition && isReady && !hasCenteredRef.current) {
       flyTo(userPosition, 16);
       hasCenteredRef.current = true;
     }
+  }, [userPosition, isReady, flyTo]);
+
+  // Re-center button handler
+  const handleLocate = useCallback(() => {
+    if (userPosition && isReady) flyTo(userPosition, 16);
   }, [userPosition, isReady, flyTo]);
 
   // Fly to selected park when user taps a chip
@@ -72,6 +78,16 @@ export function MapView({
           <PathLayer map={map} path={activePath} />
           <BuildingLayer map={map} territories={territories} />
         </>
+      )}
+      {/* Re-center on user button */}
+      {userPosition && (
+        <button
+          className={styles.locateBtn}
+          onClick={handleLocate}
+          aria-label="Center on my location"
+        >
+          <Crosshair size={20} strokeWidth={2} />
+        </button>
       )}
     </div>
   );
