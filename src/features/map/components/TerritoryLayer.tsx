@@ -3,30 +3,18 @@ import type { Map, GeoJSONSource } from 'maplibre-gl';
 import type { Territory } from '../../../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  TERRITORY VISUAL — Solid Game Zone Walls
+//  TERRITORY VISUAL — Solid Walls + Daily Decay
 //
-//  KEY MapLibre constraint (the bug that caused invisible walls before):
-//    fill-extrusion-opacity is PER-LAYER only — it does NOT support
-//    data-driven expressions like ['get', 'sel']. Passing a data expression
-//    causes the layer to fail silently and become completely invisible.
-//    → Always use a numeric constant for fill-extrusion-opacity.
+//  THE DAILY HOOK: Territory walls decay if you don't run.
+//    Day 0-1   → full height, full color        (fresh)
+//    Day 2-3   → 85% height                     (slightly faded)
+//    Day 4-5   → 65% height, color shifts amber (weakening)
+//    Day 6-7   → 50% height, color shifts red   (critical)
+//    Day 8+    → 35% height, pulsing red border  (almost lost)
+//  → Runs reset lastRunAt and restore full height
 //
-//  What renders:
-//    Floor      — solid colored fill at 40-55% opacity ("this ground is mine")
-//    Walls      — solid colored fill-extrusion at 0.78 opacity (the main block)
-//    Crown      — white fill-extrusion top 10m at 0.88 opacity (powered cap)
-//    Halo       — wide blurred line outside (electric field)
-//    Border     — crisp colored line (exact ownership edge)
-//    Flash      — white animated pulse running the border
-//    Pillars    — corner circle anchors (white + color ring)
-//    Label      — territory name
-//
-//  Height progression:
-//    runs=1 → 60m   freshly claimed
-//    runs=2 → 85m   reinforcing
-//    runs=3 → 110m  fortress
-//    runs=4+ → 130m max tier
-//    selected → ×1.5 (activated)
+//  fill-extrusion-opacity MUST be a constant per MapLibre spec.
+//  height, color, crownBase ARE data-driven (fine).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SRC        = 'territories-source';
@@ -42,9 +30,33 @@ const L_FLASH    = 'territories-flash';
 const L_PILLARS  = 'territories-pillars';
 const L_LABEL    = 'territories-label';
 
-function wallHeight(runs: number, selected: boolean): number {
-  const h = Math.min(60 + (runs - 1) * 25, 130);
-  return selected ? Math.round(h * 1.5) : h;
+const MS_PER_DAY = 86_400_000;
+
+// ── Base height from runs (before decay) ─────────────────────
+function baseHeight(runs: number): number {
+  return Math.min(60 + (runs - 1) * 25, 130);
+}
+
+// ── Decay multiplier: 1.0 → 0.35 over 8 days ─────────────────
+function decayMultiplier(lastRunAt: number): number {
+  const days = (Date.now() - lastRunAt) / MS_PER_DAY;
+  return Math.max(0.35, 1 - days * 0.082);
+}
+
+// ── Decay color: own color → amber → red as days pass ─────────
+function decayColor(baseColor: string, lastRunAt: number): string {
+  const days = (Date.now() - lastRunAt) / MS_PER_DAY;
+  if (days < 4)  return baseColor;
+  if (days < 6)  return '#d97706';  // amber — weakening
+  if (days < 8)  return '#ea580c';  // orange-red — critical
+  return '#dc2626';                  // red — almost lost
+}
+
+function computeProps(t: Territory, selected: boolean) {
+  const mul   = decayMultiplier(t.lastRunAt ?? t.createdAt);
+  const h     = Math.round(baseHeight(t.runs ?? 1) * mul * (selected ? 1.5 : 1));
+  const color = decayColor(t.color, t.lastRunAt ?? t.createdAt);
+  return { h, color, crownBase: Math.max(0, h - 10) };
 }
 
 function centroid(coords: [number, number][]): [number, number] {
@@ -69,28 +81,25 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
     if (!map) return;
 
     const polyFeatures = territories.map((t) => {
-      const h = wallHeight(t.runs ?? 1, t.id === selectedId);
+      const sel = t.id === selectedId;
+      const { h, color, crownBase } = computeProps(t, sel);
       return {
         type: 'Feature' as const,
         id: t.id,
         geometry: { type: 'Polygon' as const, coordinates: [t.coordinates] },
-        properties: {
-          id: t.id,
-          color: t.color,
-          height: h,
-          crownBase: Math.max(0, h - 10),
-          sel: t.id === selectedId ? 1 : 0,
-        },
+        properties: { id: t.id, color, height: h, crownBase, sel: sel ? 1 : 0 },
       };
     });
 
-    const vertFeatures = territories.flatMap((t) =>
-      t.coordinates.slice(0, -1).map((coord) => ({
+    const vertFeatures = territories.flatMap((t) => {
+      const sel = t.id === selectedId;
+      const { color } = computeProps(t, sel);
+      return t.coordinates.slice(0, -1).map((coord) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: coord },
-        properties: { color: t.color, sel: t.id === selectedId ? 1 : 0 },
-      }))
-    );
+        properties: { color, sel: sel ? 1 : 0 },
+      }));
+    });
 
     const labelFeatures = territories.map((t) => ({
       type: 'Feature' as const,
@@ -112,110 +121,90 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       map.addSource(SRC_VERTS,  { type: 'geojson', data: vertGeo  });
       map.addSource(SRC_LABELS, { type: 'geojson', data: labelGeo });
 
-      // 0 ── Solid colored floor ("this ground is mine")
+      // 0 ── Floor
       map.addLayer({
-        id: L_FILL,
-        type: 'fill',
-        source: SRC,
+        id: L_FILL, type: 'fill', source: SRC,
         paint: {
           'fill-color':   ['get', 'color'],
-          'fill-opacity': ['case', ['==', ['get', 'sel'], 1], 0.55, 0.40],
+          'fill-opacity': ['case', ['==', ['get', 'sel'], 1], 0.50, 0.35],
         },
       });
 
-      // 1 ── White shimmer fog inside (animated via RAF)
+      // 1 ── Inner shimmer (animated)
       map.addLayer({
-        id: L_SHIMMER,
-        type: 'fill',
-        source: SRC,
+        id: L_SHIMMER, type: 'fill', source: SRC,
         paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.04 },
       });
 
-      // 2 ── SOLID COLORED WALLS — the main 3D block
-      //      fill-extrusion-opacity MUST be a constant (not a data expression).
-      //      height IS data-driven (that's fine). color IS data-driven (fine).
+      // 2 ── Solid colored walls (fill-extrusion-opacity MUST be constant)
       map.addLayer({
-        id: L_WALLS,
-        type: 'fill-extrusion',
-        source: SRC,
+        id: L_WALLS, type: 'fill-extrusion', source: SRC,
         paint: {
           'fill-extrusion-color':   ['get', 'color'],
           'fill-extrusion-height':  ['get', 'height'],
           'fill-extrusion-base':    0,
-          'fill-extrusion-opacity': 0.78,   // ← CONSTANT required by MapLibre
+          'fill-extrusion-opacity': 0.80,
         },
       });
 
-      // 3 ── White crown cap (top 10m of each wall)
-      //      Gives the "powered fortress dome" look at 50° pitch
+      // 3 ── White crown cap (top 10m)
       map.addLayer({
-        id: L_CROWN,
-        type: 'fill-extrusion',
-        source: SRC,
+        id: L_CROWN, type: 'fill-extrusion', source: SRC,
         paint: {
           'fill-extrusion-color':   '#ffffff',
           'fill-extrusion-height':  ['get', 'height'],
           'fill-extrusion-base':    ['get', 'crownBase'],
-          'fill-extrusion-opacity': 0.88,   // ← CONSTANT required by MapLibre
+          'fill-extrusion-opacity': 0.88,
         },
       });
 
-      // 4 ── Wide blurred outer electric halo
+      // 4 ── Wide diffuse halo
       map.addLayer({
-        id: L_HALO,
-        type: 'line',
-        source: SRC,
+        id: L_HALO, type: 'line', source: SRC,
         paint: {
           'line-color':   ['get', 'color'],
-          'line-width':   20,
-          'line-opacity': 0.30,
-          'line-blur':    14,
+          'line-width':   18,
+          'line-opacity': 0.28,
+          'line-blur':    12,
         },
       });
 
-      // 5 ── Crisp solid ground boundary
+      // 5 ── Crisp ground ring
       map.addLayer({
-        id: L_BORDER,
-        type: 'line',
-        source: SRC,
+        id: L_BORDER, type: 'line', source: SRC,
         paint: {
           'line-color':   ['get', 'color'],
-          'line-width':   ['case', ['==', ['get', 'sel'], 1], 3.5, 2.5],
+          'line-width':   ['case', ['==', ['get', 'sel'], 1], 2.8, 2.0],
           'line-opacity': 1.0,
         },
       });
 
-      // 6 ── Animated white energy flash along boundary
+      // 6 ── White energy flash (animated)
       map.addLayer({
-        id: L_FLASH,
-        type: 'line',
-        source: SRC,
-        paint: { 'line-color': '#ffffff', 'line-width': 2.0, 'line-opacity': 0.0 },
+        id: L_FLASH, type: 'line', source: SRC,
+        paint: { 'line-color': '#ffffff', 'line-width': 1.5, 'line-opacity': 0.0 },
       });
 
-      // 7 ── Corner anchor pylons
+      // 7 ── Corner anchor dots — SMALL & PRECISE
+      //      radius 4/3 (selected/idle) — aesthetic, not bulky
       map.addLayer({
-        id: L_PILLARS,
-        type: 'circle',
-        source: SRC_VERTS,
+        id: L_PILLARS, type: 'circle', source: SRC_VERTS,
         paint: {
-          'circle-radius':       ['case', ['==', ['get', 'sel'], 1], 9, 6],
+          'circle-radius':       ['case', ['==', ['get', 'sel'], 1], 4, 3],
           'circle-color':        '#ffffff',
           'circle-stroke-color': ['get', 'color'],
-          'circle-stroke-width': ['case', ['==', ['get', 'sel'], 1], 5, 3],
+          'circle-stroke-width': ['case', ['==', ['get', 'sel'], 1], 2.5, 2],
           'circle-opacity':       1.0,
         },
       });
 
-      // 8 ── Territory name label
+      // 8 ── Label
       map.addLayer({
-        id: L_LABEL,
-        type: 'symbol',
-        source: SRC_LABELS,
+        id: L_LABEL, type: 'symbol', source: SRC_LABELS,
         layout: {
           'text-field':          ['get', 'name'],
           'text-font':           ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
-          'text-size':           14,
+          'text-size':           12,
           'text-anchor':         'center',
           'text-letter-spacing': 0.10,
           'text-max-width':      9,
@@ -223,12 +212,11 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         paint: {
           'text-color':      '#ffffff',
           'text-halo-color': ['get', 'color'],
-          'text-halo-width': 3,
+          'text-halo-width': 2.5,
           'text-halo-blur':  1,
         },
       });
 
-      // ── Click & cursor ─────────────────────────────────────
       [L_FILL, L_WALLS, L_CROWN].forEach((layer) => {
         map.on('click', layer, (e) => {
           const id = e.features?.[0]?.properties?.id as string | undefined;
@@ -239,36 +227,32 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       });
     }
 
-    // ── Animation loop (30 fps) ───────────────────────────────
+    // ── Animation (30 fps) ───────────────────────────────────
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     let phase = Math.random() * Math.PI * 2;
     let lastFrame = 0;
-    const FRAME_MS = 1000 / 30;
 
     const animate = (now: number) => {
       rafRef.current = requestAnimationFrame(animate);
-      if (now - lastFrame < FRAME_MS) return;
+      if (now - lastFrame < 33) return;
       lastFrame = now;
       phase += 0.045;
 
-      const shimmer = 0.03 + 0.11 * (0.5 + 0.5 * Math.sin(phase * 0.48));
+      const shimmer = 0.03 + 0.10 * (0.5 + 0.5 * Math.sin(phase * 0.48));
       const raw     = 0.5 + 0.5 * Math.sin(phase * 1.25);
       const flash   = Math.pow(raw, 4);
-      const fWidth  = 1.5 + flash * 4.5;
 
       try {
         if (map.getLayer(L_SHIMMER)) map.setPaintProperty(L_SHIMMER, 'fill-opacity', shimmer);
         if (map.getLayer(L_FLASH)) {
           map.setPaintProperty(L_FLASH, 'line-opacity', flash);
-          map.setPaintProperty(L_FLASH, 'line-width',   fWidth);
+          map.setPaintProperty(L_FLASH, 'line-width', 1.0 + flash * 3.5);
         }
-      } catch { /* map may be mid-teardown */ }
+      } catch { /* mid-teardown */ }
     };
     rafRef.current = requestAnimationFrame(animate);
 
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [map, territories, selectedId, onTerritoryClick]);
 
   return null;

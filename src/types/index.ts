@@ -27,6 +27,8 @@ export interface Territory {
   color: string;
   /** Number of full loops completed around this territory */
   runs: number;
+  /** Timestamp of most recent run — used for territory decay */
+  lastRunAt: number;
   /** Theme ID — drives gradient swatch selection in the edit panel */
   theme?: string;
   /** Lucide icon ID shown as zone emblem */

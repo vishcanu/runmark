@@ -1,6 +1,6 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import {
-  Ruler, Clock, Repeat2, Check, X, Trash2,
+  Ruler, Clock, Repeat2, Check, X, Trash2, AlertTriangle,
   Shield, Zap, Star, Crown, Flag, Target, Flame, Trophy, Gem, Anchor, Mountain, Crosshair,
 } from 'lucide-react';
 import { Button } from '../../../components/Button/Button';
@@ -8,7 +8,7 @@ import { formatDistance, formatDuration } from '../../map/utils/geo';
 import type { Territory } from '../../../types';
 import styles from './TerritoryDetails.module.css';
 
-// ── Themes — each has a gradient for swatches/UI and a solid color for the map ──
+// ── Themes ────────────────────────────────────────────────────
 const THEMES = [
   { id: 'cobalt',   name: 'Cobalt',   grad: 'linear-gradient(135deg,#38bdf8,#0284c7)', color: '#0284c7' },
   { id: 'ocean',    name: 'Ocean',    grad: 'linear-gradient(135deg,#22d3ee,#0e7490)', color: '#0891b2' },
@@ -47,6 +47,31 @@ function getEmblem(id?: string) {
   return EMBLEMS.find((e) => e.id === id) ?? EMBLEMS[0];
 }
 
+// ── Territory decay helpers ───────────────────────────────────
+const MS_PER_DAY = 86_400_000;
+
+function daysSince(ts: number) {
+  return (Date.now() - ts) / MS_PER_DAY;
+}
+
+function healthPct(lastRunAt: number): number {
+  const days = daysSince(lastRunAt);
+  return Math.max(0, Math.min(100, Math.round((1 - days * 0.082) * 100)));
+}
+
+function healthLabel(pct: number): { label: string; color: string; urgent: boolean } {
+  if (pct >= 80) return { label: 'Fully powered',      color: '#22c55e', urgent: false };
+  if (pct >= 60) return { label: 'Holding strong',     color: '#84cc16', urgent: false };
+  if (pct >= 40) return { label: 'Walls weakening…',   color: '#f59e0b', urgent: false };
+  if (pct >= 20) return { label: 'Critical — run now', color: '#ef4444', urgent: true  };
+  return              { label: 'Almost lost!',          color: '#dc2626', urgent: true  };
+}
+
+function daysUntilLost(lastRunAt: number): number {
+  const days = daysSince(lastRunAt);
+  return Math.max(0, Math.ceil((1 - 0.35) / 0.082 - days));
+}
+
 interface TerritoryDetailsProps {
   territory: Territory;
   onDelete: (id: string) => void;
@@ -62,8 +87,13 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
 
   const theme = getTheme(territory.theme);
   const { Icon: EmblemIcon } = getEmblem(territory.emblem);
-
   const draftThemeObj = getTheme(draftTheme);
+
+  // Health / decay
+  const lastRun  = territory.lastRunAt ?? territory.createdAt;
+  const hPct     = useMemo(() => healthPct(lastRun), [lastRun]);
+  const hInfo    = useMemo(() => healthLabel(hPct),  [hPct]);
+  const daysLeft = useMemo(() => daysUntilLost(lastRun), [lastRun]);
 
   function openEdit() {
     setDraftName(territory.name);
@@ -116,6 +146,30 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
             Customize
           </button>
         )}
+      </div>
+
+      {/* ── Territory health meter ── */}
+      <div className={styles.healthBlock}>
+        <div className={styles.healthHeader}>
+          <span className={styles.healthTitle}>Zone Strength</span>
+          <span className={styles.healthPct} style={{ color: hInfo.color }}>{hPct}%</span>
+        </div>
+        <div className={styles.healthBarTrack}>
+          <div
+            className={styles.healthBarFill}
+            style={{ width: `${hPct}%`, background: hInfo.color }}
+          />
+        </div>
+        <div className={styles.healthFooter}>
+          {hInfo.urgent && <AlertTriangle size={12} strokeWidth={2.5} style={{ color: hInfo.color, flexShrink: 0 }} />}
+          <span className={styles.healthStatus} style={{ color: hInfo.color }}>{hInfo.label}</span>
+          {daysLeft > 0 && !hInfo.urgent && (
+            <span className={styles.healthDays}>Runs out in {daysLeft}d</span>
+          )}
+          {hInfo.urgent && daysLeft <= 2 && (
+            <span className={styles.healthDays} style={{ color: hInfo.color }}>Only {daysLeft}d left!</span>
+          )}
+        </div>
       </div>
 
       {/* ── Stats ── */}

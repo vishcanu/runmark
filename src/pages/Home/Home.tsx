@@ -86,6 +86,7 @@ export function Home() {
       buildings,
       color,
       runs: 1,
+      lastRunAt: Date.now(),
     };
 
     store.addTerritory(territory);

@@ -28,6 +28,7 @@ const TEST_TERRITORY: Territory = {
   distance: 430,   // ~one loop of the park perimeter
   duration: 380,
   runs: 1,         // 1 loop completed → freshly claimed
+  lastRunAt: Date.now(),
   theme: 'cobalt',
   emblem: 'shield',
   tagline: 'My morning fortress',
