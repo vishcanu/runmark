@@ -18,6 +18,7 @@ import type { Territory } from '../../../types';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SRC        = 'territories-source';
+const SRC_FLOOR  = 'territories-floor-source';
 const SRC_VERTS  = 'territories-verts-source';
 const SRC_LABELS = 'territories-labels-source';
 const L_FILL     = 'territories-fill';
@@ -67,6 +68,25 @@ function centroid(coords: [number, number][]): [number, number] {
   return [x / n, y / n];
 }
 
+// ── Shrink each vertex toward the centroid by `meters` ────────
+// 1° lat ≈ 111 320 m,  1° lng ≈ 111 320 * cos(lat) m
+function shrinkRing(
+  coords: [number, number][],
+  meters: number,
+): [number, number][] {
+  const [cLng, cLat] = centroid(coords);
+  const mPerLat = 111_320;
+  const mPerLng = 111_320 * Math.cos((cLat * Math.PI) / 180);
+  return coords.map(([lng, lat]) => {
+    const dLat = lat - cLat;
+    const dLng = lng - cLng;
+    const distM = Math.sqrt((dLat * mPerLat) ** 2 + (dLng * mPerLng) ** 2);
+    if (distM < meters) return [cLng, cLat] as [number, number]; // degenerate — collapse to centroid
+    const scale = (distM - meters) / distM;
+    return [cLng + dLng * scale, cLat + dLat * scale] as [number, number];
+  });
+}
+
 interface Props {
   map: Map;
   territories: Territory[];
@@ -83,10 +103,20 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
     const polyFeatures = territories.map((t) => {
       const sel = t.id === selectedId;
       const { h, color, crownBase } = computeProps(t, sel);
+      // Wall thickness in meters — wider when selected
+      const wallM = sel ? 5 : 4;
+      const outer = t.coordinates as [number, number][];
+      const inner = shrinkRing(outer, wallM);
+      // Donut polygon: outer ring (CCW) + inner ring (CW, reversed)
+      // MapLibre treats the second ring as a hole → only the perimeter band extrudes
+      const innerHole = [...inner].reverse();
       return {
         type: 'Feature' as const,
         id: t.id,
-        geometry: { type: 'Polygon' as const, coordinates: [t.coordinates] },
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [outer, innerHole],
+        },
         properties: { id: t.id, color, height: h, crownBase, sel: sel ? 1 : 0 },
       };
     });
@@ -101,6 +131,18 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       }));
     });
 
+    // Plain outer polygon for the floor fill (no hole)
+    const floorFeatures = territories.map((t) => {
+      const sel = t.id === selectedId;
+      const { color } = computeProps(t, sel);
+      return {
+        type: 'Feature' as const,
+        id: `${t.id}-floor`,
+        geometry: { type: 'Polygon' as const, coordinates: [t.coordinates] },
+        properties: { id: t.id, color, sel: sel ? 1 : 0 },
+      };
+    });
+
     const labelFeatures = territories.map((t) => ({
       type: 'Feature' as const,
       geometry: { type: 'Point' as const, coordinates: centroid(t.coordinates) },
@@ -108,31 +150,34 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
     }));
 
     const polyGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: polyFeatures  };
+    const floorGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: floorFeatures };
     const vertGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: vertFeatures  };
     const labelGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: labelFeatures };
 
     const existingSrc = map.getSource(SRC) as GeoJSONSource | undefined;
     if (existingSrc) {
       existingSrc.setData(polyGeo);
+      (map.getSource(SRC_FLOOR)  as GeoJSONSource)?.setData(floorGeo);
       (map.getSource(SRC_VERTS)  as GeoJSONSource)?.setData(vertGeo);
       (map.getSource(SRC_LABELS) as GeoJSONSource)?.setData(labelGeo);
     } else {
       map.addSource(SRC,        { type: 'geojson', data: polyGeo  });
+      map.addSource(SRC_FLOOR,  { type: 'geojson', data: floorGeo });
       map.addSource(SRC_VERTS,  { type: 'geojson', data: vertGeo  });
       map.addSource(SRC_LABELS, { type: 'geojson', data: labelGeo });
 
-      // 0 ── Floor
+      // 0 ── Floor fill (full outer polygon — no hole)
       map.addLayer({
-        id: L_FILL, type: 'fill', source: SRC,
+        id: L_FILL, type: 'fill', source: SRC_FLOOR,
         paint: {
           'fill-color':   ['get', 'color'],
-          'fill-opacity': ['case', ['==', ['get', 'sel'], 1], 0.50, 0.35],
+          'fill-opacity': ['case', ['==', ['get', 'sel'], 1], 0.22, 0.14],
         },
       });
 
-      // 1 ── Inner shimmer (animated)
+      // 1 ── Inner shimmer on floor (animated)
       map.addLayer({
-        id: L_SHIMMER, type: 'fill', source: SRC,
+        id: L_SHIMMER, type: 'fill', source: SRC_FLOOR,
         paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.04 },
       });
 

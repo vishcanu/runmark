@@ -171,27 +171,6 @@ async function buildShareCard(
     }
   }
 
-  // ── Level badge — pill auto-sized from text width ────────────────
-  const level = _level(territory.runs ?? 1);
-  const PILL_FONT = `700 24px ${_CARD_FONT}`;
-  ctx.font = PILL_FONT;
-  const textW = ctx.measureText(level).width;
-  const pillPadX = 32, pillH = 64, pillTop = 44, pillLeft = 40;
-  const pillW = textW + pillPadX * 2;
-  ctx.save();
-  _rRect(ctx, pillLeft, pillTop, pillW, pillH, 100);
-  ctx.fillStyle = 'rgba(0,0,0,0.42)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.22)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.restore();
-  ctx.font = PILL_FONT;
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(level, pillLeft + pillPadX, pillTop + pillH / 2);
-
   // ── Zone name ────────────────────────────────────────────────
   ctx.font = `800 76px ${_CARD_FONT}`;
   ctx.textAlign = 'center';
@@ -203,10 +182,11 @@ async function buildShareCard(
   while (ctx.measureText(zoneName).width > W - 80 && zoneName.length > 1)
     zoneName = zoneName.slice(0, -1);
   if (zoneName !== territory.name) zoneName += '\u2026';
-  ctx.fillText(zoneName, W / 2, H - 420);
+  ctx.fillText(zoneName, W / 2, H - 440);
   ctx.shadowBlur = 0;
 
   // ── Tagline ──────────────────────────────────────────────────
+  let taglineBottomY = H - 375;
   if (territory.tagline) {
     ctx.font = `italic 34px ${_CARD_FONT}`;
     ctx.fillStyle = 'rgba(255,255,255,0.76)';
@@ -215,9 +195,33 @@ async function buildShareCard(
     let tl = `\u201c${territory.tagline}\u201d`;
     while (ctx.measureText(tl).width > W - 80 && tl.length > 3)
       tl = tl.slice(0, -2) + '\u201d';
-    ctx.fillText(tl, W / 2, H - 355);
+    ctx.fillText(tl, W / 2, taglineBottomY);
     ctx.shadowBlur = 0;
+    taglineBottomY += 8; // push pill a little lower after tagline
   }
+
+  // ── Level pill — below tagline, centered ─────────────────────
+  const level = _level(territory.runs ?? 1);
+  const PILL_FONT = `700 22px ${_CARD_FONT}`;
+  ctx.font = PILL_FONT;
+  const textW = ctx.measureText(level).width;
+  const pillPadX = 28, pillH = 56;
+  const pillW = textW + pillPadX * 2;
+  const pillLeft = (W - pillW) / 2;
+  const pillTop = taglineBottomY + 18;
+  ctx.save();
+  _rRect(ctx, pillLeft, pillTop, pillW, pillH, 100);
+  ctx.fillStyle = 'rgba(0,0,0,0.38)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+  ctx.font = PILL_FONT;
+  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(level, W / 2, pillTop + pillH / 2);
 
   // ── Stats pill ───────────────────────────────────────────────
   const grip = _grip(territory.lastRunAt ?? territory.createdAt);
