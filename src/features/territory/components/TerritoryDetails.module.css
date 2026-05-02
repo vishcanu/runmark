@@ -233,5 +233,5 @@
 .swatchActive {
     border-color: var(--color-text-primary);
     transform: scale(1.18);
-    box-shadow: 0 0 0 2px rgba(255,255,255,0.8);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
 }
