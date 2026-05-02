@@ -27,6 +27,12 @@ export interface Territory {
   color: string;
   /** Number of full loops completed around this territory */
   runs: number;
+  /** Theme ID — drives gradient swatch selection in the edit panel */
+  theme?: string;
+  /** Lucide icon ID shown as zone emblem */
+  emblem?: string;
+  /** Short tagline / motto displayed under the name */
+  tagline?: string;
 }
 
 // ─── Activity Types ───────────────────────────────────────────────────────────
