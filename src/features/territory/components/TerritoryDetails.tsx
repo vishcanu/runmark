@@ -4,6 +4,7 @@ import {
   Shield, Zap, Star, Crown, Flag, Target, Flame, Trophy, Gem, Anchor, Mountain, Crosshair,
 } from 'lucide-react';
 import { formatDistance, formatDuration } from '../../map/utils/geo';
+import { getTierInfo, nextTierAt } from '../utils/territoryTier';
 import type { Territory } from '../../../types';
 import styles from './TerritoryDetails.module.css';
 
@@ -169,7 +170,7 @@ async function fetchTileBg(
 
     const cols = txEnd - txStart;
     const rows = tyEnd - tyStart;
-    if (cols * rows > 36) return null; // safety cap
+    if (cols * rows > 64) return null; // safety cap (6×8=48 needed for 720×1280)
 
     // Fetch tiles concurrently (CARTO dark matter — free, CORS-enabled)
     const jobs: Promise<{ img: HTMLImageElement; col: number; row: number } | null>[] = [];
@@ -222,6 +223,7 @@ async function buildShareCard(
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
   const [c1, c2] = _gradColors(themeGrad);
+  const tier = getTierInfo(territory.runs ?? 1);
 
   // ── Background ──────────────────────────────────────────────
   // mapJpeg is only trusted if it looks like a real image (> 8 KB encoded)
@@ -381,16 +383,38 @@ async function buildShareCard(
   ctx.fillText(zoneName, W / 2, H - 440);
   ctx.shadowBlur = 0;
 
+  // ── Tier badge ───────────────────────────────────────────────
+  ctx.font = `700 22px ${_CARD_FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const tierText = tier.name;
+  const tierW = ctx.measureText(tierText).width + 40;
+  const tierX = W / 2 - tierW / 2;
+  const tierY = H - 405;
+  // pill background
+  ctx.save();
+  _rRect(ctx, tierX, tierY, tierW, 34, 17);
+  ctx.fillStyle = tier.uiColor + '28';
+  ctx.fill();
+  ctx.strokeStyle = tier.uiColor + '80';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = tier.uiColor;
+  ctx.fillText(tierText, W / 2, tierY + 17);
+
   // ── Tagline ──────────────────────────────────────────────────
   if (territory.tagline) {
-    ctx.font = `italic 32px ${_CARD_FONT}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.72)';
+    ctx.font = `italic 30px ${_CARD_FONT}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.68)';
     ctx.shadowColor = 'rgba(0,0,0,0.45)';
     ctx.shadowBlur = 12;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
     let tl = `\u201c${territory.tagline}\u201d`;
     while (ctx.measureText(tl).width > W - 80 && tl.length > 3)
       tl = tl.slice(0, -2) + '\u201d';
-    ctx.fillText(tl, W / 2, H - 385);
+    ctx.fillText(tl, W / 2, H - 360);
     ctx.shadowBlur = 0;
   }
 
@@ -502,6 +526,11 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
   const hInfo    = useMemo(() => healthLabel(hPct),  [hPct]);
   const daysLeft = useMemo(() => daysUntilLost(lastRun), [lastRun]);
 
+  // Imprint tier
+  const tier     = getTierInfo(territory.runs ?? 1);
+  const nextAt   = nextTierAt(territory.runs ?? 1);
+  const runsLeft = nextAt !== null ? nextAt - (territory.runs ?? 1) : null;
+
   function openEdit() {
     setDraftName(territory.name);
     setDraftTagline(territory.tagline ?? '');
@@ -552,6 +581,18 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
           <button className={styles.customizeBtn} onClick={openEdit}>
             Customize
           </button>
+        )}
+      </div>
+
+      {/* ── IMPRINT tier badge ── */}
+      <div className={styles.tierRow}>
+        <span className={styles.tierBadge} style={{ color: tier.uiColor, borderColor: `${tier.uiColor}55`, background: `${tier.uiColor}18` }}>
+          {tier.name}
+        </span>
+        {runsLeft !== null ? (
+          <span className={styles.tierHint}>{runsLeft} more grind{runsLeft !== 1 ? 's' : ''} to unlock next tier</span>
+        ) : (
+          <span className={styles.tierHint} style={{ color: tier.uiColor }}>Max tier unlocked ★</span>
         )}
       </div>
 

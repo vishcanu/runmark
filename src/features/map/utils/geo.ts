@@ -78,6 +78,14 @@ export function formatDuration(seconds: number): string {
   return `${s}s`;
 }
 
+/** Average centroid of a coordinate ring */
+export function polyCentroid(coords: Coordinate[]): Coordinate {
+  let lng = 0, lat = 0;
+  const n = coords.length;
+  for (const [lo, la] of coords) { lng += lo; lat += la; }
+  return [lng / n, lat / n];
+}
+
 /** Generate a deterministic color from a string id */
 export function colorFromId(id: string): string {
   const COLORS = [

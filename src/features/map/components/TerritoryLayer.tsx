@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef } from 'react';
 import type { Map, GeoJSONSource } from 'maplibre-gl';
 import type { Territory } from '../../../types';
+import { getTierInfo } from '../../territory/utils/territoryTier';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  TERRITORY VISUAL — Solid Walls + Daily Decay
@@ -54,10 +55,22 @@ function decayColor(baseColor: string, lastRunAt: number): string {
 }
 
 function computeProps(t: Territory, selected: boolean) {
+  const runs  = t.runs ?? 1;
   const mul   = decayMultiplier(t.lastRunAt ?? t.createdAt);
-  const h     = Math.round(baseHeight(t.runs ?? 1) * mul * (selected ? 1.5 : 1));
+  const h     = Math.round(baseHeight(runs) * mul * (selected ? 1.5 : 1));
   const color = decayColor(t.color, t.lastRunAt ?? t.createdAt);
-  return { h, color, crownBase: Math.max(0, h - 10) };
+  const tier  = getTierInfo(runs);
+  // Crown base: top `crownH` metres of the wall
+  const crownBase = Math.max(0, h - tier.crownH);
+  // Selection boosts: thicker wall, brighter floor, wider border
+  const wallM        = tier.wallM + (selected ? 1 : 0);
+  const floorOpacity = Math.min(tier.floorOpacity + (selected ? 0.10 : 0), 0.45);
+  const borderWidth  = tier.borderWidth + (selected ? 1.0 : 0);
+  const haloWidth    = tier.haloWidth   + (selected ? 6   : 0);
+  return {
+    h, color, crownBase, crownColor: tier.crownColor,
+    wallM, floorOpacity, borderWidth, haloWidth,
+  };
 }
 
 function centroid(coords: [number, number][]): [number, number] {
@@ -102,13 +115,10 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
 
     const polyFeatures = territories.map((t) => {
       const sel = t.id === selectedId;
-      const { h, color, crownBase } = computeProps(t, sel);
-      // Wall thickness in meters — wider when selected
-      const wallM = sel ? 5 : 4;
+      const { h, color, crownBase, crownColor, wallM } = computeProps(t, sel);
       const outer = t.coordinates as [number, number][];
       const inner = shrinkRing(outer, wallM);
       // Donut polygon: outer ring (CCW) + inner ring (CW, reversed)
-      // MapLibre treats the second ring as a hole → only the perimeter band extrudes
       const innerHole = [...inner].reverse();
       return {
         type: 'Feature' as const,
@@ -117,7 +127,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
           type: 'Polygon' as const,
           coordinates: [outer, innerHole],
         },
-        properties: { id: t.id, color, height: h, crownBase, sel: sel ? 1 : 0 },
+        properties: { id: t.id, color, height: h, crownBase, crownColor, sel: sel ? 1 : 0 },
       };
     });
 
@@ -131,15 +141,15 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       }));
     });
 
-    // Plain outer polygon for the floor fill (no hole)
+    // Plain outer polygon for floor fill, halo, border — tier-driven properties
     const floorFeatures = territories.map((t) => {
       const sel = t.id === selectedId;
-      const { color } = computeProps(t, sel);
+      const { color, floorOpacity, haloWidth, borderWidth } = computeProps(t, sel);
       return {
         type: 'Feature' as const,
         id: `${t.id}-floor`,
         geometry: { type: 'Polygon' as const, coordinates: [t.coordinates] },
-        properties: { id: t.id, color, sel: sel ? 1 : 0 },
+        properties: { id: t.id, color, sel: sel ? 1 : 0, floorOpacity, haloWidth, borderWidth },
       };
     });
 
@@ -166,12 +176,12 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       map.addSource(SRC_VERTS,  { type: 'geojson', data: vertGeo  });
       map.addSource(SRC_LABELS, { type: 'geojson', data: labelGeo });
 
-      // 0 ── Floor fill (full outer polygon — no hole)
+      // 0 ── Floor fill — opacity driven by tier (already boosted for selected in floorOpacity prop)
       map.addLayer({
         id: L_FILL, type: 'fill', source: SRC_FLOOR,
         paint: {
           'fill-color':   ['get', 'color'],
-          'fill-opacity': ['case', ['==', ['get', 'sel'], 1], 0.22, 0.14],
+          'fill-opacity': ['get', 'floorOpacity'],
         },
       });
 
@@ -192,34 +202,34 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      // 3 ── White crown cap (top 10m)
+      // 3 ── Crown cap — colour escalates with tier (white → silver → gold → fire)
       map.addLayer({
         id: L_CROWN, type: 'fill-extrusion', source: SRC,
         paint: {
-          'fill-extrusion-color':   '#ffffff',
+          'fill-extrusion-color':   ['get', 'crownColor'],
           'fill-extrusion-height':  ['get', 'height'],
           'fill-extrusion-base':    ['get', 'crownBase'],
-          'fill-extrusion-opacity': 0.88,
+          'fill-extrusion-opacity': 0.92,
         },
       });
 
-      // 4 ── Wide diffuse halo
+      // 4 ── Wide diffuse halo — width grows with tier
       map.addLayer({
         id: L_HALO, type: 'line', source: SRC_FLOOR,
         paint: {
           'line-color':   ['get', 'color'],
-          'line-width':   18,
+          'line-width':   ['get', 'haloWidth'],
           'line-opacity': 0.28,
           'line-blur':    12,
         },
       });
 
-      // 5 ── Crisp ground ring
+      // 5 ── Crisp ground ring — width grows with tier
       map.addLayer({
         id: L_BORDER, type: 'line', source: SRC_FLOOR,
         paint: {
           'line-color':   ['get', 'color'],
-          'line-width':   ['case', ['==', ['get', 'sel'], 1], 2.8, 2.0],
+          'line-width':   ['get', 'borderWidth'],
           'line-opacity': 1.0,
         },
       });

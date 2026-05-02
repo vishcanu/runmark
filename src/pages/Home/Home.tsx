@@ -10,7 +10,7 @@ import { useActivityTracker } from '../../features/activity/hooks/useActivityTra
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
-import { pathToPolygon, colorFromId } from '../../features/map/utils/geo';
+import { pathToPolygon, colorFromId, polyCentroid, haversineDistance } from '../../features/map/utils/geo';
 import { generateBuildings } from '../../features/building/utils/buildingGenerator';
 import type { Park } from '../../features/parks/types';
 import type { Territory, Coordinate } from '../../types';
@@ -81,22 +81,39 @@ export function Home() {
     const color = colorFromId(sessionId);
     const duration = elapsed;
 
-    const buildings = generateBuildings(coords, currentDistance, duration);
+    // ── Detect if this run re-traces an existing territory ────
+    // If the centroid of the new polygon is within 120m of an existing
+    // territory's centroid we treat it as another lap, not a new zone.
+    const newCentroid = polyCentroid(coords);
+    const existing = store.territories.find((t) => {
+      const c = polyCentroid(t.coordinates as Coordinate[]);
+      return haversineDistance(newCentroid, c) < 120;
+    });
 
-    const territory: Territory = {
-      id: sessionId,
-      name: `Territory ${store.territories.length + 1}`,
-      coordinates: coords,
-      createdAt: currentStartTime ?? Date.now(),
-      distance: currentDistance,
-      duration,
-      buildings,
-      color,
-      runs: 1,
-      lastRunAt: Date.now(),
-    };
-
-    store.addTerritory(territory);
+    if (existing) {
+      // Accumulate stats onto the existing territory
+      store.updateTerritory(existing.id, {
+        runs:      (existing.runs ?? 1) + 1,
+        distance:  existing.distance + currentDistance,
+        lastRunAt: Date.now(),
+      });
+    } else {
+      // Brand-new zone
+      const buildings = generateBuildings(coords, currentDistance, duration);
+      const territory: Territory = {
+        id: sessionId,
+        name: `Territory ${store.territories.length + 1}`,
+        coordinates: coords,
+        createdAt: currentStartTime ?? Date.now(),
+        distance: currentDistance,
+        duration,
+        buildings,
+        color,
+        runs: 1,
+        lastRunAt: Date.now(),
+      };
+      store.addTerritory(territory);
+    }
     tracker.reset();
     setParkCardDismissed(false); // re-show park nudge after activity
     setSelectedPark(null);
