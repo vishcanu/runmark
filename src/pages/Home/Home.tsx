@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo, useEffect } from 'react';
 import { Trees, Waves, MapPin, X, Play, Navigation } from 'lucide-react';
 import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
@@ -46,6 +46,13 @@ export function Home() {
   const mapCenterTarget: Coordinate | null = selectedPark
     ? [selectedPark.lng, selectedPark.lat]
     : null;
+
+  // Feed every GPS fix into the tracker while a run is active
+  useEffect(() => {
+    if (tracker.session.status === 'active' && geo.position) {
+      tracker.addPosition(geo.position);
+    }
+  }, [geo.position, tracker.session.status]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = useCallback(() => {
     geo.startWatching();
