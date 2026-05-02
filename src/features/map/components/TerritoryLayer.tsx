@@ -205,7 +205,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
 
       // 4 ── Wide diffuse halo
       map.addLayer({
-        id: L_HALO, type: 'line', source: SRC,
+        id: L_HALO, type: 'line', source: SRC_FLOOR,
         paint: {
           'line-color':   ['get', 'color'],
           'line-width':   18,
@@ -216,7 +216,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
 
       // 5 ── Crisp ground ring
       map.addLayer({
-        id: L_BORDER, type: 'line', source: SRC,
+        id: L_BORDER, type: 'line', source: SRC_FLOOR,
         paint: {
           'line-color':   ['get', 'color'],
           'line-width':   ['case', ['==', ['get', 'sel'], 1], 2.8, 2.0],
@@ -226,7 +226,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
 
       // 6 ── White energy flash (animated)
       map.addLayer({
-        id: L_FLASH, type: 'line', source: SRC,
+        id: L_FLASH, type: 'line', source: SRC_FLOOR,
         paint: { 'line-color': '#ffffff', 'line-width': 1.5, 'line-opacity': 0.0 },
       });
 
