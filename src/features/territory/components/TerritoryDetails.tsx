@@ -1,10 +1,8 @@
-﻿import React, { useState, useMemo, useRef } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import {
   Ruler, Clock, Repeat2, Check, X, Trash2, AlertTriangle, Share2,
   Shield, Zap, Star, Crown, Flag, Target, Flame, Trophy, Gem, Anchor, Mountain, Crosshair,
 } from 'lucide-react';
-import { toPng } from 'html-to-image';
-import { TurfShareCard } from './TurfShareCard';
 import { getMapInstance } from '../../map/mapSingleton';
 import { formatDistance, formatDuration } from '../../map/utils/geo';
 import type { Territory } from '../../../types';
@@ -87,6 +85,180 @@ function daysUntilLost(lastRunAt: number): number {
   return Math.max(0, Math.ceil((1 - 0.35) / 0.082 - days));
 }
 
+// ── Canvas share-card composition helpers ─────────────────────
+// Bypasses html-to-image / DOM capture entirely — works 100% reliably
+const _CARD_FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+function _rRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function _gradColors(grad: string): [string, string] {
+  const m = grad.match(/#[0-9a-fA-F]{6}/g);
+  return m && m.length >= 2 ? [m[0], m[1]] : ['#2563eb', '#1d4ed8'];
+}
+
+function _level(runs: number): string {
+  if (runs >= 5) return 'UNDERSTOOD THE ASSIGNMENT';
+  if (runs >= 4) return 'ATE';
+  if (runs >= 3) return 'MAIN CHARACTER';
+  if (runs >= 2) return 'ON SITE';
+  return 'LOWKEY';
+}
+
+function _grip(lastRunAt: number): number {
+  const d = (Date.now() - lastRunAt) / 86_400_000;
+  return Math.max(0, Math.min(100, Math.round((1 - d * 0.082) * 100)));
+}
+
+function _dist(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
+}
+
+async function buildShareCard(
+  mapJpeg: string | null,
+  territory: Territory,
+  themeGrad: string,
+): Promise<string> {
+  const W = 720, H = 1280;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+
+  // ── Background ──────────────────────────────────────────────
+  if (mapJpeg) {
+    await new Promise<void>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
+      img.onerror = reject;
+      img.src = mapJpeg;
+    });
+    const scrim = ctx.createLinearGradient(0, 0, 0, H);
+    scrim.addColorStop(0,    'rgba(0,0,0,0.08)');
+    scrim.addColorStop(0.28, 'rgba(0,0,0,0.04)');
+    scrim.addColorStop(0.58, 'rgba(0,0,0,0.55)');
+    scrim.addColorStop(1,    'rgba(0,0,0,0.92)');
+    ctx.fillStyle = scrim;
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    const [c1, c2] = _gradColors(themeGrad);
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, c1);
+    bg.addColorStop(1, c2);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    for (let y = 22; y < H; y += 44) {
+      for (let x = 22; x < W; x += 44) {
+        ctx.beginPath();
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // ── Level badge ─────────────────────────────────────────────
+  const level = _level(territory.runs ?? 1);
+  ctx.save();
+  _rRect(ctx, 40, 44, 420, 68, 100);
+  ctx.fillStyle = 'rgba(0,0,0,0.42)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+  ctx.font = `bold 22px ${_CARD_FONT}`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(level, 68, 78);
+
+  // ── Zone name ────────────────────────────────────────────────
+  ctx.font = `800 76px ${_CARD_FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 28;
+  ctx.fillStyle = '#ffffff';
+  let zoneName = territory.name;
+  while (ctx.measureText(zoneName).width > W - 80 && zoneName.length > 1)
+    zoneName = zoneName.slice(0, -1);
+  if (zoneName !== territory.name) zoneName += '\u2026';
+  ctx.fillText(zoneName, W / 2, H - 420);
+  ctx.shadowBlur = 0;
+
+  // ── Tagline ──────────────────────────────────────────────────
+  if (territory.tagline) {
+    ctx.font = `italic 34px ${_CARD_FONT}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.76)';
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 12;
+    let tl = `\u201c${territory.tagline}\u201d`;
+    while (ctx.measureText(tl).width > W - 80 && tl.length > 3)
+      tl = tl.slice(0, -2) + '\u201d';
+    ctx.fillText(tl, W / 2, H - 355);
+    ctx.shadowBlur = 0;
+  }
+
+  // ── Stats pill ───────────────────────────────────────────────
+  const grip = _grip(territory.lastRunAt ?? territory.createdAt);
+  const px = 40, py = H - 290, pw = W - 80, ph = 152;
+  ctx.save();
+  _rRect(ctx, px, py, pw, ph, 36);
+  ctx.fillStyle = 'rgba(0,0,0,0.36)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+
+  const stats = [
+    { val: `${grip}%`,                       key: 'GRIP'     },
+    { val: `${territory.runs ?? 1}\u00d7`,   key: 'GRINDS'   },
+    { val: _dist(territory.distance),        key: 'DISTANCE' },
+  ];
+  const colW = pw / 3;
+  stats.forEach((s, i) => {
+    const cx = px + colW * i + colW / 2;
+    ctx.font = `800 48px ${_CARD_FONT}`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(s.val, cx, py + 84);
+    ctx.font = `600 22px ${_CARD_FONT}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.58)';
+    ctx.fillText(s.key, cx, py + 118);
+    if (i < 2) {
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fillRect(px + colW * (i + 1) - 1, py + 20, 2, 112);
+    }
+  });
+
+  // ── Brand ────────────────────────────────────────────────────
+  ctx.font = `800 26px ${_CARD_FONT}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.38)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('RUNMARK', W / 2, H - 92);
+
+  return canvas.toDataURL('image/png');
+}
+// ─────────────────────────────────────────────────────────────
+
 interface TerritoryDetailsProps {
   territory: Territory;
   onDelete: (id: string) => void;
@@ -100,15 +272,13 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
   const [draftTheme,   setDraftTheme]   = useState(territory.theme   ?? 'cobalt');
   const [draftEmblem,  setDraftEmblem]  = useState(territory.emblem  ?? 'shield');
   const [isSharing, setIsSharing] = useState(false);
-  const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
-  const shareCardRef = useRef<HTMLDivElement>(null);
 
   async function handleShare() {
     if (isSharing) return;
     setIsSharing(true);
-    let snapshot: string | null = null;
     try {
-      // ── Step 1: capture real 3D map if available ──────────────
+      // ── Step 1: capture real 3D map ────────────────────────────
+      let mapJpeg: string | null = null;
       const map = getMapInstance();
       if (map) {
         const lngs = territory.coordinates.map((c) => c[0]);
@@ -120,27 +290,19 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
         const prevPitch   = map.getPitch();
         const prevBearing = map.getBearing();
         map.fitBounds([sw, ne], { padding: 70, pitch: 50, bearing: 0, animate: false, maxZoom: 18 });
-        // Wait for tiles — 'idle' fires when all tiles loaded + no movement
         await new Promise<void>((resolve) => {
           const timeout = setTimeout(resolve, 2500);
           map.once('idle', () => { clearTimeout(timeout); resolve(); });
         });
-        try {
-          snapshot = map.getCanvas().toDataURL('image/jpeg', 0.88);
-        } catch { /* fallback to gradient */ }
-        // Restore view
+        try { mapJpeg = map.getCanvas().toDataURL('image/jpeg', 0.88); }
+        catch { /* fallback to gradient */ }
         map.jumpTo({ center: prevCenter, zoom: prevZoom, pitch: prevPitch, bearing: prevBearing });
       }
 
-      // ── Step 2: render share card with snapshot ───────────────
-      setMapSnapshot(snapshot);
-      // Give React one frame to re-render TurfShareCard with new bg
-      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      // ── Step 2: compose card via Canvas 2D API ─────────────────
+      const dataUrl = await buildShareCard(mapJpeg, territory, theme.grad);
 
-      if (!shareCardRef.current) return;
-      const dataUrl = await toPng(shareCardRef.current, { pixelRatio: 2, cacheBust: true });
-
-      // ── Step 3: share or download ─────────────────────────────
+      // ── Step 3: share or download ──────────────────────────────
       const res  = await fetch(dataUrl);
       const blob = await res.blob();
       const safeName = territory.name.replace(/\s+/g, '-').replace(/[^\w-]/g, '');
@@ -151,7 +313,7 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
         navigator.canShare({ files: [file] })
       ) {
         await navigator.share({
-          title: `${territory.name} — RunMark`,
+          title: `${territory.name} \u2014 RunMark`,
           text: territory.tagline ?? 'Check out my turf on RunMark!',
           files: [file],
         });
@@ -162,10 +324,9 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
         a.click();
       }
     } catch (_err) {
-      // user cancelled or share unsupported — silently ignore
+      // user cancelled or share unsupported \u2014 silently ignore
     } finally {
       setIsSharing(false);
-      setMapSnapshot(null);
     }
   }
 
@@ -404,10 +565,6 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
         </div>
       )}
 
-      {/* Off-screen share card — always in DOM for instant capture */}
-      <div style={{ position: 'fixed', top: 0, left: '-600px', pointerEvents: 'none', zIndex: -1 }}>
-        <TurfShareCard ref={shareCardRef} territory={territory} mapSnapshot={mapSnapshot} />
-      </div>
     </div>
   );
 }
