@@ -333,13 +333,14 @@
     gap: var(--space-2);
 }
 
+/* Primary CTA — full-width gradient pill */
 .shareBtn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     width: 100%;
-    padding: 12px 16px;
+    padding: 13px 16px;
     border-radius: var(--radius-full);
     border: none;
     cursor: pointer;
@@ -365,9 +366,27 @@
     transform: none;
 }
 
-/* ── Delete button ────────────────────────────────────────────── */
+/* Secondary — slim ghost danger button */
 .deleteBtn {
-    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 9px 16px;
+    border-radius: var(--radius-full);
+    background: transparent;
+    border: 1.5px solid var(--color-danger, #ef4444);
+    color: var(--color-danger, #ef4444);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+
+.deleteBtn:hover {
+    background: var(--color-danger, #ef4444);
+    color: #ffffff;
 }
 
 /* ── Health meter ─────────────────────────────────────────────── */

@@ -27,7 +27,7 @@ const OVERPASS_ENDPOINTS = [
 
 const SEARCH_RADIUS_M = 5000;
 const CACHE_TTL_MS    = 5 * 60 * 1000; // 5 min
-const PER_ENDPOINT_TIMEOUT_MS = 12_000; // each endpoint gets 12s individually
+const PER_ENDPOINT_TIMEOUT_MS = 20_000; // each endpoint gets 20s individually
 
 interface CacheEntry {
   parks: Omit<Park, 'distance' | 'walkMinutes' | 'isClaimed'>[];
@@ -55,7 +55,7 @@ async function fetchParksFromOSM(
   lng: number
 ): Promise<Omit<Park, 'distance' | 'walkMinutes' | 'isClaimed'>[]> {
   const query = `
-    [out:json][timeout:12];
+    [out:json][timeout:18];
     (
       way[leisure=park](around:${SEARCH_RADIUS_M},${lat},${lng});
       relation[leisure=park](around:${SEARCH_RADIUS_M},${lat},${lng});
@@ -211,20 +211,23 @@ export function useParkSearch(
       })
       .catch(() => {
         // Keep existing parks visible — do NOT clear to empty
-        // Do NOT reset lastFetchPosRef — would trigger an endless GPS retry loop
         setState((_s) => ({
           parks: _lastKnownParks,
           loading: false,
           // Show subtle error only if we have nothing to show
           error: _lastKnownParks.length === 0 ? 'Could not load nearby places' : null,
         }));
-        // Always retry after 12s — even if we have stale parks, we want fresh ones
+        // Always retry after 15s — even if we have stale parks, we want fresh ones
         if (!retryTimerRef.current) {
           retryTimerRef.current = setTimeout(() => {
             retryTimerRef.current = null;
             lastFetchPosRef.current = null; // allow re-fetch from same position
+            // Show loading state for retry so tray stays visible
+            if (_lastKnownParks.length === 0) {
+              setState((s) => ({ ...s, loading: true, error: null }));
+            }
             setRetryTrigger((t) => t + 1);
-          }, 12_000);
+          }, 15_000);
         }
       })
       .finally(() => {

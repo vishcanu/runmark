@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { TurfShareCard } from './TurfShareCard';
-import { Button } from '../../../components/Button/Button';
+import { getMapInstance } from '../../map/mapSingleton';
 import { formatDistance, formatDuration } from '../../map/utils/geo';
 import type { Territory } from '../../../types';
 import styles from './TerritoryDetails.module.css';
@@ -100,14 +100,48 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
   const [draftTheme,   setDraftTheme]   = useState(territory.theme   ?? 'cobalt');
   const [draftEmblem,  setDraftEmblem]  = useState(territory.emblem  ?? 'shield');
   const [isSharing, setIsSharing] = useState(false);
+  const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
   const shareCardRef = useRef<HTMLDivElement>(null);
 
   async function handleShare() {
-    if (!shareCardRef.current || isSharing) return;
+    if (isSharing) return;
     setIsSharing(true);
+    let snapshot: string | null = null;
     try {
+      // ── Step 1: capture real 3D map if available ──────────────
+      const map = getMapInstance();
+      if (map) {
+        const lngs = territory.coordinates.map((c) => c[0]);
+        const lats  = territory.coordinates.map((c) => c[1]);
+        const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
+        const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
+        const prevCenter  = map.getCenter();
+        const prevZoom    = map.getZoom();
+        const prevPitch   = map.getPitch();
+        const prevBearing = map.getBearing();
+        map.fitBounds([sw, ne], { padding: 70, pitch: 50, bearing: 0, animate: false, maxZoom: 18 });
+        // Wait for tiles — 'idle' fires when all tiles loaded + no movement
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, 2500);
+          map.once('idle', () => { clearTimeout(timeout); resolve(); });
+        });
+        try {
+          snapshot = map.getCanvas().toDataURL('image/jpeg', 0.88);
+        } catch { /* fallback to gradient */ }
+        // Restore view
+        map.jumpTo({ center: prevCenter, zoom: prevZoom, pitch: prevPitch, bearing: prevBearing });
+      }
+
+      // ── Step 2: render share card with snapshot ───────────────
+      setMapSnapshot(snapshot);
+      // Give React one frame to re-render TurfShareCard with new bg
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+      if (!shareCardRef.current) return;
       const dataUrl = await toPng(shareCardRef.current, { pixelRatio: 2, cacheBust: true });
-      const res = await fetch(dataUrl);
+
+      // ── Step 3: share or download ─────────────────────────────
+      const res  = await fetch(dataUrl);
       const blob = await res.blob();
       const safeName = territory.name.replace(/\s+/g, '-').replace(/[^\w-]/g, '');
       const file = new File([blob], `${safeName}-turf.png`, { type: 'image/png' });
@@ -131,6 +165,7 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
       // user cancelled or share unsupported — silently ignore
     } finally {
       setIsSharing(false);
+      setMapSnapshot(null);
     }
   }
 
@@ -357,23 +392,21 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
             style={{ background: theme.grad }}
           >
             <Share2 size={15} strokeWidth={2.5} />
-            {isSharing ? 'Saving…' : 'Share Turf'}
+            {isSharing ? 'Generating…' : 'Share Turf'}
           </button>
-          <Button
-            variant="danger"
-            size="md"
+          <button
             className={styles.deleteBtn}
             onClick={() => onDelete(territory.id)}
           >
-            <Trash2 size={16} strokeWidth={2} />
+            <Trash2 size={14} strokeWidth={2} />
             Delete Territory
-          </Button>
+          </button>
         </div>
       )}
 
       {/* Off-screen share card — always in DOM for instant capture */}
       <div style={{ position: 'fixed', top: 0, left: '-600px', pointerEvents: 'none', zIndex: -1 }}>
-        <TurfShareCard ref={shareCardRef} territory={territory} />
+        <TurfShareCard ref={shareCardRef} territory={territory} mapSnapshot={mapSnapshot} />
       </div>
     </div>
   );

@@ -46,7 +46,7 @@ const EMBLEMS: { id: string; Icon: React.ElementType }[] = [
 function getGrad(id?: string) {
   return (THEMES.find((t) => t.id === id) ?? THEMES[0]).grad;
 }
-function getEmblem(id?: string) {
+function getEmblemIcon(id?: string) {
   return (EMBLEMS.find((e) => e.id === id) ?? EMBLEMS[0]).Icon;
 }
 
@@ -66,26 +66,6 @@ function gripPct(lastRunAt: number): number {
   return Math.max(0, Math.min(100, Math.round((1 - days * 0.082) * 100)));
 }
 
-// ── Territory coords → SVG polygon points ────────────────────
-function toSvgPoints(coords: [number, number][], w: number, h: number): string {
-  if (coords.length < 2) return '';
-  const lngs = coords.map((c) => c[0]);
-  const lats = coords.map((c) => c[1]);
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-  const lngSpan = maxLng - minLng || 0.001;
-  const latSpan = maxLat - minLat || 0.001;
-  const pad = 20;
-  const scale = Math.min((w - pad * 2) / lngSpan, (h - pad * 2) / latSpan);
-  const drawW = lngSpan * scale;
-  const drawH = latSpan * scale;
-  const ox = (w - drawW) / 2;
-  const oy = (h - drawH) / 2;
-  return coords
-    .map(([lng, lat]) => `${(ox + (lng - minLng) * scale).toFixed(1)},${(oy + (maxLat - lat) * scale).toFixed(1)}`)
-    .join(' ');
-}
-
 // ── Distance formatter ────────────────────────────────────────
 function fmtDist(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
@@ -93,59 +73,46 @@ function fmtDist(m: number): string {
 
 interface Props {
   territory: Territory;
+  /** Real map screenshot (JPEG dataUrl). If provided, shown as card background. */
+  mapSnapshot?: string | null;
 }
 
-export const TurfShareCard = forwardRef<HTMLDivElement, Props>(({ territory }, ref) => {
+export const TurfShareCard = forwardRef<HTMLDivElement, Props>(({ territory, mapSnapshot }, ref) => {
   const grad = getGrad(territory.theme);
-  const EmblemIcon = getEmblem(territory.emblem);
+  const EmblemIcon = getEmblemIcon(territory.emblem);
   const grip = gripPct(territory.lastRunAt ?? territory.createdAt);
   const level = getLevel(territory.runs ?? 1);
-  const SVG_W = 280;
-  const SVG_H = 190;
-  const points = toSvgPoints(territory.coordinates as [number, number][], SVG_W, SVG_H);
+  const hasMap = !!mapSnapshot;
 
   return (
-    <div ref={ref} className={styles.card} style={{ background: grad }}>
+    <div
+      ref={ref}
+      className={styles.card}
+      style={hasMap ? undefined : { background: grad }}
+    >
+      {/* Real map background */}
+      {hasMap && (
+        <img
+          src={mapSnapshot!}
+          className={styles.mapBg}
+          alt=""
+          aria-hidden
+        />
+      )}
 
-      {/* Dot-grid texture */}
-      <div className={styles.texture} />
+      {/* Gradient overlay — full card when no map, bottom scrim when map present */}
+      <div
+        className={hasMap ? styles.scrim : styles.texture}
+      />
 
-      {/* Level pill — top right */}
+      {/* Level pill — top left */}
       <div className={styles.levelPill}>{level}</div>
 
-      {/* Territory shape */}
-      <div className={styles.shapeWrap}>
-        <svg
-          width={SVG_W}
-          height={SVG_H}
-          viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-          style={{ display: 'block' }}
-        >
-          {points && (
-            <>
-              {/* outer glow */}
-              <polygon
-                points={points}
-                fill="none"
-                stroke="rgba(255,255,255,0.25)"
-                strokeWidth="8"
-                strokeLinejoin="round"
-              />
-              {/* fill */}
-              <polygon
-                points={points}
-                fill="rgba(255,255,255,0.15)"
-                stroke="rgba(255,255,255,0.75)"
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-              />
-            </>
-          )}
-        </svg>
-      </div>
+      {/* Spacer pushes content to bottom when map is shown */}
+      {hasMap && <div className={styles.spacer} />}
 
-      {/* Middle: emblem + name + tagline */}
-      <div className={styles.middle}>
+      {/* Middle identity section — centered when no map, near-bottom when map */}
+      <div className={hasMap ? styles.middleMap : styles.middle}>
         <div className={styles.emblemBadge}>
           <EmblemIcon size={30} strokeWidth={1.75} color="#ffffff" />
         </div>
