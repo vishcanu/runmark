@@ -171,21 +171,26 @@ async function buildShareCard(
     }
   }
 
-  // ── Level badge ─────────────────────────────────────────────
+  // ── Level badge — pill auto-sized from text width ────────────────
   const level = _level(territory.runs ?? 1);
+  const PILL_FONT = `700 24px ${_CARD_FONT}`;
+  ctx.font = PILL_FONT;
+  const textW = ctx.measureText(level).width;
+  const pillPadX = 32, pillH = 64, pillTop = 44, pillLeft = 40;
+  const pillW = textW + pillPadX * 2;
   ctx.save();
-  _rRect(ctx, 40, 44, 420, 68, 100);
+  _rRect(ctx, pillLeft, pillTop, pillW, pillH, 100);
   ctx.fillStyle = 'rgba(0,0,0,0.42)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.22)';
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.restore();
-  ctx.font = `bold 22px ${_CARD_FONT}`;
+  ctx.font = PILL_FONT;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(level, 68, 78);
+  ctx.fillText(level, pillLeft + pillPadX, pillTop + pillH / 2);
 
   // ── Zone name ────────────────────────────────────────────────
   ctx.font = `800 76px ${_CARD_FONT}`;
@@ -289,7 +294,7 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
         const prevZoom    = map.getZoom();
         const prevPitch   = map.getPitch();
         const prevBearing = map.getBearing();
-        map.fitBounds([sw, ne], { padding: 70, pitch: 50, bearing: 0, animate: false, maxZoom: 18 });
+        map.fitBounds([sw, ne], { padding: 130, pitch: 50, bearing: 0, animate: false, maxZoom: 17 });
         await new Promise<void>((resolve) => {
           const timeout = setTimeout(resolve, 2500);
           map.once('idle', () => { clearTimeout(timeout); resolve(); });
