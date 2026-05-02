@@ -133,3 +133,105 @@
     align-self: flex-start;
     margin-top: var(--space-2);
 }
+
+/* ── Edit UI ─────────────────────────────────────────────── */
+.nameRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.editRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.nameInput {
+    flex: 1;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    background: var(--color-bg-elevated);
+    border: 1.5px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    outline: none;
+    min-width: 0;
+}
+
+.nameInput:focus {
+    border-color: var(--color-primary);
+}
+
+.iconBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--color-primary);
+    color: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.iconBtnMuted {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.iconBtnMuted:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-elevated);
+}
+
+.colorSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.colorLabel {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+}
+
+.swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2.5px solid transparent;
+    cursor: pointer;
+    transition: transform 0.12s, border-color 0.12s;
+}
+
+.swatch:hover {
+    transform: scale(1.15);
+}
+
+.swatchActive {
+    border-color: var(--color-text-primary);
+    transform: scale(1.18);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.8);
+}

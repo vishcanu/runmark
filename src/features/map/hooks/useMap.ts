@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import maplibregl, { Map } from 'maplibre-gl';
 
-const DEFAULT_CENTER: [number, number] = [77.5946, 12.9716]; // Bengaluru fallback
-const DEFAULT_ZOOM = 15;
+const DEFAULT_CENTER: [number, number] = [77.5814, 12.9079]; // Sri SK Nataraj Park, JP Nagar (test territory)
+const DEFAULT_ZOOM = 17;
 const DEFAULT_PITCH = 50; // 3D tilt angle (0 = top-down, 60 = max)
 
 // OpenFreeMap Liberty — free, vector, premium light style

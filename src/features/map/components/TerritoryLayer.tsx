@@ -3,54 +3,50 @@ import type { Map, GeoJSONSource } from 'maplibre-gl';
 import type { Territory } from '../../../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  TERRITORY VISUAL — "Game Zone / Owned Ground"
+//  TERRITORY VISUAL — Solid Game Zone Walls
 //
-//  Philosophy: the territory should SCREAM "I OWN THIS" from the map.
-//  Think Ingress / Clash of Clans / SimCity zoning — a solid colored block
-//  rising from the ground, not a faint outline.
+//  KEY MapLibre constraint (the bug that caused invisible walls before):
+//    fill-extrusion-opacity is PER-LAYER only — it does NOT support
+//    data-driven expressions like ['get', 'sel']. Passing a data expression
+//    causes the layer to fail silently and become completely invisible.
+//    → Always use a numeric constant for fill-extrusion-opacity.
 //
-//  Progression (based on runs completed):
-//    runs = 1  → freshly claimed  → solid 60m walls  (just took it)
-//    runs = 2  → 85m walls        (reinforcing)
-//    runs = 3+ → 110m+ walls      (fortress tier)
-//    selected  → ×1.5 height      (activated / zoomed in)
+//  What renders:
+//    Floor      — solid colored fill at 40-55% opacity ("this ground is mine")
+//    Walls      — solid colored fill-extrusion at 0.78 opacity (the main block)
+//    Crown      — white fill-extrusion top 10m at 0.88 opacity (powered cap)
+//    Halo       — wide blurred line outside (electric field)
+//    Border     — crisp colored line (exact ownership edge)
+//    Flash      — white animated pulse running the border
+//    Pillars    — corner circle anchors (white + color ring)
+//    Label      — territory name
 //
-//  Layer stack (bottom → top):
-//   L_FILL      flat colored floor     — "this ground is mine"
-//   L_WALLS     colored fill-extrusion — solid opaque box/walls rising up
-//   L_CAP       white fill-extrusion   — glowing white top edge (powered crown)
-//   L_INNER     animated white shimmer fill — living energy inside
-//   L_HALO      wide blurred outer line — diffuse electric field
-//   L_BORDER    crisp colored boundary — sharp ownership edge
-//   L_FLASH     animated white scanline — energy pulse along edge
-//   L_PILLARS   corner circle anchors  — pylons holding the zone
-//   L_LABEL     territory name
+//  Height progression:
+//    runs=1 → 60m   freshly claimed
+//    runs=2 → 85m   reinforcing
+//    runs=3 → 110m  fortress
+//    runs=4+ → 130m max tier
+//    selected → ×1.5 (activated)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SRC        = 'territories-source';
 const SRC_VERTS  = 'territories-verts-source';
 const SRC_LABELS = 'territories-labels-source';
 const L_FILL     = 'territories-fill';
+const L_SHIMMER  = 'territories-shimmer';
 const L_WALLS    = 'territories-walls';
-const L_CAP      = 'territories-cap';
-const L_INNER    = 'territories-inner';
+const L_CROWN    = 'territories-crown';
 const L_HALO     = 'territories-halo';
 const L_BORDER   = 'territories-border';
 const L_FLASH    = 'territories-flash';
 const L_PILLARS  = 'territories-pillars';
 const L_LABEL    = 'territories-label';
 
-// ── Wall height based on runs completed ──────────────────────
-//   runs=1 → 60m (freshly claimed)
-//   runs=2 → 85m
-//   runs=3 → 110m
-//   runs=4+ → 130m (capped)
 function wallHeight(runs: number, selected: boolean): number {
   const h = Math.min(60 + (runs - 1) * 25, 130);
   return selected ? Math.round(h * 1.5) : h;
 }
 
-// ── Centroid of a closed polygon ring ────────────────────────
 function centroid(coords: [number, number][]): [number, number] {
   const pts = coords.slice(0, -1);
   const n = pts.length;
@@ -72,7 +68,6 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
   useEffect(() => {
     if (!map) return;
 
-    // ── Build GeoJSON features ────────────────────────────────
     const polyFeatures = territories.map((t) => {
       const h = wallHeight(t.runs ?? 1, t.id === selectedId);
       return {
@@ -83,7 +78,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
           id: t.id,
           color: t.color,
           height: h,
-          capBase: Math.max(0, h - 8),  // top 8 m = glowing white crown
+          crownBase: Math.max(0, h - 10),
           sel: t.id === selectedId ? 1 : 0,
         },
       };
@@ -107,21 +102,17 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
     const vertGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: vertFeatures  };
     const labelGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: labelFeatures };
 
-    // ── Update sources if already mounted ────────────────────
     const existingSrc = map.getSource(SRC) as GeoJSONSource | undefined;
     if (existingSrc) {
       existingSrc.setData(polyGeo);
       (map.getSource(SRC_VERTS)  as GeoJSONSource)?.setData(vertGeo);
       (map.getSource(SRC_LABELS) as GeoJSONSource)?.setData(labelGeo);
     } else {
-      // ── First mount: create sources + all layers ──────────
       map.addSource(SRC,        { type: 'geojson', data: polyGeo  });
       map.addSource(SRC_VERTS,  { type: 'geojson', data: vertGeo  });
       map.addSource(SRC_LABELS, { type: 'geojson', data: labelGeo });
 
-      // 0 ── Solid colored floor ──────────────────────────────
-      //      First thing you see: "this ground is claimed"
-      //      Strong opacity — no ambiguity about ownership
+      // 0 ── Solid colored floor ("this ground is mine")
       map.addLayer({
         id: L_FILL,
         type: 'fill',
@@ -132,23 +123,17 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      // 1 ── Animated inner shimmer ──────────────────────────
-      //      Subtle white breathing fog — living energy inside the zone
-      //      (opacity driven by RAF animation)
+      // 1 ── White shimmer fog inside (animated via RAF)
       map.addLayer({
-        id: L_INNER,
+        id: L_SHIMMER,
         type: 'fill',
         source: SRC,
-        paint: {
-          'fill-color':   '#ffffff',
-          'fill-opacity': 0.04,
-        },
+        paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.04 },
       });
 
-      // 2 ── Solid colored walls — THE main visual element ───
-      //      Territory color, high opacity = a real physical block
-      //      At 50° pitch you see the side faces clearly rising up
-      //      This is what makes it look like a game zone, not just lines
+      // 2 ── SOLID COLORED WALLS — the main 3D block
+      //      fill-extrusion-opacity MUST be a constant (not a data expression).
+      //      height IS data-driven (that's fine). color IS data-driven (fine).
       map.addLayer({
         id: L_WALLS,
         type: 'fill-extrusion',
@@ -157,42 +142,38 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
           'fill-extrusion-color':   ['get', 'color'],
           'fill-extrusion-height':  ['get', 'height'],
           'fill-extrusion-base':    0,
-          'fill-extrusion-opacity': ['case', ['==', ['get', 'sel'], 1], 0.92, 0.80],
+          'fill-extrusion-opacity': 0.78,   // ← CONSTANT required by MapLibre
         },
       });
 
-      // 3 ── White glowing crown — powered top edge ──────────
-      //      The top 8 m of the wall is pure white at near-full opacity
-      //      Creates a "powered fortress" look — like the dome is charged
-      //      Contrast against the colored walls = premium layered effect
+      // 3 ── White crown cap (top 10m of each wall)
+      //      Gives the "powered fortress dome" look at 50° pitch
       map.addLayer({
-        id: L_CAP,
+        id: L_CROWN,
         type: 'fill-extrusion',
         source: SRC,
         paint: {
           'fill-extrusion-color':   '#ffffff',
           'fill-extrusion-height':  ['get', 'height'],
-          'fill-extrusion-base':    ['get', 'capBase'],
-          'fill-extrusion-opacity': ['case', ['==', ['get', 'sel'], 1], 0.95, 0.75],
+          'fill-extrusion-base':    ['get', 'crownBase'],
+          'fill-extrusion-opacity': 0.88,   // ← CONSTANT required by MapLibre
         },
       });
 
-      // 4 ── Wide diffuse outer halo ─────────────────────────
-      //      Electric field extending beyond the walls
+      // 4 ── Wide blurred outer electric halo
       map.addLayer({
         id: L_HALO,
         type: 'line',
         source: SRC,
         paint: {
           'line-color':   ['get', 'color'],
-          'line-width':   22,
-          'line-opacity': 0.28,
+          'line-width':   20,
+          'line-opacity': 0.30,
           'line-blur':    14,
         },
       });
 
-      // 5 ── Crisp colored ground boundary ───────────────────
-      //      Exact edge of ownership, full opacity, no blur
+      // 5 ── Crisp solid ground boundary
       map.addLayer({
         id: L_BORDER,
         type: 'line',
@@ -204,37 +185,29 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      // 6 ── White energy flash (animated) ───────────────────
-      //      Cubic-eased: sits dark, fires a white spike every ~2 s
-      //      Feels like an energy pulse running around the perimeter
+      // 6 ── Animated white energy flash along boundary
       map.addLayer({
         id: L_FLASH,
         type: 'line',
         source: SRC,
-        paint: {
-          'line-color':   '#ffffff',
-          'line-width':   2.0,
-          'line-opacity': 0.0,
-        },
+        paint: { 'line-color': '#ffffff', 'line-width': 2.0, 'line-opacity': 0.0 },
       });
 
-      // 7 ── Corner anchor pylons ────────────────────────────
-      //      White core dot always visible on any background
-      //      Colored stroke = ownership ring around each corner
+      // 7 ── Corner anchor pylons
       map.addLayer({
         id: L_PILLARS,
         type: 'circle',
         source: SRC_VERTS,
         paint: {
-          'circle-radius':        ['case', ['==', ['get', 'sel'], 1], 9, 6],
-          'circle-color':         '#ffffff',
-          'circle-stroke-color':  ['get', 'color'],
-          'circle-stroke-width':  ['case', ['==', ['get', 'sel'], 1], 5, 3],
-          'circle-opacity':        1.0,
+          'circle-radius':       ['case', ['==', ['get', 'sel'], 1], 9, 6],
+          'circle-color':        '#ffffff',
+          'circle-stroke-color': ['get', 'color'],
+          'circle-stroke-width': ['case', ['==', ['get', 'sel'], 1], 5, 3],
+          'circle-opacity':       1.0,
         },
       });
 
-      // 8 ── Territory name label ────────────────────────────
+      // 8 ── Territory name label
       map.addLayer({
         id: L_LABEL,
         type: 'symbol',
@@ -255,8 +228,8 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      // ── Click + cursor ────────────────────────────────────
-      [L_FILL, L_WALLS, L_CAP].forEach((layer) => {
+      // ── Click & cursor ─────────────────────────────────────
+      [L_FILL, L_WALLS, L_CROWN].forEach((layer) => {
         map.on('click', layer, (e) => {
           const id = e.features?.[0]?.properties?.id as string | undefined;
           if (id) onTerritoryClick(id);
@@ -267,8 +240,6 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
     }
 
     // ── Animation loop (30 fps) ───────────────────────────────
-    //   inner shimmer: slow sinusoid 0.03→0.14 (period ~4 s)
-    //   flash:         cubic spike, mostly dark, white burst (~2 s)
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     let phase = Math.random() * Math.PI * 2;
     let lastFrame = 0;
@@ -280,17 +251,16 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       lastFrame = now;
       phase += 0.045;
 
-      const innerOpacity = 0.03 + 0.11 * (0.5 + 0.5 * Math.sin(phase * 0.48));
-      const raw          = 0.5 + 0.5 * Math.sin(phase * 1.25);
-      const flashOpacity = Math.pow(raw, 4);
-      const flashWidth   = 1.5 + flashOpacity * 4.5;
+      const shimmer = 0.03 + 0.11 * (0.5 + 0.5 * Math.sin(phase * 0.48));
+      const raw     = 0.5 + 0.5 * Math.sin(phase * 1.25);
+      const flash   = Math.pow(raw, 4);
+      const fWidth  = 1.5 + flash * 4.5;
 
       try {
-        if (map.getLayer(L_INNER))
-          map.setPaintProperty(L_INNER, 'fill-opacity', innerOpacity);
+        if (map.getLayer(L_SHIMMER)) map.setPaintProperty(L_SHIMMER, 'fill-opacity', shimmer);
         if (map.getLayer(L_FLASH)) {
-          map.setPaintProperty(L_FLASH, 'line-opacity', flashOpacity);
-          map.setPaintProperty(L_FLASH, 'line-width',   flashWidth);
+          map.setPaintProperty(L_FLASH, 'line-opacity', flash);
+          map.setPaintProperty(L_FLASH, 'line-width',   fWidth);
         }
       } catch { /* map may be mid-teardown */ }
     };

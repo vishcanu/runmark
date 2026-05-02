@@ -163,6 +163,7 @@ export function Activity() {
               store.removeTerritory(id);
               store.selectTerritory(null);
             }}
+            onUpdate={store.updateTerritory}
           />
         </Modal>
       )}

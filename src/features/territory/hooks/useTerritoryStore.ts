@@ -9,6 +9,7 @@ export interface TerritoryStoreState {
 export interface TerritoryStoreActions {
   addTerritory: (t: Territory) => void;
   removeTerritory: (id: string) => void;
+  updateTerritory: (id: string, patch: Partial<Territory>) => void;
   selectTerritory: (id: string | null) => void;
   getTerritory: (id: string) => Territory | undefined;
 }
@@ -36,11 +37,7 @@ const TEST_TERRITORY: Territory = {
     [77.5809874, 12.9084571],
     [77.5808963, 12.9080499], // closed ring
   ],
-  buildings: [
-    { id: 'tb1', position: [77.5812, 12.9078], height: 10, type: 'cottage' },
-    { id: 'tb2', position: [77.5816, 12.9080], height: 16, type: 'tower'   },
-    { id: 'tb3', position: [77.5814, 12.9075], height: 8,  type: 'cottage' },
-  ],
+  buildings: [],
 };
 // ─────────────────────────────────────────────────────────────
 
@@ -57,6 +54,10 @@ export function useTerritoryStoreState(): TerritoryStoreContextType {
     setSelectedId((prev) => (prev === id ? null : prev));
   }, []);
 
+  const updateTerritory = useCallback((id: string, patch: Partial<Territory>) => {
+    setTerritories((prev) => prev.map((t) => t.id === id ? { ...t, ...patch } : t));
+  }, []);
+
   const selectTerritory = useCallback((id: string | null) => {
     setSelectedId(id);
   }, []);
@@ -66,7 +67,7 @@ export function useTerritoryStoreState(): TerritoryStoreContextType {
     [territories]
   );
 
-  return { territories, selectedId, addTerritory, removeTerritory, selectTerritory, getTerritory };
+  return { territories, selectedId, addTerritory, removeTerritory, updateTerritory, selectTerritory, getTerritory };
 }
 
 export function useTerritoryStore(): TerritoryStoreContextType {

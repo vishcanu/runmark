@@ -227,6 +227,7 @@ export function Home() {
               store.removeTerritory(id);
               store.selectTerritory(null);
             }}
+            onUpdate={store.updateTerritory}
           />
         </Modal>
       )}
