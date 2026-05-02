@@ -8,20 +8,33 @@ import { formatDistance, formatDuration } from '../../map/utils/geo';
 import type { Territory } from '../../../types';
 import styles from './TerritoryDetails.module.css';
 
-// ── Themes ────────────────────────────────────────────────────
+// ── Themes — premium curated gradients ───────────────────────
+// Paired by mood. Each solid `color` is the map wall tone.
 const THEMES = [
-  { id: 'cobalt',   name: 'Cobalt',   grad: 'linear-gradient(135deg,#38bdf8,#0284c7)', color: '#0284c7' },
-  { id: 'ocean',    name: 'Ocean',    grad: 'linear-gradient(135deg,#22d3ee,#0e7490)', color: '#0891b2' },
-  { id: 'forest',   name: 'Forest',   grad: 'linear-gradient(135deg,#34d399,#065f46)', color: '#059669' },
-  { id: 'toxic',    name: 'Toxic',    grad: 'linear-gradient(135deg,#bef264,#4d7c0f)', color: '#65a30d' },
-  { id: 'inferno',  name: 'Inferno',  grad: 'linear-gradient(135deg,#fb923c,#9f1239)', color: '#ea580c' },
-  { id: 'crimson',  name: 'Crimson',  grad: 'linear-gradient(135deg,#f87171,#7f1d1d)', color: '#dc2626' },
-  { id: 'gold',     name: 'Gold',     grad: 'linear-gradient(135deg,#fde68a,#b45309)', color: '#d97706' },
-  { id: 'sakura',   name: 'Sakura',   grad: 'linear-gradient(135deg,#f9a8d4,#9d174d)', color: '#db2777' },
-  { id: 'nebula',   name: 'Nebula',   grad: 'linear-gradient(135deg,#c4b5fd,#5b21b6)', color: '#7c3aed' },
-  { id: 'void',     name: 'Void',     grad: 'linear-gradient(135deg,#818cf8,#1e1b4b)', color: '#6366f1' },
-  { id: 'arctic',   name: 'Arctic',   grad: 'linear-gradient(135deg,#bae6fd,#075985)', color: '#0ea5e9' },
-  { id: 'midnight', name: 'Midnight', grad: 'linear-gradient(135deg,#94a3b8,#0f172a)', color: '#334155' },
+  // Blues
+  { id: 'azure',    name: 'Azure',    grad: 'linear-gradient(135deg,#60a5fa,#1d4ed8)', color: '#2563eb' },
+  { id: 'arctic',   name: 'Arctic',   grad: 'linear-gradient(135deg,#e0f2fe,#0369a1)', color: '#0284c7' },
+  // Teals
+  { id: 'lagoon',   name: 'Lagoon',   grad: 'linear-gradient(135deg,#2dd4bf,#0f766e)', color: '#0d9488' },
+  { id: 'abyss',    name: 'Abyss',    grad: 'linear-gradient(135deg,#38bdf8,#164e63)', color: '#0891b2' },
+  // Greens
+  { id: 'emerald',  name: 'Emerald',  grad: 'linear-gradient(135deg,#34d399,#065f46)', color: '#059669' },
+  { id: 'moss',     name: 'Moss',     grad: 'linear-gradient(135deg,#a3e635,#3f6212)', color: '#65a30d' },
+  // Warm
+  { id: 'ember',    name: 'Ember',    grad: 'linear-gradient(135deg,#fbbf24,#b45309)', color: '#d97706' },
+  { id: 'inferno',  name: 'Inferno',  grad: 'linear-gradient(135deg,#f97316,#7f1d1d)', color: '#ea580c' },
+  // Purples
+  { id: 'nebula',   name: 'Nebula',   grad: 'linear-gradient(135deg,#a78bfa,#4c1d95)', color: '#7c3aed' },
+  { id: 'aurora',   name: 'Aurora',   grad: 'linear-gradient(135deg,#f0abfc,#6b21a8)', color: '#a21caf' },
+  // Pinks
+  { id: 'sakura',   name: 'Sakura',   grad: 'linear-gradient(135deg,#fda4af,#9f1239)', color: '#e11d48' },
+  { id: 'rose',     name: 'Rose',     grad: 'linear-gradient(135deg,#fb7185,#881337)', color: '#f43f5e' },
+  // Prestige
+  { id: 'onyx',     name: 'Onyx',     grad: 'linear-gradient(135deg,#475569,#0f172a)', color: '#334155' },
+  { id: 'gold',     name: 'Gold',     grad: 'linear-gradient(135deg,#fde68a,#92400e)', color: '#b45309' },
+  // Special
+  { id: 'prism',    name: 'Prism',    grad: 'linear-gradient(135deg,#818cf8,#06b6d4)', color: '#6366f1' },
+  { id: 'dusk',     name: 'Dusk',     grad: 'linear-gradient(135deg,#fb923c,#7c3aed)', color: '#9333ea' },
 ];
 
 // ── Emblem icons ──────────────────────────────────────────────
