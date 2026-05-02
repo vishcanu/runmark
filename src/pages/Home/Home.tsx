@@ -85,6 +85,7 @@ export function Home() {
       duration,
       buildings,
       color,
+      runs: 1,
     };
 
     store.addTerritory(territory);

@@ -19,12 +19,14 @@ export interface Territory {
   /** Closed ring of coordinates [lng, lat][] */
   coordinates: Coordinate[];
   createdAt: number;
-  /** Distance walked in meters */
+  /** Distance walked in meters (total across all runs) */
   distance: number;
   /** Duration in seconds */
   duration: number;
   buildings: Building[];
   color: string;
+  /** Number of full loops completed around this territory */
+  runs: number;
 }
 
 // ─── Activity Types ───────────────────────────────────────────────────────────
