@@ -17,8 +17,40 @@ const L_START     = 'active-path-start';
 const L_START_RING = 'active-path-start-ring';
 const L_CURSOR    = 'active-path-cursor';
 
-// Distance in metres at which the "close loop" ring lights up
 const CLOSE_LOOP_M = 30;
+
+// ── Ramer-Douglas-Peucker path simplification ─────────────────
+// Removes GPS noise while preserving real direction changes.
+// epsilon = max perpendicular deviation to keep (metres).
+
+function _perpDistM(p: Coordinate, a: Coordinate, b: Coordinate): number {
+  const lat = (a[1] + b[1]) / 2;
+  const mLat = 111_320;
+  const mLng = 111_320 * Math.cos(lat * Math.PI / 180);
+  const ax = a[0] * mLng, ay = a[1] * mLat;
+  const bx = b[0] * mLng, by = b[1] * mLat;
+  const px = p[0] * mLng, py = p[1] * mLat;
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(px - ax, py - ay);
+  return Math.abs(dx * (ay - py) - dy * (ax - px)) / Math.sqrt(len2);
+}
+
+function _rdp(pts: Coordinate[], eps: number): Coordinate[] {
+  if (pts.length <= 2) return pts;
+  const a = pts[0], b = pts[pts.length - 1];
+  let maxD = 0, idx = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = _perpDistM(pts[i], a, b);
+    if (d > maxD) { maxD = d; idx = i; }
+  }
+  if (maxD > eps) {
+    const L = _rdp(pts.slice(0, idx + 1), eps);
+    const R = _rdp(pts.slice(idx), eps);
+    return [...L.slice(0, -1), ...R];
+  }
+  return [a, b];
+}
 
 export function PathLayer({ map, path }: PathLayerProps) {
   const rafRef = useRef<number | null>(null);
@@ -26,9 +58,13 @@ export function PathLayer({ map, path }: PathLayerProps) {
   useEffect(() => {
     if (!map) return;
 
+    // Smooth the raw GPS path for display — removes criss-cross noise
+    // while keeping real turns. Keep raw endpoints (start/cursor) unchanged.
+    const drawPath = path.length > 4 ? _rdp(path, 8) : path;
+
     const lineGeo = (): GeoJSON.Feature<GeoJSON.LineString> => ({
       type: 'Feature',
-      geometry: { type: 'LineString', coordinates: path },
+      geometry: { type: 'LineString', coordinates: drawPath },
       properties: {},
     });
 

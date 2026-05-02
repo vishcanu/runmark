@@ -58,8 +58,8 @@ export function useActivityTracker() {
         ? haversineDistance(lastPoint, coord)
         : 0;
 
-      // Ignore jitter under 3 meters
-      if (dist < 3 && prev.path.length > 0) return prev;
+      // Ignore jitter under 5 metres
+      if (dist < 5 && prev.path.length > 0) return prev;
 
       return {
         ...prev,

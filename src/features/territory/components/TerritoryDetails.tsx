@@ -3,7 +3,6 @@ import {
   Ruler, Clock, Repeat2, Check, X, Trash2, AlertTriangle, Share2,
   Shield, Zap, Star, Crown, Flag, Target, Flame, Trophy, Gem, Anchor, Mountain, Crosshair,
 } from 'lucide-react';
-import { getMapInstance } from '../../map/mapSingleton';
 import { formatDistance, formatDuration } from '../../map/utils/geo';
 import type { Territory } from '../../../types';
 import styles from './TerritoryDetails.module.css';
@@ -118,6 +117,98 @@ function _grip(lastRunAt: number): number {
 
 function _dist(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
+}
+
+// ── CARTO dark-matter tile stitching ─────────────────────────
+// Replaces the unreliable WebGL toDataURL() capture (CORS-tainted).
+// CARTO tiles serve Access-Control-Allow-Origin: * so Canvas 2D can
+// read pixel data from them without tainting the output canvas.
+
+function _lngToFracTile(lng: number, z: number): number {
+  return (lng + 180) / 360 * (1 << z);
+}
+function _latToFracTile(lat: number, z: number): number {
+  const rad = lat * Math.PI / 180;
+  return (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * (1 << z);
+}
+
+async function fetchTileBg(
+  coords: [number, number][],
+  W: number,
+  H: number,
+): Promise<string | null> {
+  try {
+    const lngs = coords.map(c => c[0]);
+    const lats  = coords.map(c => c[1]);
+    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const cLng = (minLng + maxLng) / 2;
+    const cLat = (minLat + maxLat) / 2;
+
+    // Territory span — ensure a minimum so we don't zoom in too far
+    const span = Math.max((maxLng - minLng), (maxLat - minLat), 0.001);
+
+    // Pick zoom where the territory occupies ~50% of card width
+    // At zoom z: pixels-per-degree = TILE * 2^z / 360
+    const TILE = 256;
+    const targetPx = W * 0.50;
+    const idealZ = Math.log2(targetPx * 360 / (TILE * span));
+    const z = Math.max(10, Math.min(17, Math.floor(idealZ)));
+
+    // Fractional tile coordinates of the territory centre
+    const fcx = _lngToFracTile(cLng, z);
+    const fcy = _latToFracTile(cLat, z);
+
+    // Tile integer range needed to fill W × H
+    const halfTW = W / 2 / TILE + 1;
+    const halfTH = H / 2 / TILE + 1;
+    const txStart = Math.floor(fcx - halfTW);
+    const txEnd   = Math.ceil (fcx + halfTW);
+    const tyStart = Math.floor(fcy - halfTH);
+    const tyEnd   = Math.ceil (fcy + halfTH);
+
+    const cols = txEnd - txStart;
+    const rows = tyEnd - tyStart;
+    if (cols * rows > 36) return null; // safety cap
+
+    // Fetch tiles concurrently (CARTO dark matter — free, CORS-enabled)
+    const jobs: Promise<{ img: HTMLImageElement; col: number; row: number } | null>[] = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const tx = txStart + col;
+        const ty = tyStart + row;
+        const sub = ['a','b','c','d'][Math.abs(tx + ty) % 4];
+        const url = `https://${sub}.basemaps.cartocdn.com/dark_all/${z}/${tx}/${ty}.png`;
+        jobs.push(new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload  = () => resolve({ img, col, row });
+          img.onerror = () => resolve(null);
+          img.src = url;
+        }));
+      }
+    }
+    const tiles = await Promise.all(jobs);
+
+    // Compose onto output canvas — centre the territory centre at (W/2, H/2)
+    const out  = document.createElement('canvas');
+    out.width  = W;
+    out.height = H;
+    const oct  = out.getContext('2d')!;
+
+    const offsetX = (fcx - txStart) * TILE - W / 2;
+    const offsetY = (fcy - tyStart) * TILE - H / 2;
+    for (const t of tiles) {
+      if (!t) continue;
+      oct.drawImage(t.img, t.col * TILE - offsetX, t.row * TILE - offsetY, TILE, TILE);
+    }
+
+    const result = out.toDataURL('image/jpeg', 0.88);
+    // Reject if suspiciously small (e.g. all tiles failed to load)
+    return result.length > 8000 ? result : null;
+  } catch {
+    return null;
+  }
 }
 
 async function buildShareCard(
@@ -366,27 +457,9 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
     if (isSharing) return;
     setIsSharing(true);
     try {
-      // ── Step 1: capture real 3D map ────────────────────────────
-      let mapJpeg: string | null = null;
-      const map = getMapInstance();
-      if (map) {
-        const lngs = territory.coordinates.map((c) => c[0]);
-        const lats  = territory.coordinates.map((c) => c[1]);
-        const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
-        const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
-        const prevCenter  = map.getCenter();
-        const prevZoom    = map.getZoom();
-        const prevPitch   = map.getPitch();
-        const prevBearing = map.getBearing();
-        map.fitBounds([sw, ne], { padding: 130, pitch: 50, bearing: 0, animate: false, maxZoom: 17 });
-        await new Promise<void>((resolve) => {
-          const timeout = setTimeout(resolve, 2500);
-          map.once('idle', () => { clearTimeout(timeout); resolve(); });
-        });
-        try { mapJpeg = map.getCanvas().toDataURL('image/jpeg', 0.88); }
-        catch { /* fallback to gradient */ }
-        map.jumpTo({ center: prevCenter, zoom: prevZoom, pitch: prevPitch, bearing: prevBearing });
-      }
+    // ── Step 1: fetch dark map background from CARTO tiles ────
+      // (WebGL toDataURL is unreliable due to CORS sprite-sheet taint)
+      const mapJpeg = await fetchTileBg(territory.coordinates as [number,number][], 720, 1280);
 
       // ── Step 2: compose card via Canvas 2D API ─────────────────
       const dataUrl = await buildShareCard(mapJpeg, territory, theme.grad);
