@@ -1,8 +1,10 @@
-﻿import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo, useRef } from 'react';
 import {
-  Ruler, Clock, Repeat2, Check, X, Trash2, AlertTriangle,
+  Ruler, Clock, Repeat2, Check, X, Trash2, AlertTriangle, Share2,
   Shield, Zap, Star, Crown, Flag, Target, Flame, Trophy, Gem, Anchor, Mountain, Crosshair,
 } from 'lucide-react';
+import { toPng } from 'html-to-image';
+import { TurfShareCard } from './TurfShareCard';
 import { Button } from '../../../components/Button/Button';
 import { formatDistance, formatDuration } from '../../map/utils/geo';
 import type { Territory } from '../../../types';
@@ -97,6 +99,40 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
   const [draftTagline, setDraftTagline] = useState(territory.tagline ?? '');
   const [draftTheme,   setDraftTheme]   = useState(territory.theme   ?? 'cobalt');
   const [draftEmblem,  setDraftEmblem]  = useState(territory.emblem  ?? 'shield');
+  const [isSharing, setIsSharing] = useState(false);
+  const shareCardRef = useRef<HTMLDivElement>(null);
+
+  async function handleShare() {
+    if (!shareCardRef.current || isSharing) return;
+    setIsSharing(true);
+    try {
+      const dataUrl = await toPng(shareCardRef.current, { pixelRatio: 2, cacheBust: true });
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const safeName = territory.name.replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+      const file = new File([blob], `${safeName}-turf.png`, { type: 'image/png' });
+      if (
+        typeof navigator.share === 'function' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({
+          title: `${territory.name} — RunMark`,
+          text: territory.tagline ?? 'Check out my turf on RunMark!',
+          files: [file],
+        });
+      } else {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${safeName}-turf.png`;
+        a.click();
+      }
+    } catch (_err) {
+      // user cancelled or share unsupported — silently ignore
+    } finally {
+      setIsSharing(false);
+    }
+  }
 
   const theme = getTheme(territory.theme);
   const { Icon: EmblemIcon } = getEmblem(territory.emblem);
@@ -311,18 +347,34 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
         </div>
       )}
 
-      {/* ── Delete ── */}
+      {/* ── Share + Delete ── */}
       {!editing && (
-        <Button
-          variant="danger"
-          size="md"
-          className={styles.deleteBtn}
-          onClick={() => onDelete(territory.id)}
-        >
-          <Trash2 size={16} strokeWidth={2} />
-          Delete Territory
-        </Button>
+        <div className={styles.bottomActions}>
+          <button
+            className={styles.shareBtn}
+            onClick={handleShare}
+            disabled={isSharing}
+            style={{ background: theme.grad }}
+          >
+            <Share2 size={15} strokeWidth={2.5} />
+            {isSharing ? 'Saving…' : 'Share Turf'}
+          </button>
+          <Button
+            variant="danger"
+            size="md"
+            className={styles.deleteBtn}
+            onClick={() => onDelete(territory.id)}
+          >
+            <Trash2 size={16} strokeWidth={2} />
+            Delete Territory
+          </Button>
+        </div>
       )}
+
+      {/* Off-screen share card — always in DOM for instant capture */}
+      <div style={{ position: 'fixed', top: 0, left: '-600px', pointerEvents: 'none', zIndex: -1 }}>
+        <TurfShareCard ref={shareCardRef} territory={territory} />
+      </div>
     </div>
   );
 }
