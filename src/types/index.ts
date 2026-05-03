@@ -44,9 +44,15 @@ export interface Territory {
   rawPath?: Coordinate[];
   /** User-chosen building type — unlocked at 3 runs */
   buildingType?: ConstructionBuildingType;
+  /** Activity type used on the most recent run */
+  activityType?: ActivityType;
+  /** Total gamification points accumulated across all runs */
+  points: number;
 }
 
 // ─── Activity Types ───────────────────────────────────────────────────────────
+export type ActivityType = 'run' | 'walk' | 'cycle';
+
 export type ActivityStatus = 'idle' | 'active' | 'paused' | 'completed';
 
 export interface ActivitySession {
@@ -56,4 +62,5 @@ export interface ActivitySession {
   startTime: number | null;
   endTime: number | null;
   distance: number;
+  activityType: ActivityType;
 }

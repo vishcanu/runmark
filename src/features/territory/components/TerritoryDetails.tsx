@@ -2,11 +2,11 @@
 import maplibregl from 'maplibre-gl';
 import { applyRunMarkTheme } from '../../map/hooks/useMap';
 import {
-  Ruler, Clock, Repeat2, Check, X, Trash2, AlertTriangle, Share2,
+  Ruler, Repeat2, Check, X, Trash2, AlertTriangle, Share2,
   Shield, Zap, Star, Crown, Flag, Target, Flame, Trophy, Gem, Anchor, Mountain, Crosshair,
   HardHat,
 } from 'lucide-react';
-import { formatDistance, formatDuration } from '../../map/utils/geo';
+import { formatDistance } from '../../map/utils/geo';
 import { getTierInfo, nextTierAt } from '../utils/territoryTier';
 import { getConstructionLevel, nextConstructionLevel, BUILDING_DEFS, availableBuildings } from '../../building/buildingCatalog';
 import type { Territory } from '../../../types';
@@ -609,17 +609,17 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
         </div>
         <div className={styles.statItem}>
           <div className={styles.statIcon} style={{ background: `${territory.color}22` }}>
-            <Clock size={16} style={{ color: territory.color }} strokeWidth={2} />
-          </div>
-          <span className={styles.statValue}>{formatDuration(territory.duration)}</span>
-          <span className={styles.statLabel}>Duration</span>
-        </div>
-        <div className={styles.statItem}>
-          <div className={styles.statIcon} style={{ background: `${territory.color}22` }}>
             <Repeat2 size={16} style={{ color: territory.color }} strokeWidth={2} />
           </div>
           <span className={styles.statValue}>{territory.runs ?? 1}×</span>
           <span className={styles.statLabel}>Runs</span>
+        </div>
+        <div className={styles.statItem}>
+          <div className={styles.statIcon} style={{ background: '#f59e0b22' }}>
+            <Zap size={16} style={{ color: '#f59e0b' }} strokeWidth={2} />
+          </div>
+          <span className={styles.statValue}>{(territory.points ?? 0).toLocaleString()}</span>
+          <span className={styles.statLabel}>Points</span>
         </div>
       </div>
 

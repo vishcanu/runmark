@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { ActivitySession, Coordinate } from '../../../types';
+import type { ActivitySession, ActivityType, Coordinate } from '../../../types';
 import { haversineDistance, totalPathDistance } from '../../map/utils/geo';
 
 function generateId(): string {
@@ -13,6 +13,7 @@ const INITIAL_SESSION: ActivitySession = {
   startTime: null,
   endTime: null,
   distance: 0,
+  activityType: 'run',
 };
 
 export function useActivityTracker() {
@@ -37,7 +38,7 @@ export function useActivityTracker() {
     };
   }, [session.status]);
 
-  const start = useCallback(() => {
+  const start = useCallback((type: ActivityType = 'run') => {
     setElapsedSeconds(0);
     setSession({
       id: generateId(),
@@ -46,6 +47,7 @@ export function useActivityTracker() {
       startTime: Date.now(),
       endTime: null,
       distance: 0,
+      activityType: type,
     });
   }, []);
 

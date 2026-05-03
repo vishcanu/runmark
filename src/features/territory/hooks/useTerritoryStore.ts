@@ -32,6 +32,8 @@ const TEST_TERRITORY: Territory = {
   theme: 'cobalt',
   emblem: 'shield',
   tagline: 'My morning fortress',
+  activityType: 'run',
+  points: 1245,
   coordinates: [
     [77.5808963, 12.9080499],
     [77.5811258, 12.9074393],

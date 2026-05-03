@@ -12,8 +12,9 @@ import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
 import { pathToPolygon, colorFromId, polyCentroid, haversineDistance, isLinearPath, bufferPath } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
+import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
-import type { Territory, Coordinate } from '../../types';
+import type { Territory, Coordinate, ActivityType } from '../../types';
 import styles from './Home.module.css';
 
 export function Home() {
@@ -58,9 +59,9 @@ export function Home() {
     }
   }, [geo.position, tracker.session.status]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback((type: ActivityType = 'run') => {
     geo.startWatching();
-    tracker.start();
+    tracker.start(type);
     setParkCardDismissed(true);
     setSelectedPark(null);
   }, [geo, tracker]);
@@ -68,11 +69,12 @@ export function Home() {
   const handleStop = useCallback(async () => {
     geo.stopWatching();
 
-    const currentPath     = tracker.session.path;
-    const currentDistance = tracker.session.distance;
+    const currentPath      = tracker.session.path;
+    const currentDistance  = tracker.session.distance;
     const currentStartTime = tracker.session.startTime;
-    const sessionId       = tracker.session.id;
-    const elapsed         = tracker.elapsedSeconds;
+    const sessionId        = tracker.session.id;
+    const elapsed          = tracker.elapsedSeconds;
+    const activityType     = tracker.session.activityType;
 
     tracker.stop();
 
@@ -105,13 +107,17 @@ export function Home() {
 
     if (existing) {
       // Accumulate stats onto the existing territory
+      const earned = calcPoints(currentDistance, activityType, false);
       store.updateTerritory(existing.id, {
-        runs:      (existing.runs ?? 1) + 1,
-        distance:  existing.distance + currentDistance,
-        lastRunAt: Date.now(),
+        runs:         (existing.runs ?? 1) + 1,
+        distance:     existing.distance + currentDistance,
+        lastRunAt:    Date.now(),
+        activityType,
+        points:       (existing.points ?? 0) + earned,
       });
     } else {
       // Brand-new zone — no pre-generated buildings; construction grows with runs
+      const earned = calcPoints(currentDistance, activityType, true);
       const territory: Territory = {
         id: sessionId,
         name: `Territory ${store.territories.length + 1}`,
@@ -123,8 +129,10 @@ export function Home() {
         color,
         runs: 1,
         lastRunAt: Date.now(),
-        shape:   linear ? 'corridor' : 'zone',
-        rawPath: linear ? snappedPath : undefined,
+        shape:        linear ? 'corridor' : 'zone',
+        rawPath:      linear ? snappedPath : undefined,
+        activityType,
+        points:       earned,
       };
       store.addTerritory(territory);
     }
@@ -245,7 +253,7 @@ export function Home() {
               <Navigation size={15} strokeWidth={2} />
               Directions
             </button>
-            <button className={styles.parkConfirmStart} onClick={handleStart}>
+            <button className={styles.parkConfirmStart} onClick={() => handleStart('run')}>
               <Play size={15} strokeWidth={2.5} />
               Start Run Here
             </button>
@@ -257,6 +265,7 @@ export function Home() {
         status={tracker.session.status}
         elapsedSeconds={tracker.elapsedSeconds}
         distance={tracker.session.distance}
+        activityType={tracker.session.activityType}
         onStart={handleStart}
         onStop={handleStop}
         isSnapping={isSnapping}
