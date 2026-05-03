@@ -10,7 +10,7 @@ import { useActivityTracker } from '../../features/activity/hooks/useActivityTra
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
-import { colorFromId, polyCentroid, haversineDistance, bufferPath } from '../../features/map/utils/geo';
+import { colorFromId, polyCentroid, haversineDistance, isLinearPath, bufferPath, pathToPolygon } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
@@ -90,16 +90,14 @@ export function Home() {
     const snappedPath = await snapPathToRoads(currentPath, activityType);
     setIsSnapping(false);
 
-    // ── Build road-buffered territory ───────────────────────
-    // Roads are always the territory — the OSRM-snapped path follows the
-    // actual road centreline. We buffer it by lane width to fill the road.
-    //   walk  = 4 m  (footpath ~2 m wide, 2 m each side)
-    //   run   = 5 m  (pavement + shoulder)
-    //   cycle = 8 m  (road lane ~3.5 m, wider visual footprint)
-    // For closed loops (block walk) bufferPath returns a road-ring covering
-    // only the perimeter roads — NOT the block interior.
-    const ROAD_BUFFER = activityType === 'cycle' ? 8 : activityType === 'walk' ? 4 : 5;
-    const coords   = bufferPath(snappedPath, ROAD_BUFFER);
+    // ── Detect shape: closed zone vs out-and-back corridor ───
+    // Corridor buffer width reflects real lane/path widths:
+    //   walk = 4 m (footpath ~2 m, 2 m each side)
+    //   run  = 5 m (pavement + shoulder)
+    //   cycle = 8 m (road lane ~3.5 m, wider visual territory)
+    const CORRIDOR_BUFFER = activityType === 'cycle' ? 8 : activityType === 'walk' ? 4 : 5;
+    const linear  = isLinearPath(snappedPath);
+    const coords  = linear ? bufferPath(snappedPath, CORRIDOR_BUFFER) : pathToPolygon(snappedPath);
     const color    = colorFromId(sessionId);
     const duration = elapsed;
 
@@ -136,8 +134,8 @@ export function Home() {
         color,
         runs: 1,
         lastRunAt: Date.now(),
-        shape:       'corridor',   // always road-based
-        rawPath:      snappedPath, // always store centreline for stripe/share card
+        shape:        linear ? 'corridor' : 'zone',
+        rawPath:      linear ? snappedPath : undefined,
         activityType,
         points:       earned,
       };

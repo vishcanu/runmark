@@ -180,82 +180,44 @@ export function isLinearPath(path: Coordinate[]): boolean {
 }
 
 /**
- * Buffer a polyline by `bufferM` metres on each side, returning a closed GeoJSON ring.
- *
- * Handles two path shapes:
- *
- * Open path (start ≠ end) — straight road / corridor:
- *   Buffers each side independently, caps the ends, returns a rectangle-like ring.
- *
- * Closed loop (start ≈ end within 20 m) — block walk, park circuit:
- *   Wraps the tangent at the join point so the buffer ring closes cleanly.
- *   Result: a donut-shaped ring that covers only the road perimeter, NOT the interior.
- *   This is key — a block walk claims the 4 roads, not the block interior.
+ * Buffer a polyline by `bufferM` metres on each side, returning a closed ring.
+ * Used to turn an out-and-back road run into a corridor polygon.
  */
 export function bufferPath(path: Coordinate[], bufferM: number): Coordinate[] {
   const n = path.length;
   if (n < 2) return path;
-
-  const avgLat   = path.reduce((s, p) => s + p[1], 0) / n;
-  const mPerLat  = 111_320;
-  const mPerLng  = 111_320 * Math.cos(avgLat * Math.PI / 180);
+  const avgLat  = path.reduce((s, p) => s + p[1], 0) / n;
+  const mPerLat = 111_320;
+  const mPerLng = 111_320 * Math.cos(avgLat * Math.PI / 180);
   const dLatPerM = 1 / mPerLat;
   const dLngPerM = 1 / mPerLng;
-
-  // Detect if path is a closed loop (start and end are within 20 m of each other).
-  // OSRM returns the last point ≈ first point for loop routes.
-  const isClosed = haversineDistance(path[0], path[n - 1]) < 20;
 
   const left:  Coordinate[] = [];
   const right: Coordinate[] = [];
 
   for (let i = 0; i < n; i++) {
+    // tangent direction: average of adjacent segments
     let dx = 0, dy = 0;
-
-    if (isClosed) {
-      // Wrap: treat the path as a circular array so the tangent at
-      // endpoints uses the correct neighboring points across the loop boundary.
-      const prev = path[(i - 1 + n) % n];
-      const next = path[(i + 1) % n];
-      dx = (next[0] - prev[0]) * mPerLng;
-      dy = (next[1] - prev[1]) * mPerLat;
-    } else if (i === 0) {
+    if (i === 0) {
       dx = (path[1][0] - path[0][0]) * mPerLng;
       dy = (path[1][1] - path[0][1]) * mPerLat;
     } else if (i === n - 1) {
-      dx = (path[n - 1][0] - path[n - 2][0]) * mPerLng;
-      dy = (path[n - 1][1] - path[n - 2][1]) * mPerLat;
+      dx = (path[n-1][0] - path[n-2][0]) * mPerLng;
+      dy = (path[n-1][1] - path[n-2][1]) * mPerLat;
     } else {
-      dx = (path[i + 1][0] - path[i - 1][0]) * mPerLng;
-      dy = (path[i + 1][1] - path[i - 1][1]) * mPerLat;
+      dx = (path[i+1][0] - path[i-1][0]) * mPerLng;
+      dy = (path[i+1][1] - path[i-1][1]) * mPerLat;
     }
-
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len < 1e-10) { left.push(path[i]); right.push(path[i]); continue; }
-
-    // Perpendicular unit vectors: left = (-dy, dx), right = (dy, -dx)
+    // perpendicular unit vectors: (-dy,dx) = left, (dy,-dx) = right
     const px = -dy / len;
     const py =  dx / len;
     left.push( [path[i][0] + px * bufferM * dLngPerM, path[i][1] + py * bufferM * dLatPerM] as Coordinate);
     right.push([path[i][0] - px * bufferM * dLngPerM, path[i][1] - py * bufferM * dLatPerM] as Coordinate);
   }
 
-  if (isClosed) {
-    // Closed loop: left side IS the outer road edge, right side IS the inner edge.
-    // Build a ring: outer forward → close outer → inner reversed → close inner.
-    // GeoJSON polygon with a hole: outer ring + inner ring (reversed) = road band only.
-    // We encode this as a single winding ring that traces outer forward then inner backward.
-    const ring: Coordinate[] = [
-      ...left,
-      left[0],                          // close outer ring
-      ...[...right].reverse(),          // inner edge reversed
-      right[right.length - 1],          // close inner ring
-      left[0],                          // close back to outer start
-    ];
-    return ring;
-  }
-
-  // Open path: cap both ends, return a simple rectangular corridor ring
+  // ring: left side forward → right side reversed → close
   const ring: Coordinate[] = [...left, ...[...right].reverse(), left[0]];
   return ring;
 }
