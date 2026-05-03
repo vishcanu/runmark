@@ -38,6 +38,13 @@
     gap: 4px;
 }
 
+.statGroup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+}
+
 .statIcon {
     color: var(--color-accent-primary);
     flex-shrink: 0;
@@ -49,6 +56,15 @@
     color: var(--color-text-primary);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.025em;
+    line-height: 1;
+}
+
+.statUnit {
+    font-size: 9px;
+    font-weight: var(--font-medium);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
     line-height: 1;
 }
 

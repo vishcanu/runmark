@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { Square, Timer, Footprints, Zap, Bike, Play, type LucideIcon } from 'lucide-react';
-import { formatDistance, formatDuration } from '../../map/utils/geo';
+import { Square, Timer, Footprints, Zap, Bike, Play, Gauge, type LucideIcon } from 'lucide-react';
+import {
+  formatDistance,
+  formatDuration,
+  formatPace,
+  formatSpeed,
+  estimateSteps,
+  formatSteps,
+} from '../../map/utils/geo';
 import { ACTIVITY_CONFIGS } from '../utils/points';
 import type { ActivityStatus, ActivityType } from '../../../types';
 import styles from './ActivityControls.module.css';
@@ -58,17 +65,78 @@ export function ActivityControls({
       {/* Live stats pill — shown above stop button during activity */}
       {isActive && (
         <div className={styles.statsCard}>
+          {/* Activity type icon */}
           <ActiveIcon size={14} strokeWidth={2.5} style={{ color: activeCfg.color, flexShrink: 0 }} />
           <div className={styles.statDivider} />
+
+          {/* Timer — always shown */}
           <div className={styles.stat}>
             <Timer size={13} strokeWidth={2.5} className={styles.statIcon} />
-            <span className={styles.statVal}>{formatDuration(elapsedSeconds)}</span>
+            <div className={styles.statGroup}>
+              <span className={styles.statVal}>{formatDuration(elapsedSeconds)}</span>
+              <span className={styles.statUnit}>time</span>
+            </div>
           </div>
-          <div className={styles.statDivider} />
-          <div className={styles.stat}>
-            <Footprints size={13} strokeWidth={2.5} className={styles.statIcon} />
-            <span className={styles.statVal}>{formatDistance(distance)}</span>
-          </div>
+
+          {activityType === 'walk' && (
+            <>
+              <div className={styles.statDivider} />
+              {/* Steps */}
+              <div className={styles.stat}>
+                <Footprints size={13} strokeWidth={2.5} className={styles.statIcon} />
+                <div className={styles.statGroup}>
+                  <span className={styles.statVal}>{formatSteps(estimateSteps(distance, 'walk'))}</span>
+                  <span className={styles.statUnit}>steps</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activityType === 'run' && (
+            <>
+              <div className={styles.statDivider} />
+              {/* Distance */}
+              <div className={styles.stat}>
+                <Footprints size={13} strokeWidth={2.5} className={styles.statIcon} />
+                <div className={styles.statGroup}>
+                  <span className={styles.statVal}>{formatDistance(distance)}</span>
+                  <span className={styles.statUnit}>dist</span>
+                </div>
+              </div>
+              <div className={styles.statDivider} />
+              {/* Pace */}
+              <div className={styles.stat}>
+                <Gauge size={13} strokeWidth={2.5} className={styles.statIcon} />
+                <div className={styles.statGroup}>
+                  <span className={styles.statVal}>{formatPace(distance, elapsedSeconds) ?? '—'}</span>
+                  <span className={styles.statUnit}>/km</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activityType === 'cycle' && (
+            <>
+              <div className={styles.statDivider} />
+              {/* Distance */}
+              <div className={styles.stat}>
+                <Bike size={13} strokeWidth={2.5} className={styles.statIcon} />
+                <div className={styles.statGroup}>
+                  <span className={styles.statVal}>{formatDistance(distance)}</span>
+                  <span className={styles.statUnit}>dist</span>
+                </div>
+              </div>
+              <div className={styles.statDivider} />
+              {/* Speed */}
+              <div className={styles.stat}>
+                <Gauge size={13} strokeWidth={2.5} className={styles.statIcon} />
+                <div className={styles.statGroup}>
+                  <span className={styles.statVal}>{formatSpeed(distance, elapsedSeconds) ?? '—'}</span>
+                  <span className={styles.statUnit}>km/h</span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

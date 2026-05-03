@@ -79,6 +79,45 @@ export function formatDuration(seconds: number): string {
   return `${s}s`;
 }
 
+/**
+ * Pace in min/km for running. Returns formatted string e.g. "5:30"
+ * Returns null when there is not enough data for a meaningful reading.
+ */
+export function formatPace(distanceM: number, elapsedSeconds: number): string | null {
+  if (distanceM < 50 || elapsedSeconds < 5) return null;
+  const paceSecsPerKm = (elapsedSeconds * 1000) / distanceM;
+  if (paceSecsPerKm > 3600) return null; // slower than 60 min/km — GPS noise
+  const mins = Math.floor(paceSecsPerKm / 60);
+  const secs = Math.round(paceSecsPerKm % 60);
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+/**
+ * Speed in km/h for cycling. Returns formatted string e.g. "18.2"
+ * Returns null when there is not enough data for a meaningful reading.
+ */
+export function formatSpeed(distanceM: number, elapsedSeconds: number): string | null {
+  if (distanceM < 10 || elapsedSeconds < 3) return null;
+  const kmh = (distanceM / 1000) / (elapsedSeconds / 3600);
+  if (kmh > 120) return null; // GPS spike guard
+  return kmh.toFixed(1);
+}
+
+/**
+ * Estimate step count from distance.
+ * Uses WHO/sports-science average stride lengths:
+ *   walk = 0.762 m/step (30 in), run = 1.4 m/step
+ */
+export function estimateSteps(distanceM: number, activityType: 'walk' | 'run'): number {
+  const strideLength = activityType === 'walk' ? 0.762 : 1.4;
+  return Math.round(distanceM / strideLength);
+}
+
+/** Format a raw step count with thousand-separator, e.g. 1234 → "1,234" */
+export function formatSteps(steps: number): string {
+  return steps.toLocaleString('en-US');
+}
+
 /** Average centroid of a coordinate ring */
 export function polyCentroid(coords: Coordinate[]): Coordinate {
   let lng = 0, lat = 0;
