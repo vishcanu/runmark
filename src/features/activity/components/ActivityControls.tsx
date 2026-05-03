@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Square, Timer, Footprints, Zap, Bike, type LucideIcon } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Square, Timer, Footprints, Zap, Bike, Play, type LucideIcon } from 'lucide-react';
 import { formatDistance, formatDuration } from '../../map/utils/geo';
 import { ACTIVITY_CONFIGS } from '../utils/points';
 import type { ActivityStatus, ActivityType } from '../../../types';
@@ -31,16 +31,34 @@ export function ActivityControls({
   isSnapping = false,
 }: ActivityControlsProps) {
   const isActive = status === 'active';
-  const [selected, setSelected] = useState<ActivityType>('run');
-  const cfg = ACTIVITY_CONFIGS[isActive ? activityType : selected];
-  const ActiveIcon = ACTIVITY_ICONS[isActive ? activityType : selected];
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const ActiveIcon = ACTIVITY_ICONS[activityType];
+  const activeCfg = ACTIVITY_CONFIGS[activityType];
+
+  // Close picker on outside tap
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const handle = (e: MouseEvent | TouchEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handle);
+    return () => document.removeEventListener('pointerdown', handle);
+  }, [pickerOpen]);
+
+  function handlePick(type: ActivityType) {
+    setPickerOpen(false);
+    onStart(type);
+  }
 
   return (
-    <div className={styles.container}>
-      {/* Live stats pill — shown above the stop button during activity */}
+    <div className={styles.container} ref={wrapRef}>
+      {/* Live stats pill — shown above stop button during activity */}
       {isActive && (
         <div className={styles.statsCard}>
-          <ActiveIcon size={14} strokeWidth={2.5} style={{ color: cfg.color, flexShrink: 0 }} />
+          <ActiveIcon size={14} strokeWidth={2.5} style={{ color: activeCfg.color, flexShrink: 0 }} />
           <div className={styles.statDivider} />
           <div className={styles.stat}>
             <Timer size={13} strokeWidth={2.5} className={styles.statIcon} />
@@ -54,46 +72,48 @@ export function ActivityControls({
         </div>
       )}
 
-      {/* Single row: [Run][Walk][Cycle] → [Start FAB]  or  [Stop] */}
-      <div className={styles.actionRow}>
-        {/* Activity type chips — only when idle */}
-        {!isActive && !isSnapping && (
-          <div className={styles.typePicker}>
-            {(['run', 'walk', 'cycle'] as ActivityType[]).map((type) => {
-              const c = ACTIVITY_CONFIGS[type];
-              const Icon = ACTIVITY_ICONS[type];
-              const isChosen = selected === type;
-              return (
-                <button
-                  key={type}
-                  className={[styles.typeBtn, isChosen ? styles.typeBtnActive : ''].join(' ')}
-                  style={isChosen ? { borderColor: c.color, color: c.color, background: c.color + '18' } : {}}
-                  onClick={() => setSelected(type)}
-                >
-                  <Icon size={14} strokeWidth={2.5} />
-                  <span className={styles.typeLabel}>{c.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+      {/* Activity picker popup — appears above FAB */}
+      {pickerOpen && (
+        <div className={styles.picker}>
+          {(['run', 'walk', 'cycle'] as ActivityType[]).map((type) => {
+            const c = ACTIVITY_CONFIGS[type];
+            const Icon = ACTIVITY_ICONS[type];
+            return (
+              <button
+                key={type}
+                className={styles.pickerOption}
+                onClick={() => handlePick(type)}
+              >
+                <span className={styles.pickerIcon} style={{ background: c.color + '20', color: c.color }}>
+                  <Icon size={16} strokeWidth={2.5} />
+                </span>
+                <div className={styles.pickerText}>
+                  <span className={styles.pickerLabel}>{c.label}</span>
+                  <span className={styles.pickerDesc}>{c.description}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-        {/* FAB */}
+      {/* FAB row — single button at all times when idle */}
+      <div className={styles.actionRow}>
         {!isActive ? (
           isSnapping ? (
-            <button className={styles.fabStop} disabled aria-label="Mapping territory" style={{ opacity: 0.7, flexDirection: 'column', gap: '2px' }}>
+            <button className={styles.fabStop} disabled aria-label="Mapping territory"
+              style={{ opacity: 0.7, flexDirection: 'column', gap: '2px' }}>
               <Square size={14} strokeWidth={2.5} />
               <span style={{ fontSize: '10px', lineHeight: 1 }}>Map…</span>
             </button>
           ) : (
             <button
               className={styles.fab}
-              style={{ background: `linear-gradient(135deg, ${cfg.color}, ${cfg.color}cc)` }}
-              onClick={() => onStart(selected)}
-              aria-label={`Start ${cfg.label}`}
+              onClick={() => setPickerOpen((o) => !o)}
+              aria-label="Start activity"
             >
-              <ActiveIcon size={17} strokeWidth={2.5} />
-              Start {cfg.label}
+              <Play size={17} strokeWidth={2.5} />
+              Start
             </button>
           )
         ) : (

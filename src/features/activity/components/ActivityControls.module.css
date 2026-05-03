@@ -59,72 +59,109 @@
     margin: 0 2px;
 }
 
-/* ─── Single action row: chips + FAB side by side ────────── */
+/* ─── Action row — just the single FAB ──────────────────── */
 .actionRow {
     display: flex;
     align-items: center;
-    gap: 6px;
     pointer-events: auto;
 }
 
-/* ─── Activity type chips (icon + label, compact) ────────── */
-.typePicker {
+/* ─── Activity picker popup — floats above the FAB ──────── */
+.picker {
     display: flex;
-    gap: 5px;
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 18px;
+    padding: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.10);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    pointer-events: auto;
+    animation: pickerIn 160ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    transform-origin: bottom right;
 }
 
-.typeBtn {
+@keyframes pickerIn {
+    from {
+        opacity: 0;
+        transform: scale(0.88) translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.pickerOption {
     display: flex;
     align-items: center;
-    gap: 4px;
-    height: 44px;
-    padding: 0 11px;
-    border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.92);
-    border: 1.5px solid rgba(0, 0, 0, 0.12);
-    color: var(--color-text-secondary);
-    font-family: var(--font-family);
-    font-size: 12px;
-    font-weight: var(--font-semibold);
+    gap: 10px;
+    padding: 9px 12px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
     cursor: pointer;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.10);
-    transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    outline: none;
-    white-space: nowrap;
+    text-align: left;
+    transition: background var(--transition-fast);
+    min-width: 180px;
 }
 
-.typeBtn:active {
-    transform: scale(0.93);
+.pickerOption:active,
+.pickerOption:hover {
+    background: rgba(0, 0, 0, 0.05);
 }
 
-.typeBtnActive {
+.pickerIcon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.pickerText {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.pickerLabel {
+    font-size: 14px;
     font-weight: var(--font-bold);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+    color: var(--color-text-primary);
+    line-height: 1.2;
+    font-family: var(--font-family);
 }
 
-.typeLabel {
-    font-size: 12px;
-    line-height: 1;
+.pickerDesc {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-family: var(--font-family);
+    line-height: 1.2;
 }
 
-/* ─── Start FAB — same height as chips ───────────────────── */
+/* ─── Start FAB ──────────────────────────────────────────── */
 .fab {
     display: flex;
     align-items: center;
     gap: 7px;
     height: 44px;
-    padding: 0 20px;
+    padding: 0 22px;
     border-radius: var(--radius-full);
     border: none;
+    background: var(--gradient-park);
     color: #ffffff;
     font-family: var(--font-family);
     font-size: 14px;
     font-weight: var(--font-bold);
     letter-spacing: -0.01em;
     cursor: pointer;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22), 0 1px 4px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 4px 20px rgba(2, 132, 199, 0.38), 0 1px 4px rgba(0, 0, 0, 0.12);
     transition: transform var(--transition-base), box-shadow var(--transition-base);
     outline: none;
     white-space: nowrap;
@@ -132,10 +169,10 @@
 
 .fab:active {
     transform: scale(0.94);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 2px 10px rgba(2, 132, 199, 0.28);
 }
 
-/* ─── Stop button — circle, same height ─────────────────── */
+/* ─── Stop button ─────────────────────────────────────────── */
 .fabStop {
     width: 44px;
     height: 44px;
