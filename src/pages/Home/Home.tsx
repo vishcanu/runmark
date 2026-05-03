@@ -11,6 +11,7 @@ import { useTerritoryStore } from '../../features/territory/hooks/useTerritorySt
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
 import { pathToPolygon, colorFromId, polyCentroid, haversineDistance } from '../../features/map/utils/geo';
+import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { generateBuildings } from '../../features/building/utils/buildingGenerator';
 import type { Park } from '../../features/parks/types';
 import type { Territory, Coordinate } from '../../types';
@@ -22,6 +23,7 @@ export function Home() {
   const store = useTerritoryStore();
   const [parkCardDismissed, setParkCardDismissed] = useState(false);
   const [selectedPark, setSelectedPark] = useState<Park | null>(null);
+  const [isSnapping, setIsSnapping] = useState(false);
 
   // Set of claimed park IDs for context
   const claimedParkIds = useMemo(() => new Set<string>(), []);
@@ -61,14 +63,14 @@ export function Home() {
     setSelectedPark(null);
   }, [geo, tracker]);
 
-  const handleStop = useCallback(() => {
+  const handleStop = useCallback(async () => {
     geo.stopWatching();
 
-    const currentPath = tracker.session.path;
+    const currentPath     = tracker.session.path;
     const currentDistance = tracker.session.distance;
     const currentStartTime = tracker.session.startTime;
-    const sessionId = tracker.session.id;
-    const elapsed = tracker.elapsedSeconds;
+    const sessionId       = tracker.session.id;
+    const elapsed         = tracker.elapsedSeconds;
 
     tracker.stop();
 
@@ -77,8 +79,15 @@ export function Home() {
       return;
     }
 
-    const coords = pathToPolygon(currentPath);
-    const color = colorFromId(sessionId);
+    // ── Snap path to real road/footpath geometry ─────────────
+    // Shows "Mapping territory…" while OSRM resolves (max 6s).
+    // Falls back to raw GPS path automatically on any failure.
+    setIsSnapping(true);
+    const snappedPath = await snapPathToRoads(currentPath);
+    setIsSnapping(false);
+
+    const coords   = pathToPolygon(snappedPath);
+    const color    = colorFromId(sessionId);
     const duration = elapsed;
 
     // ── Detect if this run re-traces an existing territory ────
@@ -238,6 +247,7 @@ export function Home() {
         distance={tracker.session.distance}
         onStart={handleStart}
         onStop={handleStop}
+        isSnapping={isSnapping}
       />
 
       {selectedTerritory && (

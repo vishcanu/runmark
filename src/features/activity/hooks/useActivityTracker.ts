@@ -64,7 +64,7 @@ export function useActivityTracker() {
       return {
         ...prev,
         path: [...prev.path, coord],
-        distance: prev.distance + dist,
+        distance: Math.round(prev.distance + dist),
       };
     });
   }, []);

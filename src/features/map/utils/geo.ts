@@ -64,8 +64,9 @@ export function getBoundingBox(coords: Coordinate[]): {
 
 /** Format meters to readable distance string */
 export function formatDistance(meters: number): string {
+  if (!meters || isNaN(meters)) return '0m';
   if (meters < 1000) return `${Math.round(meters)}m`;
-  return `${(meters / 1000).toFixed(2)}km`;
+  return `${(meters / 1000).toFixed(1)}km`;
 }
 
 /** Format seconds to readable duration string */

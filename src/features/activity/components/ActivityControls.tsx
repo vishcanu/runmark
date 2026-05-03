@@ -9,6 +9,7 @@ interface ActivityControlsProps {
   distance: number;
   onStart: () => void;
   onStop: () => void;
+  isSnapping?: boolean;
 }
 
 export function ActivityControls({
@@ -17,6 +18,7 @@ export function ActivityControls({
   distance,
   onStart,
   onStop,
+  isSnapping = false,
 }: ActivityControlsProps) {
   const isActive = status === 'active';
 
@@ -45,6 +47,13 @@ export function ActivityControls({
           <button className={styles.fab} onClick={onStart} aria-label="Start activity">
             <Play size={18} strokeWidth={2.5} />
             Start Run
+          </button>
+        </div>
+      ) : isSnapping ? (
+        <div className={styles.fabWrap}>
+          <button className={styles.fabStop} disabled aria-label="Mapping territory" style={{ opacity: 0.7, fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <span style={{ fontSize: '18px' }}>⟳</span>
+            <span>Mapping…</span>
           </button>
         </div>
       ) : (

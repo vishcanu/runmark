@@ -111,19 +111,21 @@ function _gradColors(grad: string): [string, string] {
   return m && m.length >= 2 ? [m[0], m[1]] : ['#2563eb', '#1d4ed8'];
 }
 
-function _grip(lastRunAt: number): number {
-  const d = (Date.now() - lastRunAt) / 86_400_000;
-  return Math.max(0, Math.min(100, Math.round((1 - d * 0.082) * 100)));
+function _dist(m: number): string {
+  if (!m || isNaN(m)) return '—';
+  return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
 }
 
-function _dist(m: number): string {
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
+function _steps(m: number): string {
+  if (!m || isNaN(m)) return '—';
+  const s = Math.round(m / 0.78); // avg stride ≈ 78 cm
+  return s >= 1000 ? `${(s / 1000).toFixed(1)}k` : `${s}`;
 }
 
 // ── CARTO dark-matter tile stitching ─────────────────────────
-// Replaces the unreliable WebGL toDataURL() capture (CORS-tainted).
-// CARTO tiles serve Access-Control-Allow-Origin: * so Canvas 2D can
-// read pixel data from them without tainting the output canvas.
+// Uses fetch() → base64 data URL so the output canvas is NEVER tainted.
+// (img.crossOrigin='anonymous' still taints mobile WebView canvases;
+//  a data: URL is treated as same-origin and is guaranteed safe.)
 
 function _lngToFracTile(lng: number, z: number): number {
   return (lng + 180) / 360 * (1 << z);
@@ -131,6 +133,28 @@ function _lngToFracTile(lng: number, z: number): number {
 function _latToFracTile(lat: number, z: number): number {
   const rad = lat * Math.PI / 180;
   return (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * (1 << z);
+}
+
+/** Fetch a single tile and return as a base64 data URL (same-origin → no taint) */
+async function _fetchTileDataUrl(url: string): Promise<string | null> {
+  try {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    const res   = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const buf   = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    // chunked btoa — avoids stack-overflow on large tiles
+    const CHUNK = 8192;
+    const parts: string[] = [];
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      parts.push(String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.length))));
+    }
+    return `data:image/png;base64,${btoa(parts.join(''))}`;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchTileBg(
@@ -146,21 +170,16 @@ async function fetchTileBg(
     const cLng = (minLng + maxLng) / 2;
     const cLat = (minLat + maxLat) / 2;
 
-    // Territory span — ensure a minimum so we don't zoom in too far
     const span = Math.max((maxLng - minLng), (maxLat - minLat), 0.001);
 
-    // Pick zoom where the territory occupies ~50% of card width
-    // At zoom z: pixels-per-degree = TILE * 2^z / 360
     const TILE = 256;
     const targetPx = W * 0.50;
     const idealZ = Math.log2(targetPx * 360 / (TILE * span));
     const z = Math.max(10, Math.min(17, Math.floor(idealZ)));
 
-    // Fractional tile coordinates of the territory centre
     const fcx = _lngToFracTile(cLng, z);
     const fcy = _latToFracTile(cLat, z);
 
-    // Tile integer range needed to fill W × H
     const halfTW = W / 2 / TILE + 1;
     const halfTH = H / 2 / TILE + 1;
     const txStart = Math.floor(fcx - halfTW);
@@ -170,28 +189,39 @@ async function fetchTileBg(
 
     const cols = txEnd - txStart;
     const rows = tyEnd - tyStart;
-    if (cols * rows > 64) return null; // safety cap (6×8=48 needed for 720×1280)
+    if (cols * rows > 64) return null;
 
-    // Fetch tiles concurrently (CARTO dark matter — free, CORS-enabled)
-    const jobs: Promise<{ img: HTMLImageElement; col: number; row: number } | null>[] = [];
+    // Fetch all tiles concurrently as base64 data URLs
+    type TileResult = { dataUrl: string; col: number; row: number } | null;
+    const jobs: Promise<TileResult>[] = [];
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
-        const tx = txStart + col;
-        const ty = tyStart + row;
+        const tx  = txStart + col;
+        const ty  = tyStart + row;
         const sub = ['a','b','c','d'][Math.abs(tx + ty) % 4];
         const url = `https://${sub}.basemaps.cartocdn.com/dark_all/${z}/${tx}/${ty}.png`;
-        jobs.push(new Promise((resolve) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload  = () => resolve({ img, col, row });
-          img.onerror = () => resolve(null);
-          img.src = url;
-        }));
+        const c   = col, r = row;
+        jobs.push(_fetchTileDataUrl(url).then(dataUrl => dataUrl ? { dataUrl, col: c, row: r } : null));
       }
     }
     const tiles = await Promise.all(jobs);
 
-    // Compose onto output canvas — centre the territory centre at (W/2, H/2)
+    // Count successful tiles — if fewer than half loaded, bail out
+    const loaded = tiles.filter(Boolean).length;
+    if (loaded < cols * rows / 2) return null;
+
+    // Load each data-URL into an Image, then composite onto canvas
+    const imgJobs = tiles.map((t) =>
+      !t ? Promise.resolve(null) :
+      new Promise<{ img: HTMLImageElement; col: number; row: number } | null>((resolve) => {
+        const img = new Image();
+        img.onload  = () => resolve({ img, col: t.col, row: t.row });
+        img.onerror = () => resolve(null);
+        img.src = t.dataUrl; // data: URL — same-origin, never taints canvas
+      })
+    );
+    const imgTiles = await Promise.all(imgJobs);
+
     const out  = document.createElement('canvas');
     out.width  = W;
     out.height = H;
@@ -199,14 +229,13 @@ async function fetchTileBg(
 
     const offsetX = (fcx - txStart) * TILE - W / 2;
     const offsetY = (fcy - tyStart) * TILE - H / 2;
-    for (const t of tiles) {
+    for (const t of imgTiles) {
       if (!t) continue;
       oct.drawImage(t.img, t.col * TILE - offsetX, t.row * TILE - offsetY, TILE, TILE);
     }
 
     const result = out.toDataURL('image/jpeg', 0.88);
-    // Reject if suspiciously small (e.g. all tiles failed to load)
-    return result.length > 8000 ? result : null;
+    return result.length > 10_000 ? result : null;
   } catch {
     return null;
   }
@@ -419,11 +448,10 @@ async function buildShareCard(
   }
 
   // ── Stats pill ───────────────────────────────────────────────
-  const grip = _grip(territory.lastRunAt ?? territory.createdAt);
-  const px = 40, py = H - 300, pw = W - 80, ph = 154;
+  const px = 40, py = H - 310, pw = W - 80, ph = 160;
   ctx.save();
   _rRect(ctx, px, py, pw, ph, 36);
-  ctx.fillStyle = 'rgba(0,0,0,0.40)';
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.14)';
   ctx.lineWidth = 2;
@@ -431,24 +459,30 @@ async function buildShareCard(
   ctx.restore();
 
   const stats = [
-    { val: `${grip}%`,                     key: 'GRIP'     },
-    { val: `${territory.runs ?? 1}\u00d7`, key: 'GRINDS'   },
-    { val: _dist(territory.distance),      key: 'DISTANCE' },
+    { val: _steps(territory.distance), key: 'STEPS'    },
+    { val: `${territory.runs ?? 1}×`,  key: 'GRINDS'   },
+    { val: _dist(territory.distance),  key: 'DISTANCE' },
   ];
   const colW = pw / 3;
   stats.forEach((s, i) => {
     const cx = px + colW * i + colW / 2;
-    ctx.font = `800 46px ${_CARD_FONT}`;
-    ctx.fillStyle = '#ffffff';
+    // Auto-shrink value font if text is wide
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(s.val, cx, py + 86);
-    ctx.font = `600 21px ${_CARD_FONT}`;
+    let vSize = 42;
+    ctx.font = `800 ${vSize}px ${_CARD_FONT}`;
+    while (ctx.measureText(s.val).width > colW - 12 && vSize > 22) {
+      vSize -= 2;
+      ctx.font = `800 ${vSize}px ${_CARD_FONT}`;
+    }
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(s.val, cx, py + 90);
+    ctx.font = `600 19px ${_CARD_FONT}`;
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.fillText(s.key, cx, py + 122);
+    ctx.fillText(s.key, cx, py + 126);
     if (i < 2) {
       ctx.fillStyle = 'rgba(255,255,255,0.16)';
-      ctx.fillRect(px + colW * (i + 1) - 1, py + 22, 2, 110);
+      ctx.fillRect(px + colW * (i + 1) - 1, py + 22, 2, 114);
     }
   });
 
