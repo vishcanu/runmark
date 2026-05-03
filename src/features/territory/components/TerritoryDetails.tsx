@@ -253,70 +253,72 @@ async function buildShareCard(
   const ctx = canvas.getContext('2d')!;
   const [c1, c2] = _gradColors(themeGrad);
   const tier = getTierInfo(territory.runs ?? 1);
+  const isCorridor = territory.shape === 'corridor';
 
-  // ── Background ──────────────────────────────────────────────
-  // mapJpeg is only trusted if it looks like a real image (> 8 KB encoded)
-  const mapValid = !!mapJpeg && mapJpeg.length > 8000;
+  // ── LAYER 1: Background ──────────────────────────────────────
+  // Always paint a theme gradient as base — never pure black
+  const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+  bgGrad.addColorStop(0, c1 + 'cc');  // 80% opacity
+  bgGrad.addColorStop(1, c2 + '99');  // 60% opacity
+  // Dark base first
+  ctx.fillStyle = '#060a14';
+  ctx.fillRect(0, 0, W, H);
+  // Theme colour wash
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
 
+  // If map tiles loaded, paint them over with a blend so they show through
+  const mapValid = !!mapJpeg && mapJpeg.length > 10_000;
   if (mapValid) {
     await new Promise<void>((resolve) => {
       const img = new Image();
-      img.onload = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
-      img.onerror = () => resolve(); // just move on
+      img.onload = () => {
+        // Only paint if the image actually has content (not all-black)
+        ctx.save();
+        ctx.globalAlpha = 0.45;           // map shows as subtle texture
+        ctx.drawImage(img, 0, 0, W, H);
+        ctx.restore();
+        resolve();
+      };
+      img.onerror = () => resolve();
       img.src = mapJpeg!;
     });
-    // dark scrim so text is always legible
-    const scrim = ctx.createLinearGradient(0, 0, 0, H);
-    scrim.addColorStop(0,    'rgba(0,0,0,0.10)');
-    scrim.addColorStop(0.30, 'rgba(0,0,0,0.06)');
-    scrim.addColorStop(0.55, 'rgba(0,0,0,0.60)');
-    scrim.addColorStop(1,    'rgba(0,0,0,0.92)');
-    ctx.fillStyle = scrim;
-    ctx.fillRect(0, 0, W, H);
-  } else {
-    // Premium dark tactical background
-    ctx.fillStyle = '#0a0e1a';
-    ctx.fillRect(0, 0, W, H);
-    // Subtle radial vignette — brighter center
-    const vignette = ctx.createRadialGradient(W / 2, H * 0.38, 0, W / 2, H * 0.38, W * 0.85);
-    vignette.addColorStop(0,   'rgba(255,255,255,0.04)');
-    vignette.addColorStop(1,   'rgba(0,0,0,0.0)');
-    ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, W, H);
-    // Dot grid
-    ctx.fillStyle = 'rgba(255,255,255,0.055)';
-    for (let y = 32; y < H; y += 64) {
-      for (let x = 32; x < W; x += 64) {
-        ctx.beginPath();
-        ctx.arc(x, y, 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-    // Bottom gradient fade to near-black
-    const fade = ctx.createLinearGradient(0, H * 0.52, 0, H);
-    fade.addColorStop(0, 'rgba(0,0,0,0)');
-    fade.addColorStop(1, 'rgba(0,0,0,0.72)');
-    ctx.fillStyle = fade;
-    ctx.fillRect(0, H * 0.52, W, H * 0.48);
   }
 
-  // ── Territory shape ───────────────────────────────────────────
-  const coords = territory.coordinates as [number, number][];
-  const isCorridor = territory.shape === 'corridor';
+  // Dark vignette scrim — heavier at bottom for text legibility
+  const scrim = ctx.createLinearGradient(0, 0, 0, H);
+  scrim.addColorStop(0,    'rgba(0,0,0,0.35)');
+  scrim.addColorStop(0.42, 'rgba(0,0,0,0.22)');
+  scrim.addColorStop(0.62, 'rgba(0,0,0,0.65)');
+  scrim.addColorStop(1,    'rgba(0,0,0,0.92)');
+  ctx.fillStyle = scrim;
+  ctx.fillRect(0, 0, W, H);
 
+  // Subtle dot grid
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  for (let y = 40; y < H; y += 72) {
+    for (let x = 40; x < W; x += 72) {
+      ctx.beginPath();
+      ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // ── LAYER 2: Territory shape — ALWAYS prominent ───────────────
+  const coords = territory.coordinates as [number, number][];
   if (coords.length >= 3) {
-    const lngs = coords.map(c => c[0]);
-    const lats  = coords.map(c => c[1]);
-    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const lngs    = coords.map(c => c[0]);
+    const lats    = coords.map(c => c[1]);
+    const minLng  = Math.min(...lngs), maxLng = Math.max(...lngs);
+    const minLat  = Math.min(...lats), maxLat = Math.max(...lats);
     const lngSpan = maxLng - minLng || 0.001;
     const latSpan = maxLat - minLat || 0.001;
 
-    const BOX_W = isCorridor ? 620 : 580;
-    const BOX_H = isCorridor ? 340 : 460;
-    const scale  = Math.min(BOX_W / lngSpan, BOX_H / latSpan) * 0.82;
-    const drawW  = lngSpan * scale;
-    const drawH  = latSpan * scale;
+    // Fit into upper ~45% of the card, leave room below for text
+    const BOX_W   = 560, BOX_H = isCorridor ? 300 : 500;
+    const scale   = Math.min(BOX_W / lngSpan, BOX_H / latSpan) * 0.80;
+    const drawW   = lngSpan * scale;
+    const drawH   = latSpan * scale;
     const shapeCX = W / 2;
     const shapeCY = H * 0.30;
     const ox = shapeCX - drawW / 2;
@@ -325,227 +327,211 @@ async function buildShareCard(
     const toX = (lng: number) => ox + (lng - minLng) * scale;
     const toY = (lat: number) => oy + (maxLat - lat) * scale;
 
-    if (isCorridor) {
-      // Draw corridor as a road: filled band with dashed center line
-      // Filled polygon
-      ctx.save();
+    const tracePoly = () => {
       ctx.beginPath();
       coords.forEach(([lng, lat], i) => {
         if (i === 0) ctx.moveTo(toX(lng), toY(lat));
         else ctx.lineTo(toX(lng), toY(lat));
       });
       ctx.closePath();
+    };
+
+    if (isCorridor) {
+      // ── Corridor: road band ──────────────────────────────────
+      // Wide coloured glow
+      ctx.save();
+      tracePoly();
       ctx.shadowColor = c1;
-      ctx.shadowBlur = mapValid ? 30 : 60;
+      ctx.shadowBlur = 48;
+      ctx.strokeStyle = c1 + '88';
+      ctx.lineWidth = 32;
+      ctx.stroke();
+      ctx.restore();
+      // Filled band
       const roadFill = ctx.createLinearGradient(ox, oy, ox + drawW, oy + drawH);
-      roadFill.addColorStop(0, c1 + (mapValid ? '66' : '55'));
-      roadFill.addColorStop(1, c2 + (mapValid ? '66' : '55'));
+      roadFill.addColorStop(0, c1 + 'bb');
+      roadFill.addColorStop(1, c2 + 'bb');
+      ctx.save();
+      tracePoly();
       ctx.fillStyle = roadFill;
       ctx.fill();
       ctx.restore();
-      // Edge lines
+      // White edge
       ctx.save();
-      ctx.beginPath();
-      coords.forEach(([lng, lat], i) => {
-        if (i === 0) ctx.moveTo(toX(lng), toY(lat));
-        else ctx.lineTo(toX(lng), toY(lat));
-      });
-      ctx.closePath();
-      ctx.strokeStyle = mapValid ? 'rgba(255,255,255,0.85)' : '#ffffff';
+      tracePoly();
+      ctx.strokeStyle = 'rgba(255,255,255,0.90)';
       ctx.lineWidth = 3;
-      ctx.shadowColor = c1;
-      ctx.shadowBlur = 16;
       ctx.stroke();
       ctx.restore();
-      // Dashed center line (approximate — use rawPath midpoints if available)
+      // Dashed centre stripe
       if (territory.rawPath && territory.rawPath.length >= 2) {
-        const rp = territory.rawPath as [number,number][];
         ctx.save();
-        ctx.setLineDash([12, 14]);
+        ctx.setLineDash([14, 16]);
         ctx.beginPath();
-        rp.forEach(([lng, lat], i) => {
+        (territory.rawPath as [number,number][]).forEach(([lng, lat], i) => {
           const px = toX(lng), py = toY(lat);
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         });
-        ctx.strokeStyle = 'rgba(255,255,255,0.70)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+        ctx.lineWidth = 2.5;
         ctx.shadowBlur = 0;
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.restore();
       }
     } else {
-      // Zone territory (closed polygon)
-      const tracePath = () => {
-        ctx.beginPath();
-        coords.forEach(([lng, lat], i) => {
-          if (i === 0) ctx.moveTo(toX(lng), toY(lat));
-          else ctx.lineTo(toX(lng), toY(lat));
-        });
-        ctx.closePath();
-      };
-
-    if (mapValid) {
-      // On top of real map: subtle highlight glow + crisp white outline
+      // ── Zone: polygon ────────────────────────────────────────
+      // 1. Outer glow halo
       ctx.save();
-      tracePath();
+      tracePoly();
       ctx.shadowColor = c1;
-      ctx.shadowBlur = 50;
-      ctx.strokeStyle = 'rgba(255,255,255,0.0)';
-      ctx.lineWidth = 1;
-      ctx.stroke(); // just for the shadow
-      ctx.restore();
-
-      ctx.save();
-      tracePath();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 4;
-      ctx.shadowColor = c1;
-      ctx.shadowBlur = 22;
-      ctx.globalAlpha = 0.90;
-      ctx.stroke();
-      ctx.restore();
-    } else {
-      // On dark bg: prominent filled polygon with glow
-      // Wide outer glow
-      ctx.save();
-      tracePath();
-      ctx.shadowColor = c1;
-      ctx.shadowBlur = 60;
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-      ctx.lineWidth = 24;
+      ctx.shadowBlur = 80;
+      ctx.strokeStyle = c1 + '66';
+      ctx.lineWidth = 28;
       ctx.stroke();
       ctx.restore();
 
-      // Gradient fill
+      // 2. Gradient fill
       const fillGrad = ctx.createLinearGradient(ox, oy, ox + drawW, oy + drawH);
-      fillGrad.addColorStop(0, c1 + '44');
-      fillGrad.addColorStop(1, c2 + '44');
+      fillGrad.addColorStop(0, c1 + 'aa');
+      fillGrad.addColorStop(1, c2 + '77');
       ctx.save();
-      tracePath();
+      tracePoly();
       ctx.fillStyle = fillGrad;
       ctx.fill();
       ctx.restore();
 
-      // Bright perimeter stroke
+      // 3. Bright perimeter
       ctx.save();
-      tracePath();
+      tracePoly();
       ctx.shadowColor = c1;
-      ctx.shadowBlur = 28;
+      ctx.shadowBlur = 24;
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 3.5;
+      ctx.lineWidth = 4;
+      ctx.globalAlpha = 0.95;
       ctx.stroke();
       ctx.restore();
 
-      // Corner dots
+      // 4. Corner accent dots (max 8 to avoid clutter)
+      const dotCoords = coords.slice(0, -1);
+      const step = Math.max(1, Math.floor(dotCoords.length / 8));
       ctx.fillStyle = '#ffffff';
       ctx.shadowColor = c1;
-      ctx.shadowBlur = 14;
-      coords.slice(0, -1).forEach(([lng, lat]) => {
+      ctx.shadowBlur = 16;
+      for (let i = 0; i < dotCoords.length; i += step) {
+        const [lng, lat] = dotCoords[i];
         ctx.beginPath();
-        ctx.arc(toX(lng), toY(lat), 6, 0, Math.PI * 2);
+        ctx.arc(toX(lng), toY(lat), 7, 0, Math.PI * 2);
         ctx.fill();
-      });
+      }
       ctx.shadowBlur = 0;
     }
-    } // end else (zone)
-  } // end if coords.length >= 3
+  }
 
-  // ── Zone name ────────────────────────────────────────────────
-  ctx.font = `800 72px ${_CARD_FONT}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  ctx.shadowColor = 'rgba(0,0,0,0.7)';
-  ctx.shadowBlur = 32;
-  ctx.fillStyle = '#ffffff';
-  let zoneName = territory.name;
-  while (ctx.measureText(zoneName).width > W - 80 && zoneName.length > 1)
-    zoneName = zoneName.slice(0, -1);
-  if (zoneName !== territory.name) zoneName += '\u2026';
-  ctx.fillText(zoneName, W / 2, H - 440);
-  ctx.shadowBlur = 0;
-
-  // ── Tier badge ───────────────────────────────────────────────
-  ctx.font = `700 22px ${_CARD_FONT}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const tierText = tier.name;
-  const tierW = ctx.measureText(tierText).width + 40;
-  const tierX = W / 2 - tierW / 2;
-  const tierY = H - 405;
-  // pill background
+  // ── LAYER 3: Bottom info panel ───────────────────────────────
+  // Frosted dark panel behind all text
+  const panelY = H - 490;
   ctx.save();
-  _rRect(ctx, tierX, tierY, tierW, 34, 17);
-  ctx.fillStyle = tier.uiColor + '28';
+  _rRect(ctx, 30, panelY, W - 60, 390, 28);
+  ctx.fillStyle = 'rgba(0,0,0,0.58)';
   ctx.fill();
-  ctx.strokeStyle = tier.uiColor + '80';
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.restore();
-  ctx.fillStyle = tier.uiColor;
-  ctx.fillText(tierText, W / 2, tierY + 17);
 
-  // ── Tagline ──────────────────────────────────────────────────
-  if (territory.tagline) {
-    ctx.font = `italic 30px ${_CARD_FONT}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.68)';
-    ctx.shadowColor = 'rgba(0,0,0,0.45)';
-    ctx.shadowBlur = 12;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    let tl = `\u201c${territory.tagline}\u201d`;
-    while (ctx.measureText(tl).width > W - 80 && tl.length > 3)
-      tl = tl.slice(0, -2) + '\u201d';
-    ctx.fillText(tl, W / 2, H - 360);
-    ctx.shadowBlur = 0;
+  // ── Zone name ─────────────────────────────────────────────────
+  ctx.font = `800 64px ${_CARD_FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = '#ffffff';
+  let zoneName = territory.name;
+  while (ctx.measureText(zoneName).width > W - 100 && zoneName.length > 1)
+    zoneName = zoneName.slice(0, -1);
+  if (zoneName !== territory.name) zoneName += '\u2026';
+  ctx.fillText(zoneName, W / 2, panelY + 72);
+  ctx.shadowBlur = 0;
+
+  // ── Tier + corridor badge ─────────────────────────────────────
+  ctx.font = `700 20px ${_CARD_FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const badges: Array<{ text: string; color: string }> = [
+    { text: tier.name, color: tier.uiColor },
+    ...(isCorridor ? [{ text: '⟶ ROAD CLAIM', color: '#fbbf24' }] : []),
+  ];
+  let bx = W / 2 - badges.reduce((sum, b) => {
+    ctx.font = `700 20px ${_CARD_FONT}`;
+    return sum + ctx.measureText(b.text).width + 40 + 12;
+  }, -12) / 2;
+  const badgeY = panelY + 100;
+  for (const b of badges) {
+    ctx.font = `700 20px ${_CARD_FONT}`;
+    const bw = ctx.measureText(b.text).width + 36;
+    ctx.save();
+    _rRect(ctx, bx, badgeY, bw, 30, 15);
+    ctx.fillStyle = b.color + '28';
+    ctx.fill();
+    ctx.strokeStyle = b.color + '80';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = b.color;
+    ctx.fillText(b.text, bx + bw / 2, badgeY + 15);
+    bx += bw + 12;
   }
 
-  // ── Stats pill ───────────────────────────────────────────────
-  const px = 40, py = H - 310, pw = W - 80, ph = 160;
-  ctx.save();
-  _rRect(ctx, px, py, pw, ph, 36);
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.restore();
+  // ── Tagline ───────────────────────────────────────────────────
+  if (territory.tagline) {
+    ctx.font = `italic 28px ${_CARD_FONT}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    let tl = `"${territory.tagline}"`;
+    while (ctx.measureText(tl).width > W - 120 && tl.length > 3)
+      tl = tl.slice(0, -2) + '"';
+    ctx.fillText(tl, W / 2, panelY + 152);
+  }
 
+  // ── Stats row ─────────────────────────────────────────────────
+  const statsY = panelY + 200;
   const stats = [
     { val: _steps(territory.distance), key: 'STEPS'    },
     { val: `${territory.runs ?? 1}×`,  key: 'GRINDS'   },
     { val: _dist(territory.distance),  key: 'DISTANCE' },
   ];
-  const colW = pw / 3;
+  const colW = (W - 60) / 3;
   stats.forEach((s, i) => {
-    const cx = px + colW * i + colW / 2;
-    // Auto-shrink value font if text is wide
+    const cx = 30 + colW * i + colW / 2;
+    // Divider
+    if (i > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.14)';
+      ctx.fillRect(30 + colW * i - 1, statsY, 2, 110);
+    }
+    // Auto-shrink value
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    let vSize = 42;
+    let vSize = 44;
     ctx.font = `800 ${vSize}px ${_CARD_FONT}`;
-    while (ctx.measureText(s.val).width > colW - 12 && vSize > 22) {
+    while (ctx.measureText(s.val).width > colW - 16 && vSize > 22) {
       vSize -= 2;
       ctx.font = `800 ${vSize}px ${_CARD_FONT}`;
     }
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(s.val, cx, py + 90);
-    ctx.font = `600 19px ${_CARD_FONT}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.fillText(s.key, cx, py + 126);
-    if (i < 2) {
-      ctx.fillStyle = 'rgba(255,255,255,0.16)';
-      ctx.fillRect(px + colW * (i + 1) - 1, py + 22, 2, 114);
-    }
+    ctx.fillText(s.val, cx, statsY + 54);
+    ctx.font = `600 18px ${_CARD_FONT}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.50)';
+    ctx.fillText(s.key, cx, statsY + 86);
   });
 
-  // ── Brand ────────────────────────────────────────────────────
-  ctx.font = `800 24px ${_CARD_FONT}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  // ── Brand ─────────────────────────────────────────────────────
+  ctx.font = `700 22px ${_CARD_FONT}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.30)';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText('RUNMARK', W / 2, H - 96);
+  ctx.fillText('RUNMARK', W / 2, panelY + 368);
 
   return canvas.toDataURL('image/png');
 }
