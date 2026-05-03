@@ -9,6 +9,24 @@
     height: 100%;
 }
 
+/* Background-tracking warning toast */
+.bgToast {
+    position: absolute;
+    top: 56px;
+    left: var(--space-3);
+    right: var(--space-3);
+    z-index: var(--z-modal);
+    background: rgba(239, 68, 68, 0.92);
+    color: #fff;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    text-align: center;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+}
+
 /* ─── Parks tray — above bottom nav + FAB ────────────────── */
 .parksTray {
     position: absolute;

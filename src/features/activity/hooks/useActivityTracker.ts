@@ -58,8 +58,8 @@ export function useActivityTracker() {
         ? haversineDistance(lastPoint, coord)
         : 0;
 
-      // Ignore jitter under 5 metres
-      if (dist < 5 && prev.path.length > 0) return prev;
+      // Ignore tiny jitter under 8 metres — reduces zig-zag around road centreline
+      if (dist < 8 && prev.path.length > 0) return prev;
 
       return {
         ...prev,

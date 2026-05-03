@@ -125,20 +125,23 @@ function _steps(m: number): string {
 }
 
 // ── CARTO dark-matter tile stitching ─────────────────────────
-// Root cause of black background: data: URLs are opaque-origin in Chrome 94+
-// and TAINT the canvas — toDataURL() then throws SecurityError (silently caught).
+// Why all previous approaches caused a black card:
+//   • data: URLs  → opaque-origin (Chrome 94+) → taints canvas → toDataURL() throws
+//   • createImageBitmap → silent failure on iOS 15/16 (spec gap in WebKit)
 //
-// Fix: fetch() → blob → createImageBitmap(blob)
-// An ImageBitmap from a CORS-blob is NOT a tainted source.
-// We also store the raw HTMLCanvasElement in TileMapInfo — canvas-to-canvas
-// drawImage() never taints the destination canvas.
+// Correct approach:
+//   fetch() → blob() → URL.createObjectURL(blob)
+//   A blob: URL has the SAME origin as the page, so img.src = blob: URL
+//   produces an origin-clean HTMLImageElement. Drawing it onto a canvas
+//   does NOT taint the canvas — toDataURL() works on any device.
+//
+// We store the composited HTMLCanvasElement in TileMapInfo.
+// canvas→canvas drawImage() also never taints the destination.
 
 interface TileMapInfo {
-  /** Composited tile canvas. Draw with ctx.drawImage(tileInfo.canvas, 0, 0, W, H) — no taint. */
+  /** Composited tile canvas — draw directly onto the share card canvas */
   canvas: HTMLCanvasElement;
-  /** Map a longitude to pixel-X on the share card */
   toX: (lng: number) => number;
-  /** Map a latitude  to pixel-Y on the share card */
   toY: (lat: number) => number;
 }
 
@@ -150,18 +153,30 @@ function _latToFracTile(lat: number, z: number): number {
   return (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * (1 << z);
 }
 
-/** Fetch one tile → ImageBitmap (Blob path, CORS-clean, never taints a canvas) */
-async function _fetchTileBitmap(url: string): Promise<ImageBitmap | null> {
+/**
+ * Fetch one tile → origin-clean HTMLImageElement via blob: URL.
+ * blob: URL inherits the page origin → drawing it on a canvas NEVER taints it.
+ */
+async function _fetchTileImg(url: string): Promise<HTMLImageElement | null> {
+  let blobUrl = '';
   try {
     const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const timer = setTimeout(() => ctrl.abort(), 7000);
     const res   = await fetch(url, { signal: ctrl.signal });
     clearTimeout(timer);
     if (!res.ok) return null;
     const blob = await res.blob();
-    return await createImageBitmap(blob);
+    blobUrl = URL.createObjectURL(blob);
+    return await new Promise<HTMLImageElement | null>((resolve) => {
+      const img = new Image();
+      img.onload  = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src     = blobUrl;   // blob: URL = same-origin = no taint
+    });
   } catch {
     return null;
+  } finally {
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
   }
 }
 
@@ -199,8 +214,8 @@ async function fetchTileBg(
     const rows = tyEnd - tyStart;
     if (cols * rows > 80) return null;  // safety cap
 
-    // Fetch all tiles as ImageBitmaps (Blob path — no canvas taint)
-    type TileResult = { bitmap: ImageBitmap; col: number; row: number } | null;
+    // Fetch all tiles concurrently as origin-clean images
+    type TileResult = { img: HTMLImageElement; col: number; row: number } | null;
     const jobs: Promise<TileResult>[] = [];
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -209,16 +224,16 @@ async function fetchTileBg(
         const sub = ['a','b','c','d'][Math.abs(tx + ty) % 4];
         const url = `https://${sub}.basemaps.cartocdn.com/dark_all/${z}/${tx}/${ty}.png`;
         const c = col, r = row;
-        jobs.push(_fetchTileBitmap(url).then(bitmap => bitmap ? { bitmap, col: c, row: r } : null));
+        jobs.push(_fetchTileImg(url).then(img => img ? { img, col: c, row: r } : null));
       }
     }
-    const bitmaps = await Promise.all(jobs);
+    const results = await Promise.all(jobs);
 
-    // Require at least 30% of tiles loaded (forgives slow connections)
-    const loaded = bitmaps.filter(Boolean).length;
-    if (loaded < Math.ceil(cols * rows * 0.30)) return null;
+    // Need at least 1 tile to produce any map
+    const loaded = results.filter(Boolean).length;
+    if (loaded === 0) return null;
 
-    // Composite onto a CLEAN canvas — drawImage(ImageBitmap) from CORS-blob never taints
+    // Composite onto a clean canvas — blob:-origin images never taint it
     const out  = document.createElement('canvas');
     out.width  = W;
     out.height = H;
@@ -226,18 +241,13 @@ async function fetchTileBg(
 
     const offsetX = (fcx - txStart) * TILE - W / 2;
     const offsetY = (fcy - tyStart) * TILE - H / 2;
-    for (const t of bitmaps) {
+    for (const t of results) {
       if (!t) continue;
-      oct.drawImage(t.bitmap, t.col * TILE - offsetX, t.row * TILE - offsetY, TILE, TILE);
-      t.bitmap.close();  // free GPU memory immediately
+      oct.drawImage(t.img, t.col * TILE - offsetX, t.row * TILE - offsetY, TILE, TILE);
     }
 
-    // Sanity check: sample the centre — if all zeros the tiles were blank
-    const px = oct.getImageData(W >> 1, H >> 1, 4, 4).data;
-    if (!Array.from(px).some(v => v > 8)) return null;
-
     return {
-      canvas: out, // pass the raw canvas — canvas→canvas draw never taints
+      canvas: out,
       toX: (lng: number) => (_lngToFracTile(lng, z) - fcx) * TILE + W / 2,
       toY: (lat: number) => (_latToFracTile(lat, z) - fcy) * TILE + H / 2,
     };

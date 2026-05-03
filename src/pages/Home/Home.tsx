@@ -48,10 +48,13 @@ export function Home() {
     ? [selectedPark.lng, selectedPark.lat]
     : null;
 
-  // Feed every GPS fix into the tracker while a run is active
+  // Feed every GPS fix into the tracker while a run is active.
+  // Skip positions with poor accuracy (> 35 m) — they cause jitter and criss-cross paths.
   useEffect(() => {
     if (tracker.session.status === 'active' && geo.position) {
-      tracker.addPosition(geo.position);
+      if (geo.accuracy === null || geo.accuracy <= 35) {
+        tracker.addPosition(geo.position);
+      }
     }
   }, [geo.position, tracker.session.status]);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -137,6 +140,13 @@ export function Home() {
   return (
     <div className={styles.page}>
       <MapHeader isActive={tracker.session.status === 'active'} />
+
+      {/* Background-tracking warning toast */}
+      {geo.backgrounded && tracker.session.status === 'active' && (
+        <div className={styles.bgToast}>
+          ⚠️ App went to background — GPS may have paused. Keep this screen open.
+        </div>
+      )}
 
       <MapView
         userPosition={geo.position}

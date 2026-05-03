@@ -58,9 +58,10 @@ export function PathLayer({ map, path }: PathLayerProps) {
   useEffect(() => {
     if (!map) return;
 
-    // Smooth the raw GPS path for display — removes criss-cross noise
-    // while keeping real turns. Keep raw endpoints (start/cursor) unchanged.
-    const drawPath = path.length > 4 ? _rdp(path, 8) : path;
+    // Smooth the raw GPS path for display — removes criss-cross jitter
+    // while keeping real turns. 20 m epsilon is aggressive enough to lock
+    // the drawn line to the road centerline visually.
+    const drawPath = path.length > 4 ? _rdp(path, 20) : path;
 
     const lineGeo = (): GeoJSON.Feature<GeoJSON.LineString> => ({
       type: 'Feature',
