@@ -125,13 +125,20 @@ function _steps(m: number): string {
 }
 
 // ── CARTO dark-matter tile stitching ─────────────────────────
-// Uses fetch() → base64 data URL so the output canvas is NEVER tainted.
+// Root cause of black background: data: URLs are opaque-origin in Chrome 94+
+// and TAINT the canvas — toDataURL() then throws SecurityError (silently caught).
+//
+// Fix: fetch() → blob → createImageBitmap(blob)
+// An ImageBitmap from a CORS-blob is NOT a tainted source.
+// We also store the raw HTMLCanvasElement in TileMapInfo — canvas-to-canvas
+// drawImage() never taints the destination canvas.
 
 interface TileMapInfo {
-  jpeg: string;
-  /** Map a longitude to pixel-X on the card canvas */
+  /** Composited tile canvas. Draw with ctx.drawImage(tileInfo.canvas, 0, 0, W, H) — no taint. */
+  canvas: HTMLCanvasElement;
+  /** Map a longitude to pixel-X on the share card */
   toX: (lng: number) => number;
-  /** Map a latitude  to pixel-Y on the card canvas */
+  /** Map a latitude  to pixel-Y on the share card */
   toY: (lat: number) => number;
 }
 
@@ -143,21 +150,16 @@ function _latToFracTile(lat: number, z: number): number {
   return (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * (1 << z);
 }
 
-async function _fetchTileDataUrl(url: string): Promise<string | null> {
+/** Fetch one tile → ImageBitmap (Blob path, CORS-clean, never taints a canvas) */
+async function _fetchTileBitmap(url: string): Promise<ImageBitmap | null> {
   try {
     const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 5000);
+    const timer = setTimeout(() => ctrl.abort(), 6000);
     const res   = await fetch(url, { signal: ctrl.signal });
     clearTimeout(timer);
     if (!res.ok) return null;
-    const buf   = await res.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    const CHUNK = 8192;
-    const parts: string[] = [];
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-      parts.push(String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.length))));
-    }
-    return `data:image/png;base64,${btoa(parts.join(''))}`;
+    const blob = await res.blob();
+    return await createImageBitmap(blob);
   } catch {
     return null;
   }
@@ -176,12 +178,11 @@ async function fetchTileBg(
     const cLng = (minLng + maxLng) / 2;
     const cLat = (minLat + maxLat) / 2;
 
-    // Choose zoom so the territory spans roughly 55% of the card width
+    // Choose zoom so territory spans ≈60% of card width
     const span = Math.max((maxLng - minLng), (maxLat - minLat), 0.001);
-    const TILE = 256;
-    const targetPx = W * 0.55;
-    const idealZ = Math.log2(targetPx * 360 / (TILE * span));
-    const z = Math.max(10, Math.min(17, Math.floor(idealZ)));
+    const TILE  = 256;
+    const idealZ = Math.log2((W * 0.60) * 360 / (TILE * span));
+    const z = Math.max(12, Math.min(18, Math.floor(idealZ)));
 
     // Fractional tile coords of the map centre
     const fcx = _lngToFracTile(cLng, z);
@@ -196,9 +197,10 @@ async function fetchTileBg(
 
     const cols = txEnd - txStart;
     const rows = tyEnd - tyStart;
-    if (cols * rows > 64) return null;
+    if (cols * rows > 80) return null;  // safety cap
 
-    type TileResult = { dataUrl: string; col: number; row: number } | null;
+    // Fetch all tiles as ImageBitmaps (Blob path — no canvas taint)
+    type TileResult = { bitmap: ImageBitmap; col: number; row: number } | null;
     const jobs: Promise<TileResult>[] = [];
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -207,25 +209,16 @@ async function fetchTileBg(
         const sub = ['a','b','c','d'][Math.abs(tx + ty) % 4];
         const url = `https://${sub}.basemaps.cartocdn.com/dark_all/${z}/${tx}/${ty}.png`;
         const c = col, r = row;
-        jobs.push(_fetchTileDataUrl(url).then(dataUrl => dataUrl ? { dataUrl, col: c, row: r } : null));
+        jobs.push(_fetchTileBitmap(url).then(bitmap => bitmap ? { bitmap, col: c, row: r } : null));
       }
     }
-    const tiles = await Promise.all(jobs);
+    const bitmaps = await Promise.all(jobs);
 
-    const loaded = tiles.filter(Boolean).length;
-    if (loaded < cols * rows / 2) return null;
+    // Require at least 30% of tiles loaded (forgives slow connections)
+    const loaded = bitmaps.filter(Boolean).length;
+    if (loaded < Math.ceil(cols * rows * 0.30)) return null;
 
-    const imgJobs = tiles.map((t) =>
-      !t ? Promise.resolve(null) :
-      new Promise<{ img: HTMLImageElement; col: number; row: number } | null>((resolve) => {
-        const img = new Image();
-        img.onload  = () => resolve({ img, col: t.col, row: t.row });
-        img.onerror = () => resolve(null);
-        img.src = t.dataUrl;
-      })
-    );
-    const imgTiles = await Promise.all(imgJobs);
-
+    // Composite onto a CLEAN canvas — drawImage(ImageBitmap) from CORS-blob never taints
     const out  = document.createElement('canvas');
     out.width  = W;
     out.height = H;
@@ -233,18 +226,18 @@ async function fetchTileBg(
 
     const offsetX = (fcx - txStart) * TILE - W / 2;
     const offsetY = (fcy - tyStart) * TILE - H / 2;
-    for (const t of imgTiles) {
+    for (const t of bitmaps) {
       if (!t) continue;
-      oct.drawImage(t.img, t.col * TILE - offsetX, t.row * TILE - offsetY, TILE, TILE);
+      oct.drawImage(t.bitmap, t.col * TILE - offsetX, t.row * TILE - offsetY, TILE, TILE);
+      t.bitmap.close();  // free GPU memory immediately
     }
 
-    const jpeg = out.toDataURL('image/jpeg', 0.88);
-    if (jpeg.length <= 10_000) return null;
+    // Sanity check: sample the centre — if all zeros the tiles were blank
+    const px = oct.getImageData(W >> 1, H >> 1, 4, 4).data;
+    if (!Array.from(px).some(v => v > 8)) return null;
 
-    // Return the jpeg PLUS geo→pixel projection so territory can be drawn
-    // at exact map coordinates:  pixelX = (fracTileX - fcx) * TILE + W/2
     return {
-      jpeg,
+      canvas: out, // pass the raw canvas — canvas→canvas draw never taints
       toX: (lng: number) => (_lngToFracTile(lng, z) - fcx) * TILE + W / 2,
       toY: (lat: number) => (_latToFracTile(lat, z) - fcy) * TILE + H / 2,
     };
@@ -270,13 +263,8 @@ async function buildShareCard(
 
   // ── LAYER 1: Map background (full opacity) or dark fallback ──
   if (tileInfo) {
-    // Draw real map tiles at near-full opacity — user sees actual streets
-    await new Promise<void>((resolve) => {
-      const img = new Image();
-      img.onload  = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
-      img.onerror = () => resolve();
-      img.src     = tileInfo.jpeg;
-    });
+    // canvas→canvas draw: never taints ctx. Real streets show at full opacity.
+    ctx.drawImage(tileInfo.canvas, 0, 0, W, H);
     // Very light tint so territory glow pops off the map
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
     ctx.fillRect(0, 0, W, H);
