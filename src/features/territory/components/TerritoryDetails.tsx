@@ -158,15 +158,17 @@ async function buildShareCard(
   // ── Step 1: render real map + territory in an offscreen GL map ──
   const mapOk = await new Promise<boolean>((resolve) => {
     const container = document.createElement('div');
+    // NOTE: do NOT use visibility:hidden — it kills WebGL rendering on
+    // Safari/WebKit. Use opacity:0 + off-screen left instead.
     container.style.cssText = [
-      `position:fixed`,
-      `left:-${W * 2 + 200}px`,
-      `top:0`,
+      'position:fixed',
+      `left:-${W + 50}px`,
+      'top:0',
       `width:${W}px`,
       `height:${H}px`,
-      `overflow:hidden`,
-      `pointer-events:none`,
-      `visibility:hidden`,
+      'overflow:hidden',
+      'pointer-events:none',
+      'opacity:0',
     ].join(';');
     document.body.appendChild(container);
 
@@ -262,17 +264,21 @@ async function buildShareCard(
         { padding: { top: 80, bottom: PANEL_H + 100, left: 70, right: 70 }, animate: false },
       );
 
-      // 'idle' fires once all tiles are loaded and the frame is rendered
+      // 'idle' fires once all tiles are loaded and the GL frame is rendered.
+      // We then wait one rAF to guarantee the frame is committed to the
+      // WebGL drawing buffer before we read it back.
       map.once('idle', () => {
-        try {
-          // canvas→canvas: untainted GL canvas → untainted 2D canvas → toDataURL works
-          ctx.drawImage(map.getCanvas(), 0, 0, W, H);
-          cleanup();
-          resolve(true);
-        } catch {
-          cleanup();
-          resolve(false);
-        }
+        requestAnimationFrame(() => {
+          try {
+            // canvas→canvas: untainted GL canvas → untainted 2D canvas → toDataURL works
+            ctx.drawImage(map.getCanvas(), 0, 0, W, H);
+            cleanup();
+            resolve(true);
+          } catch {
+            cleanup();
+            resolve(false);
+          }
+        });
       });
     });
 
