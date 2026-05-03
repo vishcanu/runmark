@@ -1,4 +1,5 @@
 ﻿import React, { useState, useMemo } from 'react';
+import maplibregl from 'maplibre-gl';
 import {
   Ruler, Clock, Repeat2, Check, X, Trash2, AlertTriangle, Share2,
   Shield, Zap, Star, Crown, Flag, Target, Flame, Trophy, Gem, Anchor, Mountain, Crosshair,
@@ -124,162 +125,162 @@ function _steps(m: number): string {
   return s >= 1000 ? `${(s / 1000).toFixed(1)}k` : `${s}`;
 }
 
-// ── CARTO dark-matter tile stitching ─────────────────────────
-// Why all previous approaches caused a black card:
-//   • data: URLs  → opaque-origin (Chrome 94+) → taints canvas → toDataURL() throws
-//   • createImageBitmap → silent failure on iOS 15/16 (spec gap in WebKit)
+// ── Share-card: offscreen MapLibre approach ──────────────────
+// Strategy: spin up a hidden 720×1280 MapLibre map with a pure
+// CARTO raster style (no sprites, no glyphs).  MapLibre loads
+// tiles with crossOrigin='anonymous'; CARTO returns
+// Access-Control-Allow-Origin:*.  Result: the WebGL canvas is
+// NOT origin-dirty → drawImage(glCanvas) on a 2D canvas also
+// does NOT taint it → toDataURL() works on every device.
 //
-// Correct approach:
-//   fetch() → blob() → URL.createObjectURL(blob)
-//   A blob: URL has the SAME origin as the page, so img.src = blob: URL
-//   produces an origin-clean HTMLImageElement. Drawing it onto a canvas
-//   does NOT taint the canvas — toDataURL() works on any device.
-//
-// We store the composited HTMLCanvasElement in TileMapInfo.
-// canvas→canvas drawImage() also never taints the destination.
-
-interface TileMapInfo {
-  /** Composited tile canvas — draw directly onto the share card canvas */
-  canvas: HTMLCanvasElement;
-  toX: (lng: number) => number;
-  toY: (lat: number) => number;
-}
-
-function _lngToFracTile(lng: number, z: number): number {
-  return (lng + 180) / 360 * (1 << z);
-}
-function _latToFracTile(lat: number, z: number): number {
-  const rad = lat * Math.PI / 180;
-  return (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * (1 << z);
-}
-
-/**
- * Fetch one tile → origin-clean HTMLImageElement via blob: URL.
- * blob: URL inherits the page origin → drawing it on a canvas NEVER taints it.
- */
-async function _fetchTileImg(url: string): Promise<HTMLImageElement | null> {
-  let blobUrl = '';
-  try {
-    const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 7000);
-    const res   = await fetch(url, { signal: ctrl.signal });
-    clearTimeout(timer);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    blobUrl = URL.createObjectURL(blob);
-    return await new Promise<HTMLImageElement | null>((resolve) => {
-      const img = new Image();
-      img.onload  = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src     = blobUrl;   // blob: URL = same-origin = no taint
-    });
-  } catch {
-    return null;
-  } finally {
-    if (blobUrl) URL.revokeObjectURL(blobUrl);
-  }
-}
-
-async function fetchTileBg(
-  coords: [number, number][],
-  W: number,
-  H: number,
-): Promise<TileMapInfo | null> {
-  try {
-    const lngs = coords.map(c => c[0]);
-    const lats  = coords.map(c => c[1]);
-    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-    const cLng = (minLng + maxLng) / 2;
-    const cLat = (minLat + maxLat) / 2;
-
-    // Choose zoom so territory spans ≈60% of card width
-    const span = Math.max((maxLng - minLng), (maxLat - minLat), 0.001);
-    const TILE  = 256;
-    const idealZ = Math.log2((W * 0.60) * 360 / (TILE * span));
-    const z = Math.max(12, Math.min(18, Math.floor(idealZ)));
-
-    // Fractional tile coords of the map centre
-    const fcx = _lngToFracTile(cLng, z);
-    const fcy = _latToFracTile(cLat, z);
-
-    const halfTW = W / 2 / TILE + 1;
-    const halfTH = H / 2 / TILE + 1;
-    const txStart = Math.floor(fcx - halfTW);
-    const txEnd   = Math.ceil (fcx + halfTW);
-    const tyStart = Math.floor(fcy - halfTH);
-    const tyEnd   = Math.ceil (fcy + halfTH);
-
-    const cols = txEnd - txStart;
-    const rows = tyEnd - tyStart;
-    if (cols * rows > 80) return null;  // safety cap
-
-    // Fetch all tiles concurrently as origin-clean images
-    type TileResult = { img: HTMLImageElement; col: number; row: number } | null;
-    const jobs: Promise<TileResult>[] = [];
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const tx  = txStart + col;
-        const ty  = tyStart + row;
-        const sub = ['a','b','c','d'][Math.abs(tx + ty) % 4];
-        const url = `https://${sub}.basemaps.cartocdn.com/dark_all/${z}/${tx}/${ty}.png`;
-        const c = col, r = row;
-        jobs.push(_fetchTileImg(url).then(img => img ? { img, col: c, row: r } : null));
-      }
-    }
-    const results = await Promise.all(jobs);
-
-    // Need at least 1 tile to produce any map
-    const loaded = results.filter(Boolean).length;
-    if (loaded === 0) return null;
-
-    // Composite onto a clean canvas — blob:-origin images never taint it
-    const out  = document.createElement('canvas');
-    out.width  = W;
-    out.height = H;
-    const oct  = out.getContext('2d')!;
-
-    const offsetX = (fcx - txStart) * TILE - W / 2;
-    const offsetY = (fcy - tyStart) * TILE - H / 2;
-    for (const t of results) {
-      if (!t) continue;
-      oct.drawImage(t.img, t.col * TILE - offsetX, t.row * TILE - offsetY, TILE, TILE);
-    }
-
-    return {
-      canvas: out,
-      toX: (lng: number) => (_lngToFracTile(lng, z) - fcx) * TILE + W / 2,
-      toY: (lat: number) => (_latToFracTile(lat, z) - fcy) * TILE + H / 2,
-    };
-  } catch {
-    return null;
-  }
-}
+// The territory polygon is added as a native GeoJSON layer so it
+// renders together with the tiles in one GL pass.
+// Then we composite the text panel on top via Canvas 2D.
 
 async function buildShareCard(
-  tileInfo: TileMapInfo | null,
   territory: Territory,
   themeGrad: string,
 ): Promise<string> {
   const W = 720, H = 1280;
-  const PANEL_H = 370; // bottom text panel height
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d')!;
+  const PANEL_H = 370;
   const [c1, c2] = _gradColors(themeGrad);
   const tier = getTierInfo(territory.runs ?? 1);
   const isCorridor = territory.shape === 'corridor';
+  const coords = territory.coordinates as [number, number][];
+  const lngs = coords.map(c => c[0]);
+  const lats  = coords.map(c => c[1]);
 
-  // ── LAYER 1: Map background (full opacity) or dark fallback ──
-  if (tileInfo) {
-    // canvas→canvas draw: never taints ctx. Real streets show at full opacity.
-    ctx.drawImage(tileInfo.canvas, 0, 0, W, H);
-    // Very light tint so territory glow pops off the map
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.fillRect(0, 0, W, H);
-  } else {
-    // Fallback: dark tactical base + subtle theme wash
+  // Destination canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+
+  // ── Step 1: render real map + territory in an offscreen GL map ──
+  const mapOk = await new Promise<boolean>((resolve) => {
+    const container = document.createElement('div');
+    container.style.cssText = [
+      `position:fixed`,
+      `left:-${W * 2 + 200}px`,
+      `top:0`,
+      `width:${W}px`,
+      `height:${H}px`,
+      `overflow:hidden`,
+      `pointer-events:none`,
+      `visibility:hidden`,
+    ].join(';');
+    document.body.appendChild(container);
+
+    let cleaned = false;
+    // eslint-disable-next-line prefer-const
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      clearTimeout(timeoutId);
+      try { map.remove(); } catch { /* ignore */ }
+      try { document.body.removeChild(container); } catch { /* ignore */ }
+    };
+
+    timeoutId = setTimeout(() => { cleanup(); resolve(false); }, 14000);
+
+    const map = new maplibregl.Map({
+      container,
+      style: {
+        version: 8,
+        sources: {
+          carto: {
+            type: 'raster',
+            // Use all 4 CARTO subdomains for parallel tile loading
+            tiles: [
+              'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+            ],
+            tileSize: 256,
+            attribution: '© CARTO © OpenStreetMap',
+          },
+        },
+        layers: [{ id: 'tiles', type: 'raster', source: 'carto' }],
+      },
+      canvasContextAttributes: { preserveDrawingBuffer: true },
+      interactive: false,
+      attributionControl: false,
+      fadeDuration: 0,   // no fade-in — tiles appear immediately
+    });
+
+    map.once('load', () => {
+      // Territory polygon fill + stroke as native GL layers
+      map.addSource('t', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: { type: 'Polygon', coordinates: [coords] },
+          properties: {},
+        },
+      });
+      map.addLayer({
+        id: 't-fill',
+        type: 'fill',
+        source: 't',
+        paint: { 'fill-color': c1, 'fill-opacity': 0.42 },
+      });
+      map.addLayer({
+        id: 't-stroke',
+        type: 'line',
+        source: 't',
+        paint: { 'line-color': '#ffffff', 'line-width': 4, 'line-opacity': 0.92 },
+      });
+
+      // Corridor centre-line dash
+      if (isCorridor && territory.rawPath && (territory.rawPath as [number, number][]).length >= 2) {
+        map.addSource('rp', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: territory.rawPath as [number, number][] },
+            properties: {},
+          },
+        });
+        map.addLayer({
+          id: 'rp-dash',
+          type: 'line',
+          source: 'rp',
+          paint: {
+            'line-color': '#ffffff',
+            'line-width': 2.5,
+            'line-opacity': 0.75,
+            'line-dasharray': [3, 4],
+          },
+        });
+      }
+
+      // Fit bounds — leave bottom PANEL_H + gutter for the info panel
+      map.fitBounds(
+        [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+        { padding: { top: 80, bottom: PANEL_H + 100, left: 70, right: 70 }, animate: false },
+      );
+
+      // 'idle' fires once all tiles are loaded and the frame is rendered
+      map.once('idle', () => {
+        try {
+          // canvas→canvas: untainted GL canvas → untainted 2D canvas → toDataURL works
+          ctx.drawImage(map.getCanvas(), 0, 0, W, H);
+          cleanup();
+          resolve(true);
+        } catch {
+          cleanup();
+          resolve(false);
+        }
+      });
+    });
+
+    map.on('error', () => { cleanup(); resolve(false); });
+  });
+
+  // ── Step 2: fallback if map failed ───────────────────────────
+  if (!mapOk) {
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, W, H);
     const bgGrad = ctx.createLinearGradient(0, 0, W, H);
@@ -287,148 +288,45 @@ async function buildShareCard(
     bgGrad.addColorStop(1, c2 + '33');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = 'rgba(255,255,255,0.035)';
-    for (let y = 40; y < H; y += 72)
-      for (let x = 40; x < W; x += 72) {
-        ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
-      }
-  }
-
-  // Scrim ONLY over bottom panel area — map stays fully visible above
-  const scrimTop = H - PANEL_H - 80;
-  const scrim = ctx.createLinearGradient(0, scrimTop, 0, H);
-  scrim.addColorStop(0,   'rgba(0,0,0,0)');
-  scrim.addColorStop(0.25, 'rgba(0,0,0,0.60)');
-  scrim.addColorStop(1,   'rgba(0,0,0,0.92)');
-  ctx.fillStyle = scrim;
-  ctx.fillRect(0, scrimTop, W, H - scrimTop);
-
-  // ── LAYER 2: Territory drawn at geo-accurate position on map ──
-  const coords = territory.coordinates as [number, number][];
-  if (coords.length >= 3) {
-    // If tiles loaded, use geo projection so territory aligns with map streets.
-    // Otherwise fit-to-box in the upper portion of the card.
-    let toX: (lng: number) => number;
-    let toY: (lat: number) => number;
-
-    if (tileInfo) {
-      toX = tileInfo.toX;
-      toY = tileInfo.toY;
-    } else {
-      const lngs   = coords.map(c => c[0]);
-      const lats   = coords.map(c => c[1]);
+    // Draw territory as plain polygon
+    if (coords.length >= 3) {
       const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
       const minLat = Math.min(...lats), maxLat = Math.max(...lats);
       const lngSpan = maxLng - minLng || 0.001;
       const latSpan = maxLat - minLat || 0.001;
-      const BOX_W  = 520, BOX_H = isCorridor ? 280 : 460;
-      const scale  = Math.min(BOX_W / lngSpan, BOX_H / latSpan) * 0.80;
-      const drawW  = lngSpan * scale, drawH = latSpan * scale;
-      const ox     = W / 2 - drawW / 2;
-      const oy     = (H - PANEL_H) / 2 - drawH / 2;
-      toX = (lng) => ox + (lng - minLng) * scale;
-      toY = (lat) => oy + (maxLat - lat) * scale;
-    }
-
-    const tracePoly = () => {
+      const scale = Math.min(520 / lngSpan, (isCorridor ? 280 : 460) / latSpan) * 0.8;
+      const ox = W / 2 - (lngSpan * scale) / 2;
+      const oy = (H - PANEL_H) / 2 - (latSpan * scale) / 2;
+      const toX = (lng: number) => ox + (lng - minLng) * scale;
+      const toY = (lat: number) => oy + (maxLat - lat) * scale;
       ctx.beginPath();
       coords.forEach(([lng, lat], i) => {
         if (i === 0) ctx.moveTo(toX(lng), toY(lat));
         else         ctx.lineTo(toX(lng), toY(lat));
       });
       ctx.closePath();
-    };
-
-    if (isCorridor) {
-      // Outer glow
-      ctx.save();
-      tracePoly();
-      ctx.shadowColor = c1;
-      ctx.shadowBlur = 52;
-      ctx.strokeStyle = c1 + '99';
-      ctx.lineWidth = 30;
-      ctx.stroke();
-      ctx.restore();
-      // Semi-transparent fill (map streets visible through territory)
-      const roadFill = ctx.createLinearGradient(0, 0, W, H);
-      roadFill.addColorStop(0, c1 + 'aa');
-      roadFill.addColorStop(1, c2 + 'aa');
-      ctx.save();
-      tracePoly();
-      ctx.fillStyle = roadFill;
-      ctx.fill();
-      ctx.restore();
-      // Bright edge stroke
-      ctx.save();
-      tracePoly();
-      ctx.shadowColor = c1;
-      ctx.shadowBlur = 18;
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 3.5;
-      ctx.stroke();
-      ctx.restore();
-      // Dashed center stripe
-      if (territory.rawPath && territory.rawPath.length >= 2) {
-        ctx.save();
-        ctx.setLineDash([14, 16]);
-        ctx.beginPath();
-        (territory.rawPath as [number, number][]).forEach(([lng, lat], i) => {
-          if (i === 0) ctx.moveTo(toX(lng), toY(lat));
-          else         ctx.lineTo(toX(lng), toY(lat));
-        });
-        ctx.strokeStyle = 'rgba(255,255,255,0.70)';
-        ctx.lineWidth = 2.5;
-        ctx.shadowBlur = 0;
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
-      }
-    } else {
-      // Outer halo glow
-      ctx.save();
-      tracePoly();
-      ctx.shadowColor = c1;
-      ctx.shadowBlur = 80;
-      ctx.strokeStyle = c1 + '66';
-      ctx.lineWidth = 28;
-      ctx.stroke();
-      ctx.restore();
-      // Semi-transparent fill so map is visible through the territory
-      const fillGrad = ctx.createLinearGradient(0, 0, W, H);
-      fillGrad.addColorStop(0, c1 + '88');
-      fillGrad.addColorStop(1, c2 + '66');
-      ctx.save();
-      tracePoly();
-      ctx.fillStyle = fillGrad;
-      ctx.fill();
-      ctx.restore();
-      // Bright perimeter
-      ctx.save();
-      tracePoly();
-      ctx.shadowColor = c1;
-      ctx.shadowBlur = 24;
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 4;
-      ctx.globalAlpha = 0.95;
-      ctx.stroke();
-      ctx.restore();
-      // Corner dots (max 8 evenly spaced)
-      const dotCoords = coords.slice(0, -1);
-      const step = Math.max(1, Math.floor(dotCoords.length / 8));
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = c1;
-      ctx.shadowBlur = 16;
-      for (let i = 0; i < dotCoords.length; i += step) {
-        const [lng, lat] = dotCoords[i];
-        ctx.beginPath();
-        ctx.arc(toX(lng), toY(lat), 7, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.shadowBlur = 0;
+      const fg = ctx.createLinearGradient(0, 0, W, H);
+      fg.addColorStop(0, c1 + '88'); fg.addColorStop(1, c2 + '66');
+      ctx.fillStyle = fg; ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.globalAlpha = 0.9; ctx.stroke();
+      ctx.globalAlpha = 1;
     }
+  } else {
+    // Light darkening tint so text panel reads well against the map
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(0, 0, W, H);
   }
 
-  // ── LAYER 3: Bottom info panel ────────────────────────────────
+  // ── Step 3: scrim over bottom panel area ─────────────────────
+  const scrimTop = H - PANEL_H - 80;
+  const scrim = ctx.createLinearGradient(0, scrimTop, 0, H);
+  scrim.addColorStop(0,    'rgba(0,0,0,0)');
+  scrim.addColorStop(0.25, 'rgba(0,0,0,0.60)');
+  scrim.addColorStop(1,    'rgba(0,0,0,0.92)');
+  ctx.fillStyle = scrim;
+  ctx.fillRect(0, scrimTop, W, H - scrimTop);
+
+  // ── Step 4: info panel ────────────────────────────────────────
   const panelY = H - PANEL_H;
   ctx.save();
   _rRect(ctx, 24, panelY - 4, W - 48, PANEL_H - 8, 28);
@@ -524,7 +422,7 @@ async function buildShareCard(
     ctx.fillText(s.key, cx, statsY + 76);
   });
 
-  // Brand
+  // Brand watermark
   ctx.font = `700 19px ${_CARD_FONT}`;
   ctx.fillStyle = 'rgba(255,255,255,0.26)';
   ctx.textAlign = 'center';
@@ -554,14 +452,9 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
     if (isSharing) return;
     setIsSharing(true);
     try {
-    // ── Step 1: fetch dark map background from CARTO tiles ────
-      // (WebGL toDataURL is unreliable due to CORS sprite-sheet taint)
-      const tileInfo = await fetchTileBg(territory.coordinates as [number,number][], 720, 1280);
+      const dataUrl = await buildShareCard(territory, theme.grad);
 
-      // ── Step 2: compose card via Canvas 2D API ─────────────────
-      const dataUrl = await buildShareCard(tileInfo, territory, theme.grad);
-
-      // ── Step 3: share or download ──────────────────────────────
+      // Share or download
       const res  = await fetch(dataUrl);
       const blob = await res.blob();
       const safeName = territory.name.replace(/\s+/g, '-').replace(/[^\w-]/g, '');
