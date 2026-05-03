@@ -1,5 +1,6 @@
 ﻿import React, { useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
+import { applyRunMarkTheme } from '../../map/hooks/useMap';
 import {
   Ruler, Clock, Repeat2, Check, X, Trash2, AlertTriangle, Share2,
   Shield, Zap, Star, Crown, Flag, Target, Flame, Trophy, Gem, Anchor, Mountain, Crosshair,
@@ -189,14 +190,19 @@ async function buildShareCard(
     const map = new maplibregl.Map({
       container,
       style: 'https://tiles.openfreemap.org/styles/liberty',
+      pitch: 50,          // same tilt as the app
+      bearing: 0,
       canvasContextAttributes: { preserveDrawingBuffer: true },
       interactive: false,
       attributionControl: false,
-      fadeDuration: 0,   // no fade-in — tiles appear immediately
+      fadeDuration: 0,
     });
 
     map.once('load', () => {
-      // Territory polygon fill + stroke as native GL layers
+      // Apply exact same RunMark theme used in the app
+      applyRunMarkTheme(map);
+
+      // ── Territory as a 3D fill-extrusion — rises up off the ground ──
       map.addSource('t', {
         type: 'geojson',
         data: {
@@ -205,17 +211,31 @@ async function buildShareCard(
           properties: {},
         },
       });
+      // Glowing base fill (flat, shows on ground)
       map.addLayer({
-        id: 't-fill',
+        id: 't-base',
         type: 'fill',
         source: 't',
-        paint: { 'fill-color': c1, 'fill-opacity': 0.42 },
+        paint: { 'fill-color': c1, 'fill-opacity': 0.35 },
       });
+      // 3D extruded walls — territory rises like a building
+      map.addLayer({
+        id: 't-extrude',
+        type: 'fill-extrusion',
+        source: 't',
+        paint: {
+          'fill-extrusion-color': c1,
+          'fill-extrusion-height': 25,
+          'fill-extrusion-base': 0,
+          'fill-extrusion-opacity': 0.72,
+        },
+      });
+      // Bright top edge
       map.addLayer({
         id: 't-stroke',
         type: 'line',
         source: 't',
-        paint: { 'line-color': '#ffffff', 'line-width': 4, 'line-opacity': 0.92 },
+        paint: { 'line-color': '#ffffff', 'line-width': 3, 'line-opacity': 0.9 },
       });
 
       // Corridor centre-line dash
@@ -241,19 +261,19 @@ async function buildShareCard(
         });
       }
 
-      // Fit bounds — leave bottom PANEL_H + gutter for the info panel
+      // Fit bounds with matching pitch — territory centred in upper 60% of card
       map.fitBounds(
         [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-        { padding: { top: 80, bottom: PANEL_H + 100, left: 70, right: 70 }, animate: false },
+        { padding: { top: 60, bottom: PANEL_H + 80, left: 60, right: 60 }, animate: false, pitch: 50 },
       );
 
-      // 'idle' fires once all tiles are loaded and the GL frame is rendered.
-      // We then wait one rAF to guarantee the frame is committed to the
-      // WebGL drawing buffer before we read it back.
+      // Force repaint so layers are definitely drawn before we capture
+      map.triggerRepaint();
+
+      // 'idle' fires once all tiles + layers are fully rendered
       map.once('idle', () => {
         requestAnimationFrame(() => {
           try {
-            // canvas→canvas: untainted GL canvas → untainted 2D canvas → toDataURL works
             ctx.drawImage(map.getCanvas(), 0, 0, W, H);
             cleanup();
             resolve(true);

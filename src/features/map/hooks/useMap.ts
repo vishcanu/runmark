@@ -12,7 +12,7 @@ const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 // ── RunMark Tactical theme ───────────────────────────────────
 // Called once after style loads. Overrides paint properties on
 // existing Liberty layers — no source changes needed.
-function applyRunMarkTheme(map: Map) {
+export function applyRunMarkTheme(map: Map) {
   // Helper: silently skip layers that don't exist at this zoom
   const set = (layer: string, prop: string, value: unknown) => {
     try {
