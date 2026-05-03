@@ -188,24 +188,7 @@ async function buildShareCard(
 
     const map = new maplibregl.Map({
       container,
-      style: {
-        version: 8,
-        sources: {
-          carto: {
-            type: 'raster',
-            // Use all 4 CARTO subdomains for parallel tile loading
-            tiles: [
-              'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-            ],
-            tileSize: 256,
-            attribution: '© CARTO © OpenStreetMap',
-          },
-        },
-        layers: [{ id: 'tiles', type: 'raster', source: 'carto' }],
-      },
+      style: 'https://tiles.openfreemap.org/styles/liberty',
       canvasContextAttributes: { preserveDrawingBuffer: true },
       interactive: false,
       attributionControl: false,
