@@ -27,7 +27,7 @@ const TEST_TERRITORY: Territory = {
   createdAt: Date.now(),
   distance: 430,   // ~one loop of the park perimeter
   duration: 380,
-  runs: 1,         // 1 loop completed → freshly claimed
+  runs: 3,         // 3 loops completed → building picker unlocked
   lastRunAt: Date.now(),
   theme: 'cobalt',
   emblem: 'shield',
