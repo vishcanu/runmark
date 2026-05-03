@@ -30,7 +30,7 @@
 /* ─── Parks tray — above bottom nav + FAB ────────────────── */
 .parksTray {
     position: absolute;
-    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 72px);
+    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 130px);
     left: 0;
     right: 0;
     z-index: var(--z-controls);
@@ -188,7 +188,7 @@
 /* Shown after tapping a chip — sits above bottom nav */
 .parkConfirm {
     position: absolute;
-    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 72px);
+    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 130px);
     left: var(--space-4);
     right: var(--space-4);
     background: rgba(255, 255, 255, 0.97);
