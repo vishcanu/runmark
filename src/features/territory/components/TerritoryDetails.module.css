@@ -489,3 +489,195 @@
     font-size: var(--text-xs);
     color: var(--color-text-muted);
 }
+
+/* ── Construction panel ───────────────────────────────────────── */
+.constructionSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+}
+
+.constructionHeader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.constructionTitle {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-muted);
+    flex: 1;
+}
+
+.constructionLevelBadge {
+    font-size: 10px;
+    font-weight: var(--font-bold);
+    letter-spacing: 0.08em;
+    padding: 2px 9px;
+    border-radius: 20px;
+    border: 1px solid;
+    white-space: nowrap;
+    text-transform: uppercase;
+}
+
+.constructionDesc {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.constructionProgress {
+    position: relative;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--color-border-subtle);
+    overflow: visible;
+    margin-bottom: 14px;
+}
+
+.constructionBar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+    min-width: 4px;
+}
+
+.constructionProgressLabel {
+    position: absolute;
+    top: 10px;
+    left: 0;
+    font-size: 10px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.constructionNudge {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    font-style: italic;
+    margin: 0;
+}
+
+/* ── Building type picker ────────────────────────────────────── */
+.buildPickerSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-top: var(--space-1);
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.buildPickerPrompt {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.buildPicker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.buildOption {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease;
+}
+
+.buildOption:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.buildIcon {
+    font-size: 20px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.buildName {
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+    white-space: nowrap;
+}
+
+.buildEffect {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+/* ── Built building display ──────────────────────────────────── */
+.builtBuilding {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+}
+
+.builtIcon {
+    font-size: 22px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.builtInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.builtName {
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+}
+
+.builtTagline {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    font-style: italic;
+}
+
+.builtEffect {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.builtChange {
+    font-size: 16px;
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.builtChange:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-glass);
+}

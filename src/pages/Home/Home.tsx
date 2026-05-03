@@ -12,7 +12,6 @@ import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
 import { pathToPolygon, colorFromId, polyCentroid, haversineDistance, isLinearPath, bufferPath } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
-import { generateBuildings } from '../../features/building/utils/buildingGenerator';
 import type { Park } from '../../features/parks/types';
 import type { Territory, Coordinate } from '../../types';
 import styles from './Home.module.css';
@@ -109,8 +108,7 @@ export function Home() {
         lastRunAt: Date.now(),
       });
     } else {
-      // Brand-new zone
-      const buildings = generateBuildings(coords, currentDistance, duration);
+      // Brand-new zone — no pre-generated buildings; construction grows with runs
       const territory: Territory = {
         id: sessionId,
         name: `Territory ${store.territories.length + 1}`,
@@ -118,7 +116,7 @@ export function Home() {
         createdAt: currentStartTime ?? Date.now(),
         distance: currentDistance,
         duration,
-        buildings,
+        buildings: [],
         color,
         runs: 1,
         lastRunAt: Date.now(),

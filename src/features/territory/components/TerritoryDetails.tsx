@@ -2,9 +2,11 @@
 import {
   Ruler, Clock, Repeat2, Check, X, Trash2, AlertTriangle, Share2,
   Shield, Zap, Star, Crown, Flag, Target, Flame, Trophy, Gem, Anchor, Mountain, Crosshair,
+  HardHat,
 } from 'lucide-react';
 import { formatDistance, formatDuration } from '../../map/utils/geo';
 import { getTierInfo, nextTierAt } from '../utils/territoryTier';
+import { getConstructionLevel, nextConstructionLevel, BUILDING_DEFS, availableBuildings } from '../../building/buildingCatalog';
 import type { Territory } from '../../../types';
 import styles from './TerritoryDetails.module.css';
 
@@ -720,6 +722,96 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
           <span className={styles.statLabel}>Runs</span>
         </div>
       </div>
+
+      {/* ── Construction panel ── */}
+      {!editing && (() => {
+        const runs     = territory.runs ?? 1;
+        const level    = getConstructionLevel(runs);
+        const nextLvl  = nextConstructionLevel(runs);
+        const runsLeft = nextLvl ? nextLvl.minRuns - runs : 0;
+        const unlocked = availableBuildings(runs);
+        const chosen   = territory.buildingType;
+        const chosenDef = chosen ? BUILDING_DEFS[chosen] : null;
+
+        return (
+          <div className={styles.constructionSection}>
+            {/* Level header */}
+            <div className={styles.constructionHeader}>
+              <HardHat size={14} strokeWidth={2} style={{ color: territory.color }} />
+              <span className={styles.constructionTitle}>Construction</span>
+              <span className={styles.constructionLevelBadge} style={{ borderColor: territory.color + '60', color: territory.color }}>
+                {level.emoji} {level.name}
+              </span>
+            </div>
+
+            <p className={styles.constructionDesc}>{level.description}</p>
+
+            {/* Progress bar to next level */}
+            {nextLvl && (
+              <div className={styles.constructionProgress}>
+                <div
+                  className={styles.constructionBar}
+                  style={{
+                    width: `${Math.round(((runs - level.minRuns) / (nextLvl.minRuns - level.minRuns)) * 100)}%`,
+                    background: territory.color,
+                  }}
+                />
+                <span className={styles.constructionProgressLabel}>
+                  {runsLeft} run{runsLeft !== 1 ? 's' : ''} to {nextLvl.emoji} {nextLvl.name}
+                </span>
+              </div>
+            )}
+
+            {/* Building type — show picker if unlocked but not chosen */}
+            {unlocked.length > 0 && !chosen && (
+              <div className={styles.buildPickerSection}>
+                <p className={styles.buildPickerPrompt}>🏗 Choose what to build on your land:</p>
+                <div className={styles.buildPicker}>
+                  {unlocked.map((type) => {
+                    const def = BUILDING_DEFS[type];
+                    return (
+                      <button
+                        key={type}
+                        className={styles.buildOption}
+                        style={{ borderColor: def.color + '55' }}
+                        onClick={() => onUpdate(territory.id, { buildingType: type })}
+                      >
+                        <span className={styles.buildIcon}>{def.icon}</span>
+                        <span className={styles.buildName} style={{ color: def.color }}>{def.name}</span>
+                        <span className={styles.buildEffect}>{def.effect}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Chosen building — show what's built */}
+            {chosenDef && (
+              <div className={styles.builtBuilding} style={{ borderColor: chosenDef.color + '50', background: chosenDef.color + '10' }}>
+                <span className={styles.builtIcon}>{chosenDef.icon}</span>
+                <div className={styles.builtInfo}>
+                  <span className={styles.builtName} style={{ color: chosenDef.color }}>{chosenDef.name}</span>
+                  <span className={styles.builtTagline}>{chosenDef.tagline}</span>
+                  <span className={styles.builtEffect}>{chosenDef.effect}</span>
+                </div>
+                <button
+                  className={styles.builtChange}
+                  onClick={() => onUpdate(territory.id, { buildingType: undefined })}
+                  title="Change building"
+                >
+                  ↩
+                </button>
+              </div>
+            )}
+
+            {/* Runs < 2: encourage another run */}
+            {runs < 2 && (
+              <p className={styles.constructionNudge}>Run this territory again to lay your foundation.</p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Edit panel ── */}
       {editing && (

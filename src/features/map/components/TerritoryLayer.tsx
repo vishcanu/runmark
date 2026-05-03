@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef } from 'react';
 import type { Map, GeoJSONSource } from 'maplibre-gl';
+import maplibregl from 'maplibre-gl';
 import type { Territory } from '../../../types';
 import { getTierInfo } from '../../territory/utils/territoryTier';
 
@@ -36,6 +37,9 @@ const L_LABEL    = 'territories-label';
 const L_ROAD_SLAB   = 'territories-road-slab';
 const L_ROAD_EDGE   = 'territories-road-edge';
 const L_ROAD_STRIPE = 'territories-road-stripe';
+// Cleared-ground overlay — darkens the territory interior so existing map
+// buildings are visually de-emphasized ("cleared" plain feeling)
+const L_GROUND = 'territories-ground';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -222,7 +226,17 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      // 1 ── Inner shimmer on floor (animated)
+      // 1 ── Cleared-ground dark overlay — de-emphasizes existing map buildings
+      //      inside owned territory ("plain land" feeling)
+      map.addLayer({
+        id: L_GROUND, type: 'fill', source: SRC_FLOOR,
+        paint: {
+          'fill-color':   '#0d1e0d', // very dark earthy green
+          'fill-opacity': 0.68,
+        },
+      });
+
+      // 2 ── Inner shimmer on floor (animated)
       map.addLayer({
         id: L_SHIMMER, type: 'fill', source: SRC_FLOOR,
         paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.04 },
@@ -355,6 +369,28 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         });
         map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = '';        });
+      });
+    }
+
+    // ── Suppress base-map buildings inside owned territories ─────
+    // Uses MapLibre `within` expression to exclude base-style fill-extrusion
+    // features that fall inside any owned territory polygon.
+    if (territories.length > 0) {
+      const multiPoly: GeoJSON.MultiPolygon = {
+        type: 'MultiPolygon',
+        coordinates: territories.map((t) => [t.coordinates as [number, number][]]),
+      };
+      const mapStyleLayers = map.getStyle()?.layers ?? [];
+      mapStyleLayers.forEach((l) => {
+        if (l.type !== 'fill-extrusion') return;
+        // Skip our own territory / building layers
+        if (l.id.startsWith('territories-') || l.id.startsWith('construction-') || l.id.startsWith('buildings-')) return;
+        try {
+          const existing = map.getFilter(l.id);
+          const exclude  = ['!', ['within', multiPoly]];
+          const combined = existing ? ['all', existing, exclude] : exclude;
+          map.setFilter(l.id, combined as maplibregl.FilterSpecification);
+        } catch { /* some layers may have incompatible filter types — skip */ }
       });
     }
 

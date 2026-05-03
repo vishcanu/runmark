@@ -5,6 +5,9 @@ export type Coordinate = [number, number];
 // ─── Building Types ───────────────────────────────────────────────────────────
 export type BuildingType = 'cottage' | 'tower' | 'skyscraper' | 'landmark';
 
+/** Type of construction the user has chosen to build on their territory */
+export type ConstructionBuildingType = 'watchtower' | 'barracks' | 'fortification' | 'market' | 'monument';
+
 export interface Building {
   id: string;
   position: Coordinate;
@@ -39,6 +42,8 @@ export interface Territory {
   shape?: 'zone' | 'corridor';
   /** Original GPS centerline — only set for corridors */
   rawPath?: Coordinate[];
+  /** User-chosen building type — unlocked at 3 runs */
+  buildingType?: ConstructionBuildingType;
 }
 
 // ─── Activity Types ───────────────────────────────────────────────────────────
