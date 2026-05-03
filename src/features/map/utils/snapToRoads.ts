@@ -3,26 +3,34 @@ import type { ActivityType, Coordinate } from '../../../types';
 /**
  * OSRM routing profile per activity type.
  *
- * - `foot`: pedestrians, runners — footpaths, parks, trails, streets.
- * - `bike`: cyclists — cycling infrastructure, roads; excludes pedestrian-only paths.
+ * The public demo server at router.project-osrm.org only exposes two
+ * profiles: `foot` and `driving`.  There is NO `bike` profile on this
+ * server — requests to /match/v1/bike/ return a TooBig/Invalid error and
+ * the app silently falls back to raw GPS.
  *
- * Using the wrong profile degrades match quality: e.g. `foot` on a cycle lane
- * may snap to the parallel pavement; `bike` on a footpath-only park path
- * will return NoMatch and we fall back to raw GPS automatically.
+ * Profile choice:
+ *  - walk / run → `foot`   : footways, parks, trails, shared roads.
+ *  - cycle      → `foot`   : same coverage; in India cyclists share the
+ *                            same roads/paths as pedestrians.  Using
+ *                            `foot` gives the best match quality without
+ *                            requiring a separate server.
+ *
+ * If you ever self-host OSRM with a `bicycle.lua` profile, change the
+ * cycle entry to `'bike'` and update the base URL accordingly.
  */
-const OSRM_PROFILE: Record<ActivityType, 'foot' | 'bike'> = {
+const OSRM_PROFILE: Record<ActivityType, 'foot' | 'driving'> = {
   run:   'foot',
   walk:  'foot',
-  cycle: 'bike',
+  cycle: 'foot',   // 'bike' does NOT exist on router.project-osrm.org
 };
 
 /**
  * OSRM snap radius in metres — how far from each GPS point to search for a
  * matching road segment.
  *
- * - foot (walk/run): 40 m — standard GPS accuracy on footpaths.
- * - bike: 50 m — cyclists ride on wider roads where GPS drift (multi-path
- *   from buildings, overpasses) is larger; wider search avoids NoMatch.
+ * - walk/run: 40 m — standard GPS accuracy on footpaths.
+ * - cycle:    50 m — cyclists on wider roads have more multi-path GPS error
+ *                    (buildings, bridges); wider radius avoids NoMatch.
  */
 const SNAP_RADIUS: Record<ActivityType, number> = {
   run:   40,

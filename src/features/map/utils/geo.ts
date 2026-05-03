@@ -139,60 +139,123 @@ function _shoelaceArea(coords: Coordinate[]): number {
 }
 
 /**
- * Returns true when the GPS path forms a thin line (out-and-back / same road).
- * Uses normalised area: area_m² / length_m² < 0.015 → linear.
+ * Returns true when the GPS path is a linear corridor (straight run, out-and-back)
+ * rather than a closed loop (block loop, park circuit).
+ *
+ * Two-stage decision:
+ *
+ * Stage 1 — closure check:
+ *   If the endpoint is > 25 % of total path length away from the start, the
+ *   user ran in a direction and didn't return → definitely a corridor.
+ *
+ * Stage 2 — area check (start ≈ end, could be loop OR out-and-back):
+ *   Compute the area enclosed by the snapped path.
+ *   • area / len² < 0.008 → very flat/thin shape → out-and-back → corridor.
+ *   • area / len² ≥ 0.008 → meaningful enclosed area → loop → zone.
+ *
+ * Why not just use area?  Area alone fails on OSRM-snapped data because a
+ * "straight" run along a curved road can pick up spurious area, while a small
+ * block loop with few sample points can appear thin.  The closure ratio is a
+ * much stronger signal of user intent.
  */
 export function isLinearPath(path: Coordinate[]): boolean {
   if (path.length < 3) return true;
-  const poly = pathToPolygon(path);
-  const areaDeg = _shoelaceArea(poly);
+
+  const totalLen       = totalPathDistance(path);
+  const startEndDist   = haversineDistance(path[0], path[path.length - 1]);
+  const closureRatio   = totalLen > 0 ? startEndDist / totalLen : 1;
+
+  // Stage 1: end is far from start → corridor
+  if (closureRatio > 0.25) return true;
+
+  // Stage 2: end is near start — distinguish loop vs out-and-back by area
+  const poly    = pathToPolygon(path);
   const avgLat  = path.reduce((s, p) => s + p[1], 0) / path.length;
   const mPerLat = 111_320;
   const mPerLng = 111_320 * Math.cos(avgLat * Math.PI / 180);
-  const areaM2  = areaDeg * mPerLat * mPerLng;
-  const len     = totalPathDistance(path);
-  return len > 0 && areaM2 / (len * len) < 0.015;
+  const areaM2  = _shoelaceArea(poly) * mPerLat * mPerLng;
+
+  // Out-and-back paths collapse to near-zero area even after snapping
+  return areaM2 / (totalLen * totalLen) < 0.008;
 }
 
 /**
- * Buffer a polyline by `bufferM` metres on each side, returning a closed ring.
- * Used to turn an out-and-back road run into a corridor polygon.
+ * Buffer a polyline by `bufferM` metres on each side, returning a closed GeoJSON ring.
+ *
+ * Handles two path shapes:
+ *
+ * Open path (start ≠ end) — straight road / corridor:
+ *   Buffers each side independently, caps the ends, returns a rectangle-like ring.
+ *
+ * Closed loop (start ≈ end within 20 m) — block walk, park circuit:
+ *   Wraps the tangent at the join point so the buffer ring closes cleanly.
+ *   Result: a donut-shaped ring that covers only the road perimeter, NOT the interior.
+ *   This is key — a block walk claims the 4 roads, not the block interior.
  */
 export function bufferPath(path: Coordinate[], bufferM: number): Coordinate[] {
   const n = path.length;
   if (n < 2) return path;
-  const avgLat  = path.reduce((s, p) => s + p[1], 0) / n;
-  const mPerLat = 111_320;
-  const mPerLng = 111_320 * Math.cos(avgLat * Math.PI / 180);
+
+  const avgLat   = path.reduce((s, p) => s + p[1], 0) / n;
+  const mPerLat  = 111_320;
+  const mPerLng  = 111_320 * Math.cos(avgLat * Math.PI / 180);
   const dLatPerM = 1 / mPerLat;
   const dLngPerM = 1 / mPerLng;
+
+  // Detect if path is a closed loop (start and end are within 20 m of each other).
+  // OSRM returns the last point ≈ first point for loop routes.
+  const isClosed = haversineDistance(path[0], path[n - 1]) < 20;
 
   const left:  Coordinate[] = [];
   const right: Coordinate[] = [];
 
   for (let i = 0; i < n; i++) {
-    // tangent direction: average of adjacent segments
     let dx = 0, dy = 0;
-    if (i === 0) {
+
+    if (isClosed) {
+      // Wrap: treat the path as a circular array so the tangent at
+      // endpoints uses the correct neighboring points across the loop boundary.
+      const prev = path[(i - 1 + n) % n];
+      const next = path[(i + 1) % n];
+      dx = (next[0] - prev[0]) * mPerLng;
+      dy = (next[1] - prev[1]) * mPerLat;
+    } else if (i === 0) {
       dx = (path[1][0] - path[0][0]) * mPerLng;
       dy = (path[1][1] - path[0][1]) * mPerLat;
     } else if (i === n - 1) {
-      dx = (path[n-1][0] - path[n-2][0]) * mPerLng;
-      dy = (path[n-1][1] - path[n-2][1]) * mPerLat;
+      dx = (path[n - 1][0] - path[n - 2][0]) * mPerLng;
+      dy = (path[n - 1][1] - path[n - 2][1]) * mPerLat;
     } else {
-      dx = (path[i+1][0] - path[i-1][0]) * mPerLng;
-      dy = (path[i+1][1] - path[i-1][1]) * mPerLat;
+      dx = (path[i + 1][0] - path[i - 1][0]) * mPerLng;
+      dy = (path[i + 1][1] - path[i - 1][1]) * mPerLat;
     }
+
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len < 1e-10) { left.push(path[i]); right.push(path[i]); continue; }
-    // perpendicular unit vectors: (-dy,dx) = left, (dy,-dx) = right
+
+    // Perpendicular unit vectors: left = (-dy, dx), right = (dy, -dx)
     const px = -dy / len;
     const py =  dx / len;
     left.push( [path[i][0] + px * bufferM * dLngPerM, path[i][1] + py * bufferM * dLatPerM] as Coordinate);
     right.push([path[i][0] - px * bufferM * dLngPerM, path[i][1] - py * bufferM * dLatPerM] as Coordinate);
   }
 
-  // ring: left side forward → right side reversed → close
+  if (isClosed) {
+    // Closed loop: left side IS the outer road edge, right side IS the inner edge.
+    // Build a ring: outer forward → close outer → inner reversed → close inner.
+    // GeoJSON polygon with a hole: outer ring + inner ring (reversed) = road band only.
+    // We encode this as a single winding ring that traces outer forward then inner backward.
+    const ring: Coordinate[] = [
+      ...left,
+      left[0],                          // close outer ring
+      ...[...right].reverse(),          // inner edge reversed
+      right[right.length - 1],          // close inner ring
+      left[0],                          // close back to outer start
+    ];
+    return ring;
+  }
+
+  // Open path: cap both ends, return a simple rectangular corridor ring
   const ring: Coordinate[] = [...left, ...[...right].reverse(), left[0]];
   return ring;
 }
