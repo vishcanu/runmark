@@ -87,12 +87,17 @@ export function Home() {
     // Shows "Mapping territory…" while OSRM resolves (max 6s).
     // Falls back to raw GPS path automatically on any failure.
     setIsSnapping(true);
-    const snappedPath = await snapPathToRoads(currentPath);
+    const snappedPath = await snapPathToRoads(currentPath, activityType);
     setIsSnapping(false);
 
     // ── Detect shape: closed zone vs out-and-back corridor ───
+    // Corridor buffer width reflects real lane/path widths:
+    //   walk = 4 m (footpath ~2 m, 2 m each side)
+    //   run  = 5 m (pavement + shoulder)
+    //   cycle = 8 m (road lane ~3.5 m, wider visual territory)
+    const CORRIDOR_BUFFER = activityType === 'cycle' ? 8 : activityType === 'walk' ? 4 : 5;
     const linear  = isLinearPath(snappedPath);
-    const coords  = linear ? bufferPath(snappedPath, 5) : pathToPolygon(snappedPath);
+    const coords  = linear ? bufferPath(snappedPath, CORRIDOR_BUFFER) : pathToPolygon(snappedPath);
     const color    = colorFromId(sessionId);
     const duration = elapsed;
 
