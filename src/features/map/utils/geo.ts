@@ -28,6 +28,77 @@ export function totalPathDistance(path: Coordinate[]): number {
   return total;
 }
 
+// ── Ramer-Douglas-Peucker path simplification ─────────────────────────────
+//
+// Removes redundant points from a path while preserving all real geometry:
+//   - Points on a straight road segment that add no shape → removed
+//   - Real corners (intersections, turns) → kept (large perpendicular deviation)
+//   - Curves → kept proportionally (tighter curve = more points kept)
+//
+// epsilon: max perpendicular deviation in metres to still drop a point.
+//   8 m  → road-centerline noise removed, gentle curves preserved
+//   A 90° intersection corner deviates 30-50 m → always kept.
+//   A circular road with r=50 m keeps ~16 points → visually smooth circle.
+
+function _perpDistM(p: Coordinate, a: Coordinate, b: Coordinate): number {
+  const lat  = (a[1] + b[1]) / 2;
+  const mLat = 111_320;
+  const mLng = 111_320 * Math.cos(lat * Math.PI / 180);
+  const ax = a[0] * mLng, ay = a[1] * mLat;
+  const bx = b[0] * mLng, by = b[1] * mLat;
+  const px = p[0] * mLng, py = p[1] * mLat;
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(px - ax, py - ay);
+  return Math.abs(dx * (ay - py) - dy * (ax - px)) / Math.sqrt(len2);
+}
+
+function _rdp(pts: Coordinate[], eps: number): Coordinate[] {
+  if (pts.length <= 2) return pts;
+  const a = pts[0], b = pts[pts.length - 1];
+  let maxD = 0, idx = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = _perpDistM(pts[i], a, b);
+    if (d > maxD) { maxD = d; idx = i; }
+  }
+  if (maxD > eps) {
+    const L = _rdp(pts.slice(0, idx + 1), eps);
+    const R = _rdp(pts.slice(idx), eps);
+    return [...L.slice(0, -1), ...R];
+  }
+  return [a, b];
+}
+
+/**
+ * Simplify a coordinate path using Ramer-Douglas-Peucker.
+ * epsilon = 8 m is the right value for post-OSRM road paths:
+ *   - removes straight-road redundancy (GPS/snap noise < 5 m)
+ *   - preserves real corners (deviation > 20 m at any real turn)
+ *   - preserves curves (arc deviation > 8 m for r < ~350 m roads)
+ */
+export function simplifyPath(path: Coordinate[], epsilonM = 8): Coordinate[] {
+  if (path.length <= 3) return path;
+  return _rdp(path, epsilonM);
+}
+
+/**
+ * Close a loop path cleanly.
+ *
+ * When the user walks a loop (start ≈ end), OSRM returns a last point that
+ * is close to but not exactly the first point. This leaves a small gap or
+ * micro-edge at the join.
+ *
+ * If start and end are within `thresholdM` metres, replace the last point
+ * with the first point exactly — ensuring the polygon ring closes with zero gap.
+ */
+export function closeLoopIfNeeded(path: Coordinate[], thresholdM = 20): Coordinate[] {
+  if (path.length < 3) return path;
+  if (haversineDistance(path[0], path[path.length - 1]) < thresholdM) {
+    return [...path.slice(0, -1), path[0]];
+  }
+  return path;
+}
+
 /** Convert a polyline path to a closed GeoJSON polygon ring */
 export function pathToPolygon(path: Coordinate[]): Coordinate[] {
   if (path.length < 3) return path;

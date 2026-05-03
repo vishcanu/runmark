@@ -1,4 +1,5 @@
 import type { ActivityType, Coordinate } from '../../../types';
+import { simplifyPath, closeLoopIfNeeded } from './geo';
 
 /**
  * OSRM routing profile per activity type.
@@ -93,7 +94,27 @@ export async function snapPathToRoads(
         (m.geometry?.coordinates ?? []) as Coordinate[],
     );
 
-    return snapped.length >= 3 ? snapped : path;
+    if (snapped.length < 3) return path;
+
+    // ── Post-process the snapped path ───────────────────────────────────
+    //
+    // OSRM returns one point per interpolated road node — a 200m straight
+    // road may have 15-20 nearly-identical points.  Without simplification
+    // these become 15-20 polygon vertices on what should be a straight wall.
+    //
+    // 1. RDP simplify at 8 m epsilon:
+    //    - Removes redundant straight-segment points (road noise < 5 m)
+    //    - Preserves real corners (deviation at a 90° turn ≈ 30-50 m >> 8 m)
+    //    - Preserves curves proportionally (circle r=50 m → ~16 pts remain)
+    //
+    // 2. Close the loop if the user walked back to their start:
+    //    - Replaces last point with first point when distance < 20 m
+    //    - Prevents micro-gap / extra edge at the polygon join point
+    //    - Works for all loop shapes: rectangle, oval, irregular polygon
+    const simplified = simplifyPath(snapped, 8);
+    const cleaned    = closeLoopIfNeeded(simplified, 20);
+
+    return cleaned.length >= 3 ? cleaned : path;
   } catch {
     // timeout, network error, JSON parse error — always fall back to raw GPS
     return path;
