@@ -37,7 +37,7 @@ export function ActivityControls({
 
   return (
     <div className={styles.container}>
-      {/* Live stats — shown only during activity */}
+      {/* Live stats pill — shown above the stop button during activity */}
       {isActive && (
         <div className={styles.statsCard}>
           <ActiveIcon size={14} strokeWidth={2.5} style={{ color: cfg.color, flexShrink: 0 }} />
@@ -54,39 +54,38 @@ export function ActivityControls({
         </div>
       )}
 
-      {/* Activity type picker — shown only when idle */}
-      {!isActive && !isSnapping && (
-        <div className={styles.typePicker}>
-          {(['run', 'walk', 'cycle'] as ActivityType[]).map((type) => {
-            const c = ACTIVITY_CONFIGS[type];
-            const Icon = ACTIVITY_ICONS[type];
-            const isChosen = selected === type;
-            return (
-              <button
-                key={type}
-                className={[styles.typeBtn, isChosen ? styles.typeBtnActive : ''].join(' ')}
-                style={isChosen ? { borderColor: c.color, color: c.color, background: c.color + '18' } : {}}
-                onClick={() => setSelected(type)}
-              >
-                <Icon size={14} strokeWidth={2.5} />
-                <span className={styles.typeLabel}>{c.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* FAB */}
-      {!isActive ? (
-        isSnapping ? (
-          <div className={styles.fabWrap}>
-            <button className={styles.fabStop} disabled aria-label="Mapping territory" style={{ opacity: 0.7, fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <span style={{ fontSize: '18px' }}>⟳</span>
-              <span>Mapping…</span>
-            </button>
+      {/* Single row: [Run][Walk][Cycle] → [Start FAB]  or  [Stop] */}
+      <div className={styles.actionRow}>
+        {/* Activity type chips — only when idle */}
+        {!isActive && !isSnapping && (
+          <div className={styles.typePicker}>
+            {(['run', 'walk', 'cycle'] as ActivityType[]).map((type) => {
+              const c = ACTIVITY_CONFIGS[type];
+              const Icon = ACTIVITY_ICONS[type];
+              const isChosen = selected === type;
+              return (
+                <button
+                  key={type}
+                  className={[styles.typeBtn, isChosen ? styles.typeBtnActive : ''].join(' ')}
+                  style={isChosen ? { borderColor: c.color, color: c.color, background: c.color + '18' } : {}}
+                  onClick={() => setSelected(type)}
+                >
+                  <Icon size={14} strokeWidth={2.5} />
+                  <span className={styles.typeLabel}>{c.label}</span>
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          <div className={styles.fabWrap}>
+        )}
+
+        {/* FAB */}
+        {!isActive ? (
+          isSnapping ? (
+            <button className={styles.fabStop} disabled aria-label="Mapping territory" style={{ opacity: 0.7, flexDirection: 'column', gap: '2px' }}>
+              <Square size={14} strokeWidth={2.5} />
+              <span style={{ fontSize: '10px', lineHeight: 1 }}>Map…</span>
+            </button>
+          ) : (
             <button
               className={styles.fab}
               style={{ background: `linear-gradient(135deg, ${cfg.color}, ${cfg.color}cc)` }}
@@ -96,15 +95,13 @@ export function ActivityControls({
               <ActiveIcon size={17} strokeWidth={2.5} />
               Start {cfg.label}
             </button>
-          </div>
-        )
-      ) : (
-        <div className={styles.fabWrap}>
+          )
+        ) : (
           <button className={styles.fabStop} onClick={onStop} aria-label="Stop activity">
             <Square size={18} strokeWidth={2.5} />
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
