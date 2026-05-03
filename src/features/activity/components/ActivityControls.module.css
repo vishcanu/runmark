@@ -1,22 +1,23 @@
 /* ─────────────────────────────────────────────────────────
-   ActivityControls — compact corner FAB, map-friendly
+   ActivityControls — single-row layout, bottom-right corner
    ───────────────────────────────────────────────────────── */
 
-/* Stack at bottom-right corner, above bottom nav */
+/* Anchor point: bottom-right, one row tall = 50px FAB */
 .container {
     position: absolute;
     bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 12px);
     right: 14px;
+    left: 14px;
+    /* spans full width so stats pill can float left */
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: var(--space-2);
+    gap: 8px;
     z-index: calc(var(--z-controls) + 5);
-    /* always above park cards */
     pointer-events: none;
 }
 
-/* ─── Stats row (during active run) ─────────────────────── */
+/* ─── Stats pill — above action row during active run ────── */
 .statsCard {
     display: flex;
     align-items: center;
@@ -51,11 +52,6 @@
     line-height: 1;
 }
 
-.statLbl {
-    display: none;
-    /* hidden in compact mode */
-}
-
 .statDivider {
     width: 1px;
     height: 14px;
@@ -63,88 +59,32 @@
     margin: 0 2px;
 }
 
-/* ─── FAB wrapper ─────────────────────────────────────────── */
-.fabWrap {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0;
-    pointer-events: auto;
-}
-
-.fabLabel {
-    display: none;
-    /* hidden in compact layout */
-}
-
-/* ─── Start button — compact pill ─────────────────────────── */
-.fab {
+/* ─── Single action row: chips + FAB side by side ────────── */
+.actionRow {
     display: flex;
     align-items: center;
-    gap: 8px;
-    height: 50px;
-    padding: 0 22px;
-    border-radius: var(--radius-full);
-    background: var(--gradient-park);
-    border: none;
-    color: #ffffff;
-    font-family: var(--font-family);
-    font-size: 15px;
-    font-weight: var(--font-bold);
-    letter-spacing: -0.01em;
-    cursor: pointer;
-    box-shadow: 0 4px 20px rgba(2, 132, 199, 0.40), 0 1px 4px rgba(0, 0, 0, 0.10);
-    transition: transform var(--transition-base), box-shadow var(--transition-base);
-    outline: none;
-    white-space: nowrap;
-}
-
-.fab:active {
-    transform: scale(0.94);
-    box-shadow: 0 2px 10px rgba(2, 132, 199, 0.30);
-}
-
-/* ─── Stop button — small circle ─────────────────────────── */
-.fabStop {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: #ffffff;
-    border: 1.5px solid rgba(220, 38, 38, 0.22);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #dc2626;
-    cursor: pointer;
-    box-shadow: 0 2px 14px rgba(220, 38, 38, 0.22), 0 1px 4px rgba(0, 0, 0, 0.10);
-    transition: transform var(--transition-base), background var(--transition-fast);
-    outline: none;
-}
-
-.fabStop:active {
-    transform: scale(0.91);
-    background: #fef2f2;
-}
-
-/* ─── Activity type picker (3 chips above FAB) ─────────────── */
-.typePicker {
-    display: flex;
     gap: 6px;
     pointer-events: auto;
+}
+
+/* ─── Activity type chips (icon + label, compact) ────────── */
+.typePicker {
+    display: flex;
+    gap: 5px;
 }
 
 .typeBtn {
     display: flex;
     align-items: center;
-    gap: 5px;
-    height: 36px;
-    padding: 0 13px;
+    gap: 4px;
+    height: 44px;
+    padding: 0 11px;
     border-radius: var(--radius-full);
     background: rgba(255, 255, 255, 0.92);
     border: 1.5px solid rgba(0, 0, 0, 0.12);
     color: var(--color-text-secondary);
     font-family: var(--font-family);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: var(--font-semibold);
     cursor: pointer;
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.10);
@@ -165,6 +105,54 @@
 }
 
 .typeLabel {
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1;
+}
+
+/* ─── Start FAB — same height as chips ───────────────────── */
+.fab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 44px;
+    padding: 0 20px;
+    border-radius: var(--radius-full);
+    border: none;
+    color: #ffffff;
+    font-family: var(--font-family);
+    font-size: 14px;
+    font-weight: var(--font-bold);
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22), 0 1px 4px rgba(0, 0, 0, 0.12);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+    outline: none;
+    white-space: nowrap;
+}
+
+.fab:active {
+    transform: scale(0.94);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+}
+
+/* ─── Stop button — circle, same height ─────────────────── */
+.fabStop {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 1.5px solid rgba(220, 38, 38, 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #dc2626;
+    cursor: pointer;
+    box-shadow: 0 2px 14px rgba(220, 38, 38, 0.22), 0 1px 4px rgba(0, 0, 0, 0.10);
+    transition: transform var(--transition-base), background var(--transition-fast);
+    outline: none;
+}
+
+.fabStop:active {
+    transform: scale(0.91);
+    background: #fef2f2;
 }
