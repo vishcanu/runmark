@@ -10,7 +10,7 @@ import { useActivityTracker } from '../../features/activity/hooks/useActivityTra
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
-import { pathToPolygon, colorFromId, polyCentroid, haversineDistance } from '../../features/map/utils/geo';
+import { pathToPolygon, colorFromId, polyCentroid, haversineDistance, isLinearPath, bufferPath } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { generateBuildings } from '../../features/building/utils/buildingGenerator';
 import type { Park } from '../../features/parks/types';
@@ -86,7 +86,9 @@ export function Home() {
     const snappedPath = await snapPathToRoads(currentPath);
     setIsSnapping(false);
 
-    const coords   = pathToPolygon(snappedPath);
+    // ── Detect shape: closed zone vs out-and-back corridor ───
+    const linear  = isLinearPath(snappedPath);
+    const coords  = linear ? bufferPath(snappedPath, 5) : pathToPolygon(snappedPath);
     const color    = colorFromId(sessionId);
     const duration = elapsed;
 
@@ -120,6 +122,8 @@ export function Home() {
         color,
         runs: 1,
         lastRunAt: Date.now(),
+        shape:   linear ? 'corridor' : 'zone',
+        rawPath: linear ? snappedPath : undefined,
       };
       store.addTerritory(territory);
     }

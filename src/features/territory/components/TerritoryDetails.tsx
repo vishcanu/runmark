@@ -300,9 +300,10 @@ async function buildShareCard(
     ctx.fillRect(0, H * 0.52, W, H * 0.48);
   }
 
-  // ── Territory polygon ─────────────────────────────────────────
-  // Draw in upper 40% of the card — always present in both modes
+  // ── Territory shape ───────────────────────────────────────────
   const coords = territory.coordinates as [number, number][];
+  const isCorridor = territory.shape === 'corridor';
+
   if (coords.length >= 3) {
     const lngs = coords.map(c => c[0]);
     const lats  = coords.map(c => c[1]);
@@ -311,8 +312,8 @@ async function buildShareCard(
     const lngSpan = maxLng - minLng || 0.001;
     const latSpan = maxLat - minLat || 0.001;
 
-    // Fit shape into a 580×460 box, centered horizontally at ~38% card height
-    const BOX_W = 580, BOX_H = 460;
+    const BOX_W = isCorridor ? 620 : 580;
+    const BOX_H = isCorridor ? 340 : 460;
     const scale  = Math.min(BOX_W / lngSpan, BOX_H / latSpan) * 0.82;
     const drawW  = lngSpan * scale;
     const drawH  = latSpan * scale;
@@ -324,14 +325,66 @@ async function buildShareCard(
     const toX = (lng: number) => ox + (lng - minLng) * scale;
     const toY = (lat: number) => oy + (maxLat - lat) * scale;
 
-    const tracePath = () => {
+    if (isCorridor) {
+      // Draw corridor as a road: filled band with dashed center line
+      // Filled polygon
+      ctx.save();
       ctx.beginPath();
       coords.forEach(([lng, lat], i) => {
         if (i === 0) ctx.moveTo(toX(lng), toY(lat));
         else ctx.lineTo(toX(lng), toY(lat));
       });
       ctx.closePath();
-    };
+      ctx.shadowColor = c1;
+      ctx.shadowBlur = mapValid ? 30 : 60;
+      const roadFill = ctx.createLinearGradient(ox, oy, ox + drawW, oy + drawH);
+      roadFill.addColorStop(0, c1 + (mapValid ? '66' : '55'));
+      roadFill.addColorStop(1, c2 + (mapValid ? '66' : '55'));
+      ctx.fillStyle = roadFill;
+      ctx.fill();
+      ctx.restore();
+      // Edge lines
+      ctx.save();
+      ctx.beginPath();
+      coords.forEach(([lng, lat], i) => {
+        if (i === 0) ctx.moveTo(toX(lng), toY(lat));
+        else ctx.lineTo(toX(lng), toY(lat));
+      });
+      ctx.closePath();
+      ctx.strokeStyle = mapValid ? 'rgba(255,255,255,0.85)' : '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = c1;
+      ctx.shadowBlur = 16;
+      ctx.stroke();
+      ctx.restore();
+      // Dashed center line (approximate — use rawPath midpoints if available)
+      if (territory.rawPath && territory.rawPath.length >= 2) {
+        const rp = territory.rawPath as [number,number][];
+        ctx.save();
+        ctx.setLineDash([12, 14]);
+        ctx.beginPath();
+        rp.forEach(([lng, lat], i) => {
+          const px = toX(lng), py = toY(lat);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.strokeStyle = 'rgba(255,255,255,0.70)';
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 0;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+    } else {
+      // Zone territory (closed polygon)
+      const tracePath = () => {
+        ctx.beginPath();
+        coords.forEach(([lng, lat], i) => {
+          if (i === 0) ctx.moveTo(toX(lng), toY(lat));
+          else ctx.lineTo(toX(lng), toY(lat));
+        });
+        ctx.closePath();
+      };
 
     if (mapValid) {
       // On top of real map: subtle highlight glow + crisp white outline
@@ -396,7 +449,8 @@ async function buildShareCard(
       });
       ctx.shadowBlur = 0;
     }
-  }
+    } // end else (zone)
+  } // end if coords.length >= 3
 
   // ── Zone name ────────────────────────────────────────────────
   ctx.font = `800 72px ${_CARD_FONT}`;
@@ -623,11 +677,14 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
         <span className={styles.tierBadge} style={{ color: tier.uiColor, borderColor: `${tier.uiColor}55`, background: `${tier.uiColor}18` }}>
           {tier.name}
         </span>
-        {runsLeft !== null ? (
+        {territory.shape === 'corridor' && (
+          <span className={styles.corridorBadge}>⟶ ROAD CLAIM</span>
+        )}
+        {territory.shape !== 'corridor' && (runsLeft !== null ? (
           <span className={styles.tierHint}>{runsLeft} more grind{runsLeft !== 1 ? 's' : ''} to unlock next tier</span>
         ) : (
           <span className={styles.tierHint} style={{ color: tier.uiColor }}>Max tier unlocked ★</span>
-        )}
+        ))}
       </div>
 
       {/* ── Territory health meter ── */}

@@ -35,6 +35,10 @@ export interface Territory {
   emblem?: string;
   /** Short tagline / motto displayed under the name */
   tagline?: string;
+  /** Shape type: 'zone' = closed polygon, 'corridor' = buffered road/path */
+  shape?: 'zone' | 'corridor';
+  /** Original GPS centerline — only set for corridors */
+  rawPath?: Coordinate[];
 }
 
 // ─── Activity Types ───────────────────────────────────────────────────────────

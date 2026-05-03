@@ -417,6 +417,19 @@
     color: var(--color-text-muted);
 }
 
+.corridorBadge {
+    font-size: 10px;
+    font-weight: var(--font-bold);
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    background: rgba(251, 191, 36, 0.12);
+    color: #fbbf24;
+    white-space: nowrap;
+}
+
 /* ── Health meter ─────────────────────────────────────────────── */
 .healthBlock {
     display: flex;

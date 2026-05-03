@@ -22,6 +22,7 @@ const SRC        = 'territories-source';
 const SRC_FLOOR  = 'territories-floor-source';
 const SRC_VERTS  = 'territories-verts-source';
 const SRC_LABELS = 'territories-labels-source';
+const SRC_ROADS  = 'territories-roads-source';
 const L_FILL     = 'territories-fill';
 const L_SHIMMER  = 'territories-shimmer';
 const L_WALLS    = 'territories-walls';
@@ -31,6 +32,10 @@ const L_BORDER   = 'territories-border';
 const L_FLASH    = 'territories-flash';
 const L_PILLARS  = 'territories-pillars';
 const L_LABEL    = 'territories-label';
+// Corridor-specific
+const L_ROAD_SLAB   = 'territories-road-slab';
+const L_ROAD_EDGE   = 'territories-road-edge';
+const L_ROAD_STRIPE = 'territories-road-stripe';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -60,15 +65,22 @@ function computeProps(t: Territory, selected: boolean) {
   const h     = Math.round(baseHeight(runs) * mul * (selected ? 1.5 : 1));
   const color = decayColor(t.color, t.lastRunAt ?? t.createdAt);
   const tier  = getTierInfo(runs);
-  // Crown base: top `crownH` metres of the wall
   const crownBase = Math.max(0, h - tier.crownH);
-  // Selection boosts: thicker wall, brighter floor, wider border
-  const wallM        = tier.wallM + (selected ? 1 : 0);
-  const floorOpacity = Math.min(tier.floorOpacity + (selected ? 0.10 : 0), 0.45);
-  const borderWidth  = tier.borderWidth + (selected ? 1.0 : 0);
-  const haloWidth    = tier.haloWidth   + (selected ? 6   : 0);
+  const isCorr = t.shape === 'corridor';
+
+  // Corridors: solid flat road slab — different visual weight than zone walls
+  const wallM        = isCorr ? 5 : tier.wallM + (selected ? 1 : 0);
+  const floorOpacity = isCorr
+    ? Math.min(0.50 + (selected ? 0.12 : 0), 0.65)
+    : Math.min(tier.floorOpacity + (selected ? 0.10 : 0), 0.45);
+  const borderWidth  = isCorr
+    ? (selected ? 3.5 : 2.5)
+    : tier.borderWidth + (selected ? 1.0 : 0);
+  const haloWidth    = isCorr
+    ? (selected ? 14 : 7)
+    : tier.haloWidth   + (selected ? 6   : 0);
   return {
-    h, color, crownBase, crownColor: tier.crownColor,
+    h, color, crownBase, crownColor: tier.crownColor, isCorr,
     wallM, floorOpacity, borderWidth, haloWidth,
   };
 }
@@ -115,10 +127,20 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
 
     const polyFeatures = territories.map((t) => {
       const sel = t.id === selectedId;
-      const { h, color, crownBase, crownColor, wallM } = computeProps(t, sel);
+      const { h, color, crownBase, crownColor, wallM, isCorr } = computeProps(t, sel);
       const outer = t.coordinates as [number, number][];
+      const shapeVal = isCorr ? 'corridor' : 'zone';
+      if (isCorr) {
+        // Corridors: plain polygon (flat slab, no donut walls)
+        return {
+          type: 'Feature' as const,
+          id: t.id,
+          geometry: { type: 'Polygon' as const, coordinates: [outer] },
+          properties: { id: t.id, color, height: h, crownBase, crownColor, sel: sel ? 1 : 0, shape: shapeVal },
+        };
+      }
+      // Zones: donut polygon → only perimeter band extrudes
       const inner = shrinkRing(outer, wallM);
-      // Donut polygon: outer ring (CCW) + inner ring (CW, reversed)
       const innerHole = [...inner].reverse();
       return {
         type: 'Feature' as const,
@@ -127,31 +149,43 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
           type: 'Polygon' as const,
           coordinates: [outer, innerHole],
         },
-        properties: { id: t.id, color, height: h, crownBase, crownColor, sel: sel ? 1 : 0 },
+        properties: { id: t.id, color, height: h, crownBase, crownColor, sel: sel ? 1 : 0, shape: shapeVal },
       };
     });
 
-    const vertFeatures = territories.flatMap((t) => {
-      const sel = t.id === selectedId;
-      const { color } = computeProps(t, sel);
-      return t.coordinates.slice(0, -1).map((coord) => ({
-        type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: coord },
-        properties: { color, sel: sel ? 1 : 0 },
-      }));
-    });
+    // Vertex dots — only for zone territories (corridors have too many edge vertices)
+    const vertFeatures = territories
+      .filter((t) => t.shape !== 'corridor')
+      .flatMap((t) => {
+        const sel = t.id === selectedId;
+        const { color } = computeProps(t, sel);
+        return t.coordinates.slice(0, -1).map((coord) => ({
+          type: 'Feature' as const,
+          geometry: { type: 'Point' as const, coordinates: coord },
+          properties: { color, sel: sel ? 1 : 0 },
+        }));
+      });
 
     // Plain outer polygon for floor fill, halo, border — tier-driven properties
     const floorFeatures = territories.map((t) => {
       const sel = t.id === selectedId;
-      const { color, floorOpacity, haloWidth, borderWidth } = computeProps(t, sel);
+      const { color, floorOpacity, haloWidth, borderWidth, isCorr } = computeProps(t, sel);
       return {
         type: 'Feature' as const,
         id: `${t.id}-floor`,
         geometry: { type: 'Polygon' as const, coordinates: [t.coordinates] },
-        properties: { id: t.id, color, sel: sel ? 1 : 0, floorOpacity, haloWidth, borderWidth },
+        properties: { id: t.id, color, sel: sel ? 1 : 0, floorOpacity, haloWidth, borderWidth, shape: isCorr ? 'corridor' : 'zone' },
       };
     });
+
+    // Centerlines for corridor territories (used for the road-stripe layer)
+    const roadFeatures = territories
+      .filter((t) => t.shape === 'corridor' && t.rawPath && t.rawPath.length >= 2)
+      .map((t) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'LineString' as const, coordinates: t.rawPath! },
+        properties: { id: t.id, color: t.color, sel: t.id === selectedId ? 1 : 0 },
+      }));
 
     const labelFeatures = territories.map((t) => ({
       type: 'Feature' as const,
@@ -163,6 +197,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
     const floorGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: floorFeatures };
     const vertGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: vertFeatures  };
     const labelGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: labelFeatures };
+    const roadGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: roadFeatures  };
 
     const existingSrc = map.getSource(SRC) as GeoJSONSource | undefined;
     if (existingSrc) {
@@ -170,11 +205,13 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       (map.getSource(SRC_FLOOR)  as GeoJSONSource)?.setData(floorGeo);
       (map.getSource(SRC_VERTS)  as GeoJSONSource)?.setData(vertGeo);
       (map.getSource(SRC_LABELS) as GeoJSONSource)?.setData(labelGeo);
+      (map.getSource(SRC_ROADS)  as GeoJSONSource)?.setData(roadGeo);
     } else {
       map.addSource(SRC,        { type: 'geojson', data: polyGeo  });
       map.addSource(SRC_FLOOR,  { type: 'geojson', data: floorGeo });
       map.addSource(SRC_VERTS,  { type: 'geojson', data: vertGeo  });
       map.addSource(SRC_LABELS, { type: 'geojson', data: labelGeo });
+      map.addSource(SRC_ROADS,  { type: 'geojson', data: roadGeo  });
 
       // 0 ── Floor fill — opacity driven by tier (already boosted for selected in floorOpacity prop)
       map.addLayer({
@@ -191,9 +228,10 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.04 },
       });
 
-      // 2 ── Solid colored walls (fill-extrusion-opacity MUST be constant)
+      // 2 ── Solid colored walls (zones only — corridors use road slab instead)
       map.addLayer({
         id: L_WALLS, type: 'fill-extrusion', source: SRC,
+        filter: ['==', ['get', 'shape'], 'zone'],
         paint: {
           'fill-extrusion-color':   ['get', 'color'],
           'fill-extrusion-height':  ['get', 'height'],
@@ -202,14 +240,52 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      // 3 ── Crown cap — colour escalates with tier (white → silver → gold → fire)
+      // 3 ── Crown cap (zones only)
       map.addLayer({
         id: L_CROWN, type: 'fill-extrusion', source: SRC,
+        filter: ['==', ['get', 'shape'], 'zone'],
         paint: {
           'fill-extrusion-color':   ['get', 'crownColor'],
           'fill-extrusion-height':  ['get', 'height'],
           'fill-extrusion-base':    ['get', 'crownBase'],
           'fill-extrusion-opacity': 0.92,
+        },
+      });
+
+      // ── CORRIDOR-SPECIFIC layers ───────────────────────────
+      // Road slab: flat elevated platform (1.5m) — no tall walls
+      map.addLayer({
+        id: L_ROAD_SLAB, type: 'fill-extrusion', source: SRC,
+        filter: ['==', ['get', 'shape'], 'corridor'],
+        paint: {
+          'fill-extrusion-color':   ['get', 'color'],
+          'fill-extrusion-height':  1.5,
+          'fill-extrusion-base':    0,
+          'fill-extrusion-opacity': 0.90,
+        },
+      });
+
+      // Road edge: solid colored border along corridor outline
+      map.addLayer({
+        id: L_ROAD_EDGE, type: 'line', source: SRC_FLOOR,
+        filter: ['==', ['get', 'shape'], 'corridor'],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color':   ['get', 'color'],
+          'line-width':   ['get', 'borderWidth'],
+          'line-opacity': 1.0,
+        },
+      });
+
+      // Road center stripe: dashed white line along the GPS centerline
+      map.addLayer({
+        id: L_ROAD_STRIPE, type: 'line', source: SRC_ROADS,
+        layout: { 'line-join': 'round', 'line-cap': 'butt' },
+        paint: {
+          'line-color':      '#ffffff',
+          'line-width':      1.8,
+          'line-opacity':    0.75,
+          'line-dasharray':  [5, 7],
         },
       });
 
@@ -272,7 +348,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      [L_FILL, L_WALLS, L_CROWN].forEach((layer) => {
+      [L_FILL, L_WALLS, L_CROWN, L_ROAD_SLAB].forEach((layer) => {
         map.on('click', layer, (e) => {
           const id = e.features?.[0]?.properties?.id as string | undefined;
           if (id) onTerritoryClick(id);

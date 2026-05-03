@@ -87,6 +87,77 @@ export function polyCentroid(coords: Coordinate[]): Coordinate {
   return [lng / n, lat / n];
 }
 
+// ── Shoelace polygon area (degrees²) ─────────────────────────
+function _shoelaceArea(coords: Coordinate[]): number {
+  let area = 0;
+  const n = coords.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += coords[i][0] * coords[j][1];
+    area -= coords[j][0] * coords[i][1];
+  }
+  return Math.abs(area) / 2;
+}
+
+/**
+ * Returns true when the GPS path forms a thin line (out-and-back / same road).
+ * Uses normalised area: area_m² / length_m² < 0.015 → linear.
+ */
+export function isLinearPath(path: Coordinate[]): boolean {
+  if (path.length < 3) return true;
+  const poly = pathToPolygon(path);
+  const areaDeg = _shoelaceArea(poly);
+  const avgLat  = path.reduce((s, p) => s + p[1], 0) / path.length;
+  const mPerLat = 111_320;
+  const mPerLng = 111_320 * Math.cos(avgLat * Math.PI / 180);
+  const areaM2  = areaDeg * mPerLat * mPerLng;
+  const len     = totalPathDistance(path);
+  return len > 0 && areaM2 / (len * len) < 0.015;
+}
+
+/**
+ * Buffer a polyline by `bufferM` metres on each side, returning a closed ring.
+ * Used to turn an out-and-back road run into a corridor polygon.
+ */
+export function bufferPath(path: Coordinate[], bufferM: number): Coordinate[] {
+  const n = path.length;
+  if (n < 2) return path;
+  const avgLat  = path.reduce((s, p) => s + p[1], 0) / n;
+  const mPerLat = 111_320;
+  const mPerLng = 111_320 * Math.cos(avgLat * Math.PI / 180);
+  const dLatPerM = 1 / mPerLat;
+  const dLngPerM = 1 / mPerLng;
+
+  const left:  Coordinate[] = [];
+  const right: Coordinate[] = [];
+
+  for (let i = 0; i < n; i++) {
+    // tangent direction: average of adjacent segments
+    let dx = 0, dy = 0;
+    if (i === 0) {
+      dx = (path[1][0] - path[0][0]) * mPerLng;
+      dy = (path[1][1] - path[0][1]) * mPerLat;
+    } else if (i === n - 1) {
+      dx = (path[n-1][0] - path[n-2][0]) * mPerLng;
+      dy = (path[n-1][1] - path[n-2][1]) * mPerLat;
+    } else {
+      dx = (path[i+1][0] - path[i-1][0]) * mPerLng;
+      dy = (path[i+1][1] - path[i-1][1]) * mPerLat;
+    }
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1e-10) { left.push(path[i]); right.push(path[i]); continue; }
+    // perpendicular unit vectors: (-dy,dx) = left, (dy,-dx) = right
+    const px = -dy / len;
+    const py =  dx / len;
+    left.push( [path[i][0] + px * bufferM * dLngPerM, path[i][1] + py * bufferM * dLatPerM] as Coordinate);
+    right.push([path[i][0] - px * bufferM * dLngPerM, path[i][1] - py * bufferM * dLatPerM] as Coordinate);
+  }
+
+  // ring: left side forward → right side reversed → close
+  const ring: Coordinate[] = [...left, ...[...right].reverse(), left[0]];
+  return ring;
+}
+
 /** Generate a deterministic color from a string id */
 export function colorFromId(id: string): string {
   const COLORS = [
