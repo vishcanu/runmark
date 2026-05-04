@@ -35,7 +35,6 @@ const L_PILLARS  = 'territories-pillars';
 const L_LABEL    = 'territories-label';
 // Corridor-specific
 const L_ROAD_SLAB   = 'territories-road-slab';
-const L_ROAD_EDGE   = 'territories-road-edge';
 const L_ROAD_STRIPE = 'territories-road-stripe';
 // Cleared-ground overlay — darkens the territory interior so existing map
 // buildings are visually de-emphasized ("cleared" plain feeling)
@@ -242,9 +241,9 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.04 },
       });
 
-      // 2 ── Solid colored walls (zones only — corridors use road slab instead)
+      // 2 ── Solid colored walls (zones only)
       map.addLayer({
-        id: L_WALLS, type: 'fill-extrusion', source: SRC,
+        id: L_WALLS + '-zone', type: 'fill-extrusion', source: SRC,
         filter: ['==', ['get', 'shape'], 'zone'],
         paint: {
           'fill-extrusion-color':   ['get', 'color'],
@@ -256,7 +255,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
 
       // 3 ── Crown cap (zones only)
       map.addLayer({
-        id: L_CROWN, type: 'fill-extrusion', source: SRC,
+        id: L_CROWN + '-zone', type: 'fill-extrusion', source: SRC,
         filter: ['==', ['get', 'shape'], 'zone'],
         paint: {
           'fill-extrusion-color':   ['get', 'crownColor'],
@@ -266,32 +265,20 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      // ── CORRIDOR-SPECIFIC layers ───────────────────────────
-      // Road slab: flat elevated platform (1.5m) — no tall walls
+      // ── CORRIDOR layers — flat road fill only, no 3D walls ──
+      // Just paints the road surface with the territory color.
       map.addLayer({
         id: L_ROAD_SLAB, type: 'fill-extrusion', source: SRC,
         filter: ['==', ['get', 'shape'], 'corridor'],
         paint: {
           'fill-extrusion-color':   ['get', 'color'],
-          'fill-extrusion-height':  1.5,
+          'fill-extrusion-height':  0.8,   // barely above ground — road paint
           'fill-extrusion-base':    0,
-          'fill-extrusion-opacity': 0.90,
+          'fill-extrusion-opacity': 0.82,
         },
       });
 
-      // Road edge: solid colored border along corridor outline
-      map.addLayer({
-        id: L_ROAD_EDGE, type: 'line', source: SRC_FLOOR,
-        filter: ['==', ['get', 'shape'], 'corridor'],
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: {
-          'line-color':   ['get', 'color'],
-          'line-width':   ['get', 'borderWidth'],
-          'line-opacity': 1.0,
-        },
-      });
-
-      // Road center stripe: dashed white line along the GPS centerline
+      // Road center stripe: dashed white line along the GPS centreline
       map.addLayer({
         id: L_ROAD_STRIPE, type: 'line', source: SRC_ROADS,
         layout: { 'line-join': 'round', 'line-cap': 'butt' },

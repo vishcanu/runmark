@@ -210,44 +210,55 @@ function _shoelaceArea(coords: Coordinate[]): number {
 }
 
 /**
- * Returns true when the GPS path is a linear corridor (straight run, out-and-back)
- * rather than a closed loop (block loop, park circuit).
+ * Returns true when the GPS path is a linear corridor (open path or out-and-back)
+ * rather than a closed loop that encloses real area.
  *
- * Two-stage decision:
+ * Three-stage decision — any stage can classify as corridor:
  *
  * Stage 1 — closure check:
- *   If the endpoint is > 25 % of total path length away from the start, the
- *   user ran in a direction and didn't return → definitely a corridor.
+ *   End point > 25 % of total length from start → clearly going somewhere → corridor.
  *
- * Stage 2 — area check (start ≈ end, could be loop OR out-and-back):
- *   Compute the area enclosed by the snapped path.
- *   • area / len² < 0.008 → very flat/thin shape → out-and-back → corridor.
- *   • area / len² ≥ 0.008 → meaningful enclosed area → loop → zone.
+ * Stage 2 — area check:
+ *   Shoelace area / len² < 0.008 → path is flat/thin → out-and-back on same road.
+ *   This handles the common case: OSRM snaps both passes to the same centerline → area = 0.
  *
- * Why not just use area?  Area alone fails on OSRM-snapped data because a
- * "straight" run along a curved road can pick up spurious area, while a small
- * block loop with few sample points can appear thin.  The closure ratio is a
- * much stronger signal of user intent.
+ * Stage 3 — max-extent check (out-and-back with GPS deviation):
+ *   When the user walks on a divided road, OSRM may snap outward/return passes
+ *   to different footpaths (8-15 m apart), creating a non-zero sliver area that
+ *   would fool Stage 2. Stage 3 catches this:
+ *     Out-and-back: maxDist from start ≈ halfLen (you went out then came back).
+ *     Any compact loop (circle/square/polygon): maxDist ≤ ~75% of halfLen
+ *       (geometry: diameter / (perimeter/2) ≤ 2/π ≈ 0.64 for circles, ~0.71 for squares).
+ *   Threshold 0.9 cleanly separates them for all realistic road shapes.
  */
 export function isLinearPath(path: Coordinate[]): boolean {
   if (path.length < 3) return true;
 
-  const totalLen       = totalPathDistance(path);
-  const startEndDist   = haversineDistance(path[0], path[path.length - 1]);
-  const closureRatio   = totalLen > 0 ? startEndDist / totalLen : 1;
+  const totalLen     = totalPathDistance(path);
+  const startEndDist = haversineDistance(path[0], path[path.length - 1]);
+  const closureRatio = totalLen > 0 ? startEndDist / totalLen : 1;
 
-  // Stage 1: end is far from start → corridor
+  // Stage 1: end is far from start — user is still going, not returning
   if (closureRatio > 0.25) return true;
 
-  // Stage 2: end is near start — distinguish loop vs out-and-back by area
+  // Stage 2: area check — out-and-back on same road collapses to near-zero area
   const poly    = pathToPolygon(path);
   const avgLat  = path.reduce((s, p) => s + p[1], 0) / path.length;
   const mPerLat = 111_320;
   const mPerLng = 111_320 * Math.cos(avgLat * Math.PI / 180);
   const areaM2  = _shoelaceArea(poly) * mPerLat * mPerLng;
+  if (areaM2 / (totalLen * totalLen) < 0.008) return true;
 
-  // Out-and-back paths collapse to near-zero area even after snapping
-  return areaM2 / (totalLen * totalLen) < 0.008;
+  // Stage 3: max-extent check — turnaround pattern (out-and-back on divided road)
+  // For out-and-back: the farthest point from start ≈ half the total distance.
+  // For any compact loop: that ratio is always ≤ ~0.75.
+  // 0.9 threshold gives a safe gap between the two cases.
+  const halfLen = totalLen / 2;
+  const maxDist = path.reduce((m, p) => Math.max(m, haversineDistance(path[0], p)), 0);
+  if (halfLen > 0 && maxDist / halfLen > 0.9) return true;
+
+  // Enclosed loop → zone with 3D walls
+  return false;
 }
 
 /**

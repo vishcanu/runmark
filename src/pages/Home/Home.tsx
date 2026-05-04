@@ -10,7 +10,7 @@ import { useActivityTracker } from '../../features/activity/hooks/useActivityTra
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
-import { colorFromId, polyCentroid, haversineDistance, isLinearPath, bufferPath, pathToPolygon } from '../../features/map/utils/geo';
+import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, pathToPolygon } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
@@ -90,14 +90,15 @@ export function Home() {
     const snappedPath = await snapPathToRoads(currentPath, activityType);
     setIsSnapping(false);
 
-    // ── Detect shape: closed zone vs out-and-back corridor ───
-    // Corridor buffer width reflects real lane/path widths:
-    //   walk = 4 m (footpath ~2 m, 2 m each side)
-    //   run  = 5 m (pavement + shoulder)
-    //   cycle = 8 m (road lane ~3.5 m, wider visual territory)
-    const CORRIDOR_BUFFER = activityType === 'cycle' ? 8 : activityType === 'walk' ? 4 : 5;
+    // ── Corridor vs Zone ────────────────────────────────────────
+    // Corridor (open / straight path): buffer the road centreline by lane
+    //   width to get a flat strip that fills the road surface.
+    //   walk=4m  run=5m  cycle=8m
+    // Zone (closed loop — user walked a shape and returned to start):
+    //   close the ring and build a polygon. 3D walls will rise on this.
+    const ROAD_BUFFER = activityType === 'cycle' ? 8 : activityType === 'walk' ? 4 : 5;
     const linear  = isLinearPath(snappedPath);
-    const coords  = linear ? bufferPath(snappedPath, CORRIDOR_BUFFER) : pathToPolygon(snappedPath);
+    const coords  = linear ? bufferPath(snappedPath, ROAD_BUFFER) : pathToPolygon(snappedPath);
     const color    = colorFromId(sessionId);
     const duration = elapsed;
 
@@ -134,8 +135,8 @@ export function Home() {
         color,
         runs: 1,
         lastRunAt: Date.now(),
-        shape:        linear ? 'corridor' : 'zone',
-        rawPath:      linear ? snappedPath : undefined,
+        shape:       linear ? 'corridor' : 'zone',
+        rawPath:     snappedPath,  // always keep centreline for stripe + share card
         activityType,
         points:       earned,
       };
