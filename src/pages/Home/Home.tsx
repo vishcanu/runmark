@@ -10,7 +10,7 @@ import { useActivityTracker } from '../../features/activity/hooks/useActivityTra
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
-import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, pathToPolygon } from '../../features/map/utils/geo';
+import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
@@ -91,14 +91,27 @@ export function Home() {
     setIsSnapping(false);
 
     // ── Corridor vs Zone ────────────────────────────────────────
-    // Corridor (open / straight path): buffer the road centreline by lane
-    //   width to get a flat strip that fills the road surface.
-    //   walk=4m  run=5m  cycle=8m
-    // Zone (closed loop — user walked a shape and returned to start):
-    //   close the ring and build a polygon. 3D walls will rise on this.
-    const ROAD_BUFFER = activityType === 'cycle' ? 8 : activityType === 'walk' ? 4 : 5;
+    // Road half-width per activity type (real Indian road widths):
+    //   walk / run : 6 / 7 m per side  → 12 / 14 m total (residential + footpath)
+    //   cycle      : 10 m per side     → 20 m total (main road / separated lane)
+    //
+    // Corridor (open / out-and-back path):
+    //   bufferPath(centerline, halfWidth) → flat road-strip polygon, both sides filled.
+    //
+    // Zone (closed loop — user walked around a block):
+    //   buildRoadRing(centerline, halfWidth) → [outerEdge, innerHole]
+    //   Outer edge = GPS ring expanded outward  (outer kerb, away from block)
+    //   Inner hole = GPS ring shrunk  inward    (inner kerb = block boundary)
+    //   Result: donut polygon — road filled, block interior (homes) empty.
+    const ROAD_HALF = activityType === 'cycle' ? 10 : activityType === 'walk' ? 6 : 7;
     const linear  = isLinearPath(snappedPath);
-    const coords  = linear ? bufferPath(snappedPath, ROAD_BUFFER) : pathToPolygon(snappedPath);
+    let coords: Coordinate[];
+    let innerRing: Coordinate[] | undefined;
+    if (linear) {
+      coords = bufferPath(snappedPath, ROAD_HALF);
+    } else {
+      [coords, innerRing] = buildRoadRing(snappedPath, ROAD_HALF);
+    }
     const color    = colorFromId(sessionId);
     const duration = elapsed;
 
@@ -144,6 +157,7 @@ export function Home() {
         lastRunAt: Date.now(),
         shape:       linear ? 'corridor' : 'zone',
         rawPath:     snappedPath,  // always keep centreline for stripe + share card
+        innerRing,                 // road-ring hole for zone territories (undefined for corridors)
         activityType,
         visitDays:   [Math.floor(Date.now() / 86_400_000) * 86_400_000],
         points:       earned,

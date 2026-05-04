@@ -304,6 +304,55 @@ export function bufferPath(path: Coordinate[], bufferM: number): Coordinate[] {
   return ring;
 }
 
+/**
+ * Build a GeoJSON-ready road ring for a closed GPS loop (e.g. walking around a block).
+ *
+ * Returns [outerRing, innerHole] where:
+ *   outerRing = GPS centerline expanded OUTWARD by halfWidthM  (outer kerb / road edge)
+ *   innerHole = GPS centerline shrunk  INWARD  by halfWidthM, reversed (inner kerb = block boundary)
+ *
+ * Using [outerRing, innerHole] as GeoJSON Polygon coordinates gives a donut:
+ *   only the road strip is filled — the block interior (homes) stays empty.
+ *
+ * The centroid-based offset works correctly for any convex/near-convex block shape.
+ * For an irregular shape the error is proportional to deviation from convexity — in
+ * practice all real-world block perimeters are convex enough for this to look right.
+ */
+export function buildRoadRing(
+  path: Coordinate[],
+  halfWidthM: number,
+): [Coordinate[], Coordinate[]] {
+  const closed = pathToPolygon(path);
+  const n = closed.length;
+  if (n < 3) return [closed, []];
+
+  // Centroid of the closed ring (= approximate centre of the block)
+  let cLng = 0, cLat = 0;
+  for (const [lng, lat] of closed) { cLng += lng; cLat += lat; }
+  cLng /= n; cLat /= n;
+
+  const mPerLat = 111_320;
+  const mPerLng = 111_320 * Math.cos((cLat * Math.PI) / 180);
+
+  // sign = +1 → expand outward (outer road edge)
+  // sign = -1 → shrink inward  (inner road edge / block boundary)
+  function _offset(coords: Coordinate[], sign: number): Coordinate[] {
+    return coords.map(([lng, lat]) => {
+      const dLng  = lng - cLng;
+      const dLat  = lat - cLat;
+      const distM = Math.sqrt((dLng * mPerLng) ** 2 + (dLat * mPerLat) ** 2);
+      if (distM < 0.5) return [cLng, cLat] as Coordinate; // degenerate point
+      const scale = (distM + sign * halfWidthM) / distM;
+      return [cLng + dLng * scale, cLat + dLat * scale] as Coordinate;
+    });
+  }
+
+  const outerRing = _offset(closed, +1);           // outer road edge (away from block)
+  const innerHole = _offset(closed, -1).reverse();  // inner road edge (block boundary), reversed for GeoJSON hole
+
+  return [outerRing, innerHole];
+}
+
 /** Generate a deterministic color from a string id */
 export function colorFromId(id: string): string {
   const COLORS = [

@@ -145,7 +145,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       const outer = t.coordinates as [number, number][];
       const shapeVal = isCorr ? 'corridor' : 'zone';
       if (isCorr) {
-        // Corridors: plain polygon (flat slab, no donut walls)
+        // Corridors: road-strip polygon, extruded at wall height
         return {
           type: 'Feature' as const,
           id: t.id,
@@ -153,9 +153,11 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
           properties: { id: t.id, color, height: h, crownBase, crownColor, sel: sel ? 1 : 0, shape: shapeVal },
         };
       }
-      // Zones: donut polygon → only perimeter band extrudes
-      const inner = shrinkRing(outer, wallM);
-      const innerHole = [...inner].reverse();
+      // Zones: road-ring donut — outer road edge + inner hole (block boundary)
+      // Use stored innerRing if the territory was created with buildRoadRing.
+      // Fall back to shrinkRing for legacy / seed territories without innerRing.
+      const storedHole = t.innerRing as [number, number][] | undefined;
+      const innerHole  = storedHole ?? [...shrinkRing(outer, wallM)].reverse();
       return {
         type: 'Feature' as const,
         id: t.id,
@@ -279,16 +281,17 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      // ── CORRIDOR layers — flat road fill only, no 3D walls ──
-      // Just paints the road surface with the territory color.
+      // ── CORRIDOR layers ───────────────────────────────────────
+      // Road strip extruded at wall height (same tier progression as zones).
+      // Looks like a raised road slab / barrier wall along the road.
       map.addLayer({
         id: L_ROAD_SLAB, type: 'fill-extrusion', source: SRC,
         filter: ['==', ['get', 'shape'], 'corridor'],
         paint: {
           'fill-extrusion-color':   ['get', 'color'],
-          'fill-extrusion-height':  0.8,   // barely above ground — road paint
+          'fill-extrusion-height':  ['get', 'height'],  // tier-based wall height
           'fill-extrusion-base':    0,
-          'fill-extrusion-opacity': 0.82,
+          'fill-extrusion-opacity': 0.78,
         },
       });
 

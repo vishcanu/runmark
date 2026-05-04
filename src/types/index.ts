@@ -50,6 +50,11 @@ export interface Territory {
   points: number;
   /** Day-floor timestamps (one per calendar day) of every visit — used for streak tracking */
   visitDays?: number[];
+  /** Inner hole ring for road-ring zone territories.
+   *  outerRing = territory.coordinates (outer road edge, expanded from GPS centerline)
+   *  innerHole = this field (inner road edge = block boundary, reversed for GeoJSON hole)
+   *  Together they form a donut polygon: road strip filled, block interior empty. */
+  innerRing?: Coordinate[];
 }
 
 // ─── Activity Types ───────────────────────────────────────────────────────────
