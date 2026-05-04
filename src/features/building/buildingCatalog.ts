@@ -8,17 +8,18 @@ export interface ConstructionLevel {
   /** Fill-extrusion height in metres */
   height: number;
   description: string;
-  emoji: string;
+  /** Lucide icon component name */
+  iconName: string;
 }
 
 export const CONSTRUCTION_LEVELS: ConstructionLevel[] = [
-  { minRuns: 1,  name: 'Cleared',      height: 0,   description: 'Land claimed — ready to build', emoji: '🌿' },
-  { minRuns: 2,  name: 'Foundation',   height: 4,   description: 'Foundation slab laid',          emoji: '🪨' },
-  { minRuns: 3,  name: 'Ground Floor', height: 12,  description: 'First floor standing',          emoji: '🏗' },
-  { minRuns: 5,  name: 'Low-Rise',     height: 30,  description: 'Building rising fast',          emoji: '🏢' },
-  { minRuns: 8,  name: 'Mid-Rise',     height: 60,  description: 'Tower taking shape',            emoji: '🏙' },
-  { minRuns: 12, name: 'Skyscraper',   height: 110, description: 'Dominating the skyline',        emoji: '🌆' },
-  { minRuns: 20, name: 'Megaplex',     height: 210, description: 'Legendary structure',           emoji: '🌃' },
+  { minRuns: 1,  name: 'Cleared',      height: 0,   description: 'Land claimed — ready to build', iconName: 'Leaf'      },
+  { minRuns: 2,  name: 'Foundation',   height: 4,   description: 'Foundation slab laid',          iconName: 'Layers'    },
+  { minRuns: 3,  name: 'Ground Floor', height: 12,  description: 'First floor standing',          iconName: 'HardHat'   },
+  { minRuns: 5,  name: 'Low-Rise',     height: 30,  description: 'Building rising fast',          iconName: 'Building2' },
+  { minRuns: 8,  name: 'Mid-Rise',     height: 60,  description: 'Tower taking shape',            iconName: 'Building'  },
+  { minRuns: 12, name: 'Skyscraper',   height: 110, description: 'Dominating the skyline',        iconName: 'Landmark'  },
+  { minRuns: 20, name: 'Megaplex',     height: 210, description: 'Legendary structure',           iconName: 'Crown'     },
 ];
 
 // ── Building type definitions ─────────────────────────────────
@@ -29,7 +30,8 @@ export interface BuildingDef {
   color: string;
   /** Accent color for the roof layer */
   roofColor: string;
-  icon: string;
+  /** Lucide icon component name */
+  iconName: string;
   requiredRuns: number;
 }
 
@@ -40,7 +42,7 @@ export const BUILDING_DEFS: Record<ConstructionBuildingType, BuildingDef> = {
     effect: 'Slows territory decay',
     color: '#f59e0b',
     roofColor: '#fde68a',
-    icon: '🗼',
+    iconName: 'Eye',
     requiredRuns: 3,
   },
   barracks: {
@@ -49,7 +51,7 @@ export const BUILDING_DEFS: Record<ConstructionBuildingType, BuildingDef> = {
     effect: 'Boosts XP on re-runs',
     color: '#22c55e',
     roofColor: '#86efac',
-    icon: '⚔️',
+    iconName: 'Flame',
     requiredRuns: 3,
   },
   fortification: {
@@ -58,7 +60,7 @@ export const BUILDING_DEFS: Record<ConstructionBuildingType, BuildingDef> = {
     effect: 'Expands territory boundary',
     color: '#94a3b8',
     roofColor: '#cbd5e1',
-    icon: '🏰',
+    iconName: 'Shield',
     requiredRuns: 3,
   },
   market: {
@@ -67,7 +69,7 @@ export const BUILDING_DEFS: Record<ConstructionBuildingType, BuildingDef> = {
     effect: 'Prestige landmark',
     color: '#f97316',
     roofColor: '#fed7aa',
-    icon: '🏪',
+    iconName: 'Gem',
     requiredRuns: 3,
   },
   monument: {
@@ -76,7 +78,7 @@ export const BUILDING_DEFS: Record<ConstructionBuildingType, BuildingDef> = {
     effect: 'Permanent legacy — immune to decay',
     color: '#a855f7',
     roofColor: '#e9d5ff',
-    icon: '🗿',
+    iconName: 'Trophy',
     requiredRuns: 10,
   },
 };

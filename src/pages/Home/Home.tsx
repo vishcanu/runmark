@@ -114,12 +114,19 @@ export function Home() {
     if (existing) {
       // Accumulate stats onto the existing territory
       const earned = calcPoints(currentDistance, activityType, false);
+      // Track visit days for streak calculation (day-floor timestamp)
+      const todayMs = Math.floor(Date.now() / 86_400_000) * 86_400_000;
+      const prevDays = existing.visitDays ?? [existing.createdAt];
+      const visitDays = prevDays.some((d) => Math.floor(d / 86_400_000) === Math.floor(todayMs / 86_400_000))
+        ? prevDays
+        : [...prevDays, todayMs];
       store.updateTerritory(existing.id, {
         runs:         (existing.runs ?? 1) + 1,
         distance:     existing.distance + currentDistance,
         lastRunAt:    Date.now(),
         activityType,
         points:       (existing.points ?? 0) + earned,
+        visitDays,
       });
     } else {
       // Brand-new zone — no pre-generated buildings; construction grows with runs
@@ -138,6 +145,7 @@ export function Home() {
         shape:       linear ? 'corridor' : 'zone',
         rawPath:     snappedPath,  // always keep centreline for stripe + share card
         activityType,
+        visitDays:   [Math.floor(Date.now() / 86_400_000) * 86_400_000],
         points:       earned,
       };
       store.addTerritory(territory);

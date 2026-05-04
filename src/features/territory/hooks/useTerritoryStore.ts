@@ -20,20 +20,26 @@ export const TerritoryStoreContext = createContext<TerritoryStoreContextType | n
 
 // ── TEST TERRITORY — Sri SK Nataraj Park, JP Nagar 1st Phase ─
 // Real OSM way #32258996. Remove before production.
+const _NOW = Date.now();
+const _DAY = 86_400_000;
+const _df  = (t: number) => Math.floor(t / _DAY) * _DAY;  // day-floor
+
 const TEST_TERRITORY: Territory = {
   id: 'test-nataraj-park',
   name: 'Sri SK Nataraj Park',
   color: '#0284c7',
-  createdAt: Date.now(),
-  distance: 430,   // ~one loop of the park perimeter
-  duration: 380,
-  runs: 3,         // 3 loops completed → building picker unlocked
-  lastRunAt: Date.now(),
+  createdAt: _df(_NOW - 2 * _DAY),
+  distance: 1290,   // ~3 loops of the park perimeter
+  duration: 1140,
+  runs: 3,          // 3 loops completed → city building unlocked
+  lastRunAt: _NOW,
   theme: 'cobalt',
   emblem: 'shield',
   tagline: 'My morning fortress',
   activityType: 'run',
   points: 1245,
+  // 3 consecutive days → cityUnlocked = true (streak ≥ 3, runs ≥ 3)
+  visitDays: [_df(_NOW - 2 * _DAY), _df(_NOW - _DAY), _df(_NOW)],
   coordinates: [
     [77.5808963, 12.9080499],
     [77.5811258, 12.9074393],

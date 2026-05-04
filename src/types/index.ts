@@ -48,6 +48,8 @@ export interface Territory {
   activityType?: ActivityType;
   /** Total gamification points accumulated across all runs */
   points: number;
+  /** Day-floor timestamps (one per calendar day) of every visit — used for streak tracking */
+  visitDays?: number[];
 }
 
 // ─── Activity Types ───────────────────────────────────────────────────────────

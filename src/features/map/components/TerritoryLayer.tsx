@@ -2,7 +2,7 @@
 import type { Map, GeoJSONSource } from 'maplibre-gl';
 import maplibregl from 'maplibre-gl';
 import type { Territory } from '../../../types';
-import { getTierInfo } from '../../territory/utils/territoryTier';
+import { getTierInfo, computeDailyStreak } from '../../territory/utils/territoryTier';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  TERRITORY VISUAL — Solid Walls + Daily Decay
@@ -36,15 +36,22 @@ const L_LABEL    = 'territories-label';
 // Corridor-specific
 const L_ROAD_SLAB   = 'territories-road-slab';
 const L_ROAD_STRIPE = 'territories-road-stripe';
-// Cleared-ground overlay — darkens the territory interior so existing map
-// buildings are visually de-emphasized ("cleared" plain feeling)
-const L_GROUND = 'territories-ground';
+// Cleared-ground overlay — subtle tint inside owned territory
+const L_GROUND     = 'territories-ground';
+// City-unlock golden pulse ring
+const L_CITY_GLOW  = 'territories-city-glow';
 
 const MS_PER_DAY = 86_400_000;
 
-// ── Base height from runs (before decay) ─────────────────────
+// ── Height grows meaningfully with each run ───────────────────
+// Run 1 → 8m  (tiny curb — just claimed, barely there)
+// Run 2 → 26m (walls emerge — locked in)
+// Run 3 → 48m (fortress walls — fortified, city build unlocks)
+// Run 5 → 82m (tower — warlord)
+// Run 10→ 130m (unbreakable landmark)
 function baseHeight(runs: number): number {
-  return Math.min(60 + (runs - 1) * 25, 130);
+  const HEIGHTS = [0, 8, 26, 48, 65, 82, 92, 102, 112, 121, 130];
+  return HEIGHTS[Math.min(Math.max(runs, 1), HEIGHTS.length - 1)];
 }
 
 // ── Decay multiplier: 1.0 → 0.35 over 8 days ─────────────────
@@ -82,9 +89,13 @@ function computeProps(t: Territory, selected: boolean) {
   const haloWidth    = isCorr
     ? (selected ? 14 : 7)
     : tier.haloWidth   + (selected ? 6   : 0);
+  // City building unlocks when the user has run here 3+ times AND visited 3+ consecutive days
+  const streak = computeDailyStreak(t.visitDays ?? [t.createdAt ?? Date.now()]);
+  const cityUnlocked = runs >= 3 && streak >= 3;
+
   return {
     h, color, crownBase, crownColor: tier.crownColor, isCorr,
-    wallM, floorOpacity, borderWidth, haloWidth,
+    wallM, floorOpacity, borderWidth, haloWidth, cityUnlocked,
   };
 }
 
@@ -172,12 +183,16 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
     // Plain outer polygon for floor fill, halo, border — tier-driven properties
     const floorFeatures = territories.map((t) => {
       const sel = t.id === selectedId;
-      const { color, floorOpacity, haloWidth, borderWidth, isCorr } = computeProps(t, sel);
+      const { color, floorOpacity, haloWidth, borderWidth, isCorr, cityUnlocked } = computeProps(t, sel);
       return {
         type: 'Feature' as const,
         id: `${t.id}-floor`,
         geometry: { type: 'Polygon' as const, coordinates: [t.coordinates] },
-        properties: { id: t.id, color, sel: sel ? 1 : 0, floorOpacity, haloWidth, borderWidth, shape: isCorr ? 'corridor' : 'zone' },
+        properties: {
+          id: t.id, color, sel: sel ? 1 : 0, floorOpacity, haloWidth, borderWidth,
+          shape: isCorr ? 'corridor' : 'zone',
+          cityUnlocked: cityUnlocked ? 1 : 0,
+        },
       };
     });
 
@@ -225,13 +240,12 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      // 1 ── Cleared-ground dark overlay — de-emphasizes existing map buildings
-      //      inside owned territory ("plain land" feeling)
+      // 1 ── Subtle tint overlay — keeps map readable while marking owned turf
       map.addLayer({
         id: L_GROUND, type: 'fill', source: SRC_FLOOR,
         paint: {
-          'fill-color':   '#0d1e0d', // very dark earthy green
-          'fill-opacity': 0.68,
+          'fill-color':   '#0d1e0d',
+          'fill-opacity': 0.22,   // reduced from 0.68 so map remains readable
         },
       });
 
@@ -317,6 +331,18 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         paint: { 'line-color': '#ffffff', 'line-width': 1.5, 'line-opacity': 0.0 },
       });
 
+      // 6b ── City-unlock golden pulse ring — only visible when streak ≥ 3 and runs ≥ 3
+      map.addLayer({
+        id: L_CITY_GLOW, type: 'line', source: SRC_FLOOR,
+        filter: ['==', ['get', 'cityUnlocked'], 1],
+        paint: {
+          'line-color':   '#fbbf24',  // golden amber
+          'line-width':   8,
+          'line-opacity': 0.0,        // animated
+          'line-blur':    4,
+        },
+      });
+
       // 7 ── Corner anchor dots — SMALL & PRECISE
       //      radius 4/3 (selected/idle) — aesthetic, not bulky
       map.addLayer({
@@ -349,7 +375,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
         },
       });
 
-      [L_FILL, L_WALLS, L_CROWN, L_ROAD_SLAB].forEach((layer) => {
+      [L_FILL, L_WALLS + '-zone', L_CROWN + '-zone', L_ROAD_SLAB].forEach((layer) => {
         map.on('click', layer, (e) => {
           const id = e.features?.[0]?.properties?.id as string | undefined;
           if (id) onTerritoryClick(id);
@@ -392,15 +418,21 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       lastFrame = now;
       phase += 0.045;
 
-      const shimmer = 0.03 + 0.10 * (0.5 + 0.5 * Math.sin(phase * 0.48));
-      const raw     = 0.5 + 0.5 * Math.sin(phase * 1.25);
-      const flash   = Math.pow(raw, 4);
+      const shimmer  = 0.03 + 0.10 * (0.5 + 0.5 * Math.sin(phase * 0.48));
+      const raw      = 0.5 + 0.5 * Math.sin(phase * 1.25);
+      const flash    = Math.pow(raw, 4);
+      // Slow golden pulse for city-unlocked territories
+      const cityGlow = 0.35 + 0.40 * (0.5 + 0.5 * Math.sin(phase * 0.28));
 
       try {
         if (map.getLayer(L_SHIMMER)) map.setPaintProperty(L_SHIMMER, 'fill-opacity', shimmer);
         if (map.getLayer(L_FLASH)) {
           map.setPaintProperty(L_FLASH, 'line-opacity', flash);
           map.setPaintProperty(L_FLASH, 'line-width', 1.0 + flash * 3.5);
+        }
+        if (map.getLayer(L_CITY_GLOW)) {
+          map.setPaintProperty(L_CITY_GLOW, 'line-opacity', cityGlow);
+          map.setPaintProperty(L_CITY_GLOW, 'line-width', 6 + cityGlow * 5);
         }
       } catch { /* mid-teardown */ }
     };

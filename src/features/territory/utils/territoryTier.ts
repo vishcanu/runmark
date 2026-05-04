@@ -46,7 +46,7 @@ const TIERS: Array<{ minRuns: number } & TierInfo> = [
   {
     minRuns: 1,
     name: 'CLAIMED',
-    wallM: 4,   crownH: 6,  crownColor: '#ffffff',
+    wallM: 4,   crownH: 0,  crownColor: '#ffffff',  // crownH=0 → no crown on first run
     floorOpacity: 0.12, haloWidth: 12, borderWidth: 2.0,
     uiColor: '#94a3b8',
   },
@@ -61,4 +61,30 @@ export function nextTierAt(runs: number): number | null {
   const idx = TIERS.findIndex((t) => runs >= t.minRuns);
   if (idx <= 0) return null; // already at top tier
   return TIERS[idx - 1].minRuns;
+}
+
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Count consecutive days of visits ending today (or yesterday).
+ * visitDays: array of timestamps from completed runs.
+ * Returns at minimum 1 (the day a territory was first created).
+ */
+export function computeDailyStreak(visitDays: number[]): number {
+  if (!visitDays || visitDays.length === 0) return 1;
+  // Floor each timestamp to its calendar day index
+  const days = [...new Set(visitDays.map((d) => Math.floor(d / MS_PER_DAY)))]
+    .sort((a, b) => b - a); // newest first
+  const todayDay = Math.floor(Date.now() / MS_PER_DAY);
+  let streak = 0;
+  let expected = todayDay;
+  for (const day of days) {
+    if (day === expected) {
+      streak++;
+      expected--;
+    } else if (day < expected) {
+      break; // gap — stop counting
+    }
+  }
+  return Math.max(streak, 1);
 }
