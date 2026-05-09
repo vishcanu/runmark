@@ -6,8 +6,17 @@ const DEFAULT_CENTER: [number, number] = [77.5946, 12.9716]; // Bengaluru fallba
 const DEFAULT_ZOOM = 14;
 const DEFAULT_PITCH = 50; // 3D tilt angle (0 = top-down, 60 = max)
 
-// OpenFreeMap Liberty — free, vector, premium light style
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+// ── Map style — swap the active line to test ─────────────────────────────────
+//
+//  TEST 1 — CARTO Voyager   : warm cream base, terracotta roads, premium atlas feel
+//  TEST 2 — OFM Bright      : bold white land, vivid roads — game board feel
+//  TEST 3 — OFM Positron    : ultra-minimal white, your territories dominate visually
+//  ORIGINAL — OFM Liberty   : cool blue-grey, premium light (default)
+
+//  const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'; // TEST 1 ← active
+// const MAP_STYLE = 'https://tiles.openfreemap.org/styles/bright';   // TEST 2
+// const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'; // TEST 3
+const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';  // ORIGINAL
 
 // ── RunMark Tactical theme ───────────────────────────────────
 // Called once after style loads. Overrides paint properties on
