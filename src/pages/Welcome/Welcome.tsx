@@ -15,7 +15,7 @@ export function Welcome({ onContinue }: WelcomeProps) {
       <div className={styles.hero}>
         <div className={styles.logoMark}><MapPin size={28} strokeWidth={2} /></div>
         <div className={styles.heroText}>
-          <h1 className={styles.heroTitle}>RunGame</h1>
+          <h1 className={styles.heroTitle}>RunMark</h1>
           <p className={styles.heroSub}>Explore parks. Claim territory. Build your city.</p>
         </div>
       </div>
