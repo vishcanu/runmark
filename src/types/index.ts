@@ -2,6 +2,14 @@
 /** [longitude, latitude] */
 export type Coordinate = [number, number];
 
+// ─── Health Profile ───────────────────────────────────────────────────────────
+export interface HealthProfile {
+  age?:      number;    // years — used for max HR / pace zones
+  weightKg?: number;    // kg    — used for MET calorie formula
+  heightCm?: number;    // cm    — used for stride-based step count
+  gender?:   'male' | 'female' | 'other';
+}
+
 // ─── Building Types ───────────────────────────────────────────────────────────
 export type BuildingType = 'cottage' | 'tower' | 'skyscraper' | 'landmark';
 

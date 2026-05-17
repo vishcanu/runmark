@@ -2,6 +2,7 @@
 import { useTerritoryStore } from "../../features/territory/hooks/useTerritoryStore";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import { formatDistance, formatDuration } from "../../features/map/utils/geo";
+import { supabase } from "../../lib/supabase";
 import styles from "./Profile.module.css";
 
 const ACHIEVEMENTS = [
@@ -106,10 +107,14 @@ export function Profile() {
       <div className={styles.signOutSection}>
         <button
           className={styles.signOut}
-          onClick={() => {
-            localStorage.removeItem('rg_user_name');
-            localStorage.removeItem('rg_user_color');
-            window.dispatchEvent(new CustomEvent('app-logout'));
+          onClick={async () => {
+            if (supabase) {
+              await supabase.auth.signOut();
+            } else {
+              localStorage.removeItem('rg_user_name');
+              localStorage.removeItem('rg_user_color');
+              window.dispatchEvent(new CustomEvent('app-logout'));
+            }
           }}
         >
           <LogOut size={15} strokeWidth={2} />

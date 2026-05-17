@@ -6,6 +6,7 @@ import { Modal } from '../../components/Modal/Modal';
 import { TerritoryDetails } from '../../features/territory/components/TerritoryDetails';
 import { formatDistance, formatDuration } from '../../features/map/utils/geo';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import { calcCaloriesBurned, estimateSteps } from '../../features/activity/utils/health';
 import type { ActivityType } from '../../types';
 import styles from './Activity.module.css';
 
@@ -17,17 +18,6 @@ const MAX_BAR_H = 54;
 
 type Period = 'daily' | 'weekly' | 'monthly';
 type ActivityFilter = 'all' | ActivityType;
-
-const WEEK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-function stepsFor(distanceM: number, type: ActivityType): number {
-  if (type === 'cycle') return 0;
-  return Math.round(distanceM / (type === 'run' ? 0.95 : 0.762));
-}
-function calsFor(distanceKm: number, type: ActivityType): number {
-  return Math.round(distanceKm * (type === 'run' ? 75 : type === 'walk' ? 60 : 30));
-}
 
 export function Activity() {
   const store = useTerritoryStore();
@@ -55,10 +45,14 @@ export function Activity() {
   const chartMode = isCycle ? 'distance' : 'steps';
   const chartGoal = isCycle ? DAILY_DIST_GOAL_KM : DAILY_STEP_GOAL;
 
+  // Health profile values (fall back to average adult if not set)
+  const weightKg = user.health.weightKg ?? 70;
+  const heightCm = user.health.heightCm ?? 170;
+
   const todayTs = useMemo(() => filtered.filter(t => t.createdAt >= dayStart), [filtered, dayStart]);
-  const todaySteps = useMemo(() => todayTs.reduce((s,t) => s + stepsFor(t.distance, t.activityType ?? 'walk'), 0), [todayTs]);
-  const todayCals = useMemo(() => todayTs.reduce((s,t) => s + calsFor(t.distance/1000, t.activityType ?? 'walk'), 0), [todayTs]);
-  const todayDist = useMemo(() => todayTs.reduce((s,t) => s + t.distance, 0), [todayTs]);
+  const todaySteps = useMemo(() => todayTs.reduce((s,t) => s + estimateSteps(t.distance, t.activityType ?? 'walk', heightCm), 0), [todayTs, heightCm]);
+  const todayCals  = useMemo(() => todayTs.reduce((s,t) => s + calcCaloriesBurned(t.distance, t.duration, t.activityType ?? 'walk', weightKg), 0), [todayTs, weightKg]);
+  const todayDist     = useMemo(() => todayTs.reduce((s,t) => s + t.distance, 0), [todayTs]);
   const todayDuration = useMemo(() => todayTs.reduce((s,t) => s + t.duration, 0), [todayTs]);
 
   const periodStart = useMemo(() => {
@@ -66,16 +60,19 @@ export function Activity() {
     if (period === 'weekly') return now - 7 * 86_400_000;
     return now - 30 * 86_400_000;
   }, [period, dayStart, now]);
-  const periodTs = useMemo(() => filtered.filter(t => t.createdAt >= periodStart), [filtered, periodStart]);
-  const periodSteps = useMemo(() => periodTs.reduce((s,t) => s + stepsFor(t.distance, t.activityType ?? 'walk'), 0), [periodTs]);
-  const periodCals = useMemo(() => periodTs.reduce((s,t) => s + calsFor(t.distance/1000, t.activityType ?? 'walk'), 0), [periodTs]);
+  const periodTs    = useMemo(() => filtered.filter(t => t.createdAt >= periodStart), [filtered, periodStart]);
+  const periodSteps = useMemo(() => periodTs.reduce((s,t) => s + estimateSteps(t.distance, t.activityType ?? 'walk', heightCm), 0), [periodTs, heightCm]);
+  const periodCals = useMemo(() => periodTs.reduce((s,t) => s + calcCaloriesBurned(t.distance, t.duration, t.activityType ?? 'walk', weightKg), 0), [periodTs, weightKg]);
   const periodDist = useMemo(() => periodTs.reduce((s,t) => s + t.distance, 0), [periodTs]);
   const periodDuration = useMemo(() => periodTs.reduce((s,t) => s + t.duration, 0), [periodTs]);
+
+  const WEEK_DAYS    = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   const barData = useMemo(() => {
     function bv(ts: typeof filtered): number {
       if (chartMode === 'distance') return parseFloat((ts.reduce((s,t) => s+t.distance,0)/1000).toFixed(2));
-      return ts.reduce((s,t) => s + stepsFor(t.distance, t.activityType ?? 'walk'), 0);
+      return ts.reduce((s,t) => s + estimateSteps(t.distance, t.activityType ?? 'walk', heightCm), 0);
     }
     if (period === 'daily') return Array.from({ length: 7 }, (_, i) => {
       const dStart = dayStart - (6-i)*86_400_000;
@@ -94,15 +91,15 @@ export function Activity() {
       const ts = filtered.filter(t => t.createdAt >= mStart && t.createdAt < mEnd);
       return { label: MONTHS_SHORT[d.getMonth()], value: bv(ts), isToday: i===5 };
     });
-  }, [period, filtered, dayStart, chartMode]);
+  }, [period, filtered, dayStart, chartMode, heightCm]);
 
   const activityBreakdown = useMemo(() =>
     (['run','walk','cycle'] as ActivityType[]).map(type => {
       const ts = store.territories.filter(t => t.activityType === type);
       const dist = ts.reduce((s,t) => s+t.distance, 0);
       return { type, count: ts.length, dist,
-        steps: ts.reduce((s,t) => s+stepsFor(t.distance,type),0),
-        cals: ts.reduce((s,t) => s+calsFor(t.distance/1000,type),0) };
+        steps: ts.reduce((s,t) => s + estimateSteps(t.distance, type, heightCm), 0),
+        cals:  ts.reduce((s,t) => s + calcCaloriesBurned(t.distance, t.duration, type, weightKg), 0) };
     }), [store.territories]);
 
   const R = 50; const circumference = 2*Math.PI*R;

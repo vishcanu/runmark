@@ -1,73 +1,99 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { Territory } from '../../../types';
+import { fetchTerritories, upsertTerritory, deleteTerritory } from '../../../lib/db';
 
 export interface TerritoryStoreState {
   territories: Territory[];
   selectedId: string | null;
+  syncing: boolean;
 }
 
 export interface TerritoryStoreActions {
-  addTerritory: (t: Territory) => void;
+  addTerritory:    (t: Territory) => void;
   removeTerritory: (id: string) => void;
   updateTerritory: (id: string, patch: Partial<Territory>) => void;
   selectTerritory: (id: string | null) => void;
-  getTerritory: (id: string) => Territory | undefined;
+  getTerritory:    (id: string) => Territory | undefined;
 }
 
 export type TerritoryStoreContextType = TerritoryStoreState & TerritoryStoreActions;
 
 export const TerritoryStoreContext = createContext<TerritoryStoreContextType | null>(null);
 
-// ── TEST TERRITORY — Sri SK Nataraj Park, JP Nagar 1st Phase ─
-// Real OSM way #32258996. Remove before production.
-const _NOW = Date.now();
-const _DAY = 86_400_000;
-const _df  = (t: number) => Math.floor(t / _DAY) * _DAY;  // day-floor
+// ── localStorage helpers ──────────────────────────────────────
+const LS_KEY = 'rg_territories_v2';
 
-const TEST_TERRITORY: Territory = {
-  id: 'test-nataraj-park',
-  name: 'Sri SK Nataraj Park',
-  color: '#0284c7',
-  createdAt: _df(_NOW - 2 * _DAY),
-  distance: 1290,   // ~3 loops of the park perimeter
-  duration: 1140,
-  runs: 3,          // 3 loops completed → city building unlocked
-  lastRunAt: _NOW,
-  theme: 'cobalt',
-  emblem: 'shield',
-  tagline: 'My morning fortress',
-  activityType: 'run',
-  points: 1245,
-  // 3 consecutive days → cityUnlocked = true (streak ≥ 3, runs ≥ 3)
-  visitDays: [_df(_NOW - 2 * _DAY), _df(_NOW - _DAY), _df(_NOW)],
-  coordinates: [
-    [77.5808963, 12.9080499],
-    [77.5811258, 12.9074393],
-    [77.5819348, 12.9074199],
-    [77.5819142, 12.9084285],
-    [77.5814871, 12.9084415],
-    [77.5809874, 12.9084571],
-    [77.5808963, 12.9080499], // closed ring
-  ],
-  buildings: [],
-};
-// ─────────────────────────────────────────────────────────────
+function loadFromStorage(): Territory[] {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? (JSON.parse(raw) as Territory[]) : [];
+  } catch {
+    return [];
+  }
+}
 
+function saveToStorage(territories: Territory[]): void {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(territories));
+  } catch { /* storage full — ignore */ }
+}
+
+function getUserId(): string {
+  return localStorage.getItem('rg_user_id') ?? 'local';
+}
+
+// ── Store ─────────────────────────────────────────────────────
 export function useTerritoryStoreState(): TerritoryStoreContextType {
-  const [territories, setTerritories] = useState<Territory[]>([TEST_TERRITORY]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [territories, setTerritories] = useState<Territory[]>(() => loadFromStorage());
+  const [selectedId,  setSelectedId]  = useState<string | null>(null);
+  const [syncing,     setSyncing]      = useState(false);
 
+  // ── Persist to localStorage on every change ────────────────
+  useEffect(() => {
+    saveToStorage(territories);
+  }, [territories]);
+
+  // ── Load from Supabase on mount (background sync) ──────────
+  useEffect(() => {
+    const userId = getUserId();
+    if (userId === 'local') return; // not logged in yet
+    setSyncing(true);
+    fetchTerritories(userId)
+      .then((remote) => {
+        if (remote.length > 0) {
+          // Merge: remote wins for existing IDs, keep local-only new territories
+          setTerritories((local) => {
+            const remoteIds = new Set(remote.map((t) => t.id));
+            const localOnly = local.filter((t) => !remoteIds.has(t.id));
+            return [...remote, ...localOnly];
+          });
+        }
+      })
+      .catch(() => { /* offline — silently keep localStorage data */ })
+      .finally(() => setSyncing(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Actions ────────────────────────────────────────────────
   const addTerritory = useCallback((t: Territory) => {
     setTerritories((prev) => [t, ...prev]);
+    upsertTerritory(getUserId(), t).catch(() => {});
   }, []);
 
   const removeTerritory = useCallback((id: string) => {
     setTerritories((prev) => prev.filter((t) => t.id !== id));
     setSelectedId((prev) => (prev === id ? null : prev));
+    deleteTerritory(id).catch(() => {});
   }, []);
 
   const updateTerritory = useCallback((id: string, patch: Partial<Territory>) => {
-    setTerritories((prev) => prev.map((t) => t.id === id ? { ...t, ...patch } : t));
+    setTerritories((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const updated = { ...t, ...patch };
+        upsertTerritory(getUserId(), updated).catch(() => {});
+        return updated;
+      }),
+    );
   }, []);
 
   const selectTerritory = useCallback((id: string | null) => {
@@ -76,10 +102,10 @@ export function useTerritoryStoreState(): TerritoryStoreContextType {
 
   const getTerritory = useCallback(
     (id: string) => territories.find((t) => t.id === id),
-    [territories]
+    [territories],
   );
 
-  return { territories, selectedId, addTerritory, removeTerritory, updateTerritory, selectTerritory, getTerritory };
+  return { territories, selectedId, syncing, addTerritory, removeTerritory, updateTerritory, selectTerritory, getTerritory };
 }
 
 export function useTerritoryStore(): TerritoryStoreContextType {
