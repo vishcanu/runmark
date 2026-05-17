@@ -147,7 +147,7 @@ function rowToTerritory(row: Record<string, unknown>): Territory {
     points:        (row.points       as number) ?? 0,
     lastRunAt:     (row.last_run_at  as number) ?? Date.now(),
     activityType:  (row.activity_type as 'run' | 'walk' | 'cycle') ?? 'run',
-    buildingType:  (row.building_type as string | null) ?? undefined,
+    buildingType:  (row.building_type as import('../types').ConstructionBuildingType | null) ?? undefined,
     buildings:     (row.buildings    as [])    ?? [],
     visitDays:     (row.visit_days   as number[]) ?? [],
     createdAt:     row.created_at    as number,

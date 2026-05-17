@@ -1,4 +1,4 @@
-import type { ActivityType } from '../../types';
+import type { ActivityType } from '../../../types';
 
 // ── MET (Metabolic Equivalent of Task) values ─────────────────
 // Source: Compendium of Physical Activities (Ainsworth et al.)
