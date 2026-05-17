@@ -100,14 +100,18 @@ export function App() {
       if (event === 'SIGNED_IN' && session?.user) {
         handleAuthUser(session.user);
       } else if (event === 'SIGNED_OUT') {
-        localStorage.removeItem('rg_user_id');
-        localStorage.removeItem('rg_user_name');
-        localStorage.removeItem('rg_user_color');
         setScreen('welcome');
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Instant sign-out via custom event (fired before Supabase network round-trip)
+    const handleInstantLogout = () => setScreen('welcome');
+    window.addEventListener('app-logout', handleInstantLogout);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('app-logout', handleInstantLogout);
+    };
   }, [handleAuthUser]);
 
   if (screen === 'loading') return <LoadingScreen />;

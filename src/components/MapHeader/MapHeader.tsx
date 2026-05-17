@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Navigation2, LogOut, ChevronDown } from 'lucide-react';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import { supabase } from '../../lib/supabase';
 import styles from './MapHeader.module.css';
 
 interface MapHeaderProps {
@@ -25,8 +26,9 @@ export function MapHeader({ isActive = false }: MapHeaderProps) {
 
   const handleLogout = () => {
     setOpen(false);
-    localStorage.removeItem('rg_user_name');
-    localStorage.removeItem('rg_user_color');
+    ['rg_user_id','rg_user_name','rg_user_color','rg_user_age','rg_user_weight','rg_user_height','rg_user_gender']
+      .forEach((k) => localStorage.removeItem(k));
+    supabase?.auth.signOut();
     window.dispatchEvent(new CustomEvent('app-logout'));
   };
 

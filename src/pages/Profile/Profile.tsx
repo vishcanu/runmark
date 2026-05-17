@@ -107,14 +107,14 @@ export function Profile() {
       <div className={styles.signOutSection}>
         <button
           className={styles.signOut}
-          onClick={async () => {
-            if (supabase) {
-              await supabase.auth.signOut();
-            } else {
-              localStorage.removeItem('rg_user_name');
-              localStorage.removeItem('rg_user_color');
-              window.dispatchEvent(new CustomEvent('app-logout'));
-            }
+          onClick={() => {
+            // Clear immediately for instant UI response
+            ['rg_user_id','rg_user_name','rg_user_color','rg_user_age','rg_user_weight','rg_user_height','rg_user_gender']
+              .forEach((k) => localStorage.removeItem(k));
+            // Fire Supabase sign-out in background (no await)
+            supabase?.auth.signOut();
+            // Instant screen transition
+            window.dispatchEvent(new CustomEvent('app-logout'));
           }}
         >
           <LogOut size={15} strokeWidth={2} />
