@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { ArrowRight, Check, ChevronLeft, Activity } from 'lucide-react';
+import { ArrowRight, Check, ChevronLeft, Activity, Mars, Venus, Transgender } from 'lucide-react';
 import { saveUserProfile } from '../../hooks/useUserProfile';
 import type { HealthProfile } from '../../hooks/useUserProfile';
 import styles from './Setup.module.css';
@@ -50,7 +50,10 @@ function MetricCard({ label, unit, value, onChange, inputMode = 'numeric', min, 
         onChange={(e) => {
           if (e.target.value === '') { onChange(''); return; }
           const n = inputMode === 'decimal' ? parseFloat(e.target.value) : parseInt(e.target.value);
-          if (!isNaN(n)) onChange(Math.min(max, Math.max(min, n)) as number);
+          if (!isNaN(n)) onChange(Math.min(max, n) as number);
+        }}
+        onBlur={() => {
+          if (value !== '' && (value as number) < min) onChange(min);
         }}
         onFocus={(e) => e.target.select()}
       />
@@ -199,7 +202,11 @@ export function Setup({ onComplete }: SetupProps) {
                     style={gender === g ? { borderColor: selectedColor, color: selectedColor, background: selectedColor + '12' } : undefined}
                     onClick={() => setGender((prev) => (prev === g ? '' : g))}
                   >
-                    <span className={styles.genderIcon}>{g === 'male' ? '♂' : g === 'female' ? '♀' : '⚧'}</span>
+                    {g === 'male'
+                      ? <Mars size={22} strokeWidth={1.5} />
+                      : g === 'female'
+                      ? <Venus size={22} strokeWidth={1.5} />
+                      : <Transgender size={22} strokeWidth={1.5} />}
                     <span className={styles.genderLabel}>{g.charAt(0).toUpperCase() + g.slice(1)}</span>
                   </button>
                 ))}
