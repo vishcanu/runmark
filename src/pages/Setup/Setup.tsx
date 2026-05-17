@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ArrowRight, Check, ChevronLeft } from 'lucide-react';
 import { saveUserProfile } from '../../hooks/useUserProfile';
 import type { HealthProfile } from '../../hooks/useUserProfile';
@@ -16,25 +16,46 @@ const COLORS = [
 type Gender = 'male' | 'female' | 'other';
 type Step = 1 | 2 | 3;
 
-interface StepperProps {
+interface MetricCardProps {
+  label: string;
+  unit: string;
   value: number | '';
   onChange: (v: number | '') => void;
+  inputMode?: 'numeric' | 'decimal';
   min: number;
   max: number;
   step?: number;
+  accent: string;
+  full?: boolean;
 }
 
-function Stepper({ value, onChange, min, max, step = 1 }: StepperProps) {
-  const num = value === '' ? min : Number(value);
+function MetricCard({ label, unit, value, onChange, inputMode = 'numeric', min, max, step = 1, accent, full }: MetricCardProps) {
+  const ref = useRef<HTMLInputElement>(null);
   return (
-    <div className={styles.stepperWrap}>
-      <button className={styles.stepperBtn} onClick={() => onChange(Math.max(min, +(num - step).toFixed(1)))}>−</button>
-      <span className={styles.stepperValue}>{value === '' ? '–' : value}</span>
-      <button className={styles.stepperBtn} onClick={() => {
-        const next = +(num + step).toFixed(1);
-        onChange(Math.min(max, next));
-      }}>+</button>
-    </div>
+    <label
+      className={[styles.metricCard, full ? styles.metricCardFull : ''].join(' ')}
+      style={{ '--mc-accent': accent } as React.CSSProperties}
+    >
+      <span className={styles.metricCardLabel}>{label}</span>
+      <input
+        ref={ref}
+        className={styles.metricInput}
+        type="number"
+        inputMode={inputMode}
+        placeholder="—"
+        min={min}
+        max={max}
+        step={step}
+        value={value === '' ? '' : String(value)}
+        onChange={(e) => {
+          if (e.target.value === '') { onChange(''); return; }
+          const n = inputMode === 'decimal' ? parseFloat(e.target.value) : parseInt(e.target.value);
+          if (!isNaN(n)) onChange(Math.min(max, Math.max(min, n)) as number);
+        }}
+        onFocus={(e) => e.target.select()}
+      />
+      <span className={styles.metricCardUnit}>{unit}</span>
+    </label>
   );
 }
 
@@ -152,51 +173,29 @@ export function Setup({ onComplete }: SetupProps) {
 
             <div className={styles.textBlock}>
               <h1 className={styles.heading}>Body metrics</h1>
-              <p className={styles.subtext}>Accurate calorie burn & heart rate zones. Never shared.</p>
+              <p className={styles.subtext}>Tap a field and type your number. Used for calorie burn &amp; heart rate zones only.</p>
             </div>
 
-            <div className={styles.metricList}>
-              <div className={styles.metricRow}>
-                <div className={styles.metricInfo}>
-                  <span className={styles.metricName}>Age</span>
-                  <span className={styles.metricDesc}>years old</span>
-                </div>
-                <Stepper value={age} onChange={setAge} min={10} max={100} />
-              </div>
+            <div className={styles.metricGrid}>
+              <MetricCard label="Age" unit="years" value={age} onChange={setAge} min={10} max={100} accent={selectedColor} />
+              <MetricCard label="Weight" unit="kg" value={weight} onChange={setWeight} inputMode="decimal" step={0.1} min={30} max={250} accent={selectedColor} />
+              <MetricCard label="Height" unit="cm" value={height} onChange={setHeight} min={100} max={250} accent={selectedColor} full />
+            </div>
 
-              <div className={styles.metricRow}>
-                <div className={styles.metricInfo}>
-                  <span className={styles.metricName}>Weight</span>
-                  <span className={styles.metricDesc}>kilograms</span>
-                </div>
-                <Stepper value={weight} onChange={setWeight} min={30} max={250} step={0.5} />
-              </div>
-
-              <div className={styles.metricRow}>
-                <div className={styles.metricInfo}>
-                  <span className={styles.metricName}>Height</span>
-                  <span className={styles.metricDesc}>centimetres</span>
-                </div>
-                <Stepper value={height} onChange={setHeight} min={100} max={250} />
-              </div>
-
-              <div className={styles.metricRow}>
-                <div className={styles.metricInfo}>
-                  <span className={styles.metricName}>Gender</span>
-                  <span className={styles.metricDesc}>optional</span>
-                </div>
-                <div className={styles.genderPills}>
-                  {(['male', 'female', 'other'] as Gender[]).map((g) => (
-                    <button
-                      key={g}
-                      className={[styles.genderPill, gender === g ? styles.genderPillActive : ''].join(' ')}
-                      style={gender === g ? { background: selectedColor, borderColor: selectedColor, color: '#fff' } : undefined}
-                      onClick={() => setGender((prev) => (prev === g ? '' : g))}
-                    >
-                      {g === 'male' ? '♂' : g === 'female' ? '♀' : '○'} {g.charAt(0).toUpperCase() + g.slice(1)}
-                    </button>
-                  ))}
-                </div>
+            <div className={styles.genderSection}>
+              <span className={styles.genderSectionLabel}>I identify as <span className={styles.genderOptional}>(optional)</span></span>
+              <div className={styles.genderOptions}>
+                {(['male', 'female', 'other'] as Gender[]).map((g) => (
+                  <button
+                    key={g}
+                    className={[styles.genderOption, gender === g ? styles.genderOptionActive : ''].join(' ')}
+                    style={gender === g ? { borderColor: selectedColor, color: selectedColor, background: selectedColor + '12' } : undefined}
+                    onClick={() => setGender((prev) => (prev === g ? '' : g))}
+                  >
+                    <span className={styles.genderIcon}>{g === 'male' ? '♂' : g === 'female' ? '♀' : '⚧'}</span>
+                    <span className={styles.genderLabel}>{g.charAt(0).toUpperCase() + g.slice(1)}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
