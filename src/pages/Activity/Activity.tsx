@@ -52,13 +52,14 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
           <feGaussianBlur stdDeviation="2.5" result="b" />
           <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
-        <linearGradient id={`${UID}-cg1`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.98)" />
-          <stop offset="100%" stopColor="rgba(215,232,252,0.90)" />
+        <linearGradient id={`${UID}-cg1`} x1="10%" y1="0%" x2="20%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="60%" stopColor="rgba(232,244,255,0.97)" />
+          <stop offset="100%" stopColor="rgba(200,222,248,0.92)" />
         </linearGradient>
-        <linearGradient id={`${UID}-cg2`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.82)" />
-          <stop offset="100%" stopColor="rgba(206,226,250,0.72)" />
+        <linearGradient id={`${UID}-cg2`} x1="10%" y1="0%" x2="10%" y2="100%">
+          <stop offset="0%" stopColor="rgba(235,245,255,0.88)" />
+          <stop offset="100%" stopColor="rgba(195,218,245,0.72)" />
         </linearGradient>
         <radialGradient id={`${UID}-sg`} cx="45%" cy="40%" r="55%">
           <stop offset="0%" stopColor="#fffde7" />
@@ -125,6 +126,9 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
           <circle cx="101" cy="20" r="8.5" fill={`url(#${UID}-cg2)`} />
           <circle cx="111" cy="23" r="6.5" fill={`url(#${UID}-cg2)`} />
           <rect x="92" y="24" width="25" height="8" rx="3" fill={`url(#${UID}-cg2)`} />
+          {/* Highlights */}
+          <circle cx="99"  cy="17" r="3.5" fill="rgba(255,255,255,0.60)" />
+          <circle cx="108" cy="16" r="4"   fill="rgba(255,255,255,0.55)" />
         </g>
         {/* Main foreground cloud */}
         <g className={styles.cloudMain} filter={`url(#${UID}-cs)`}>
@@ -134,22 +138,28 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
           <circle cx="79"  cy="29" r="11.5" fill={`url(#${UID}-cg1)`} />
           <circle cx="90"  cy="33" r="9"    fill={`url(#${UID}-cg1)`} />
           <rect x="36" y="34" width="63" height="11" rx="2" fill={`url(#${UID}-cg1)`} />
+          {/* Inner specular highlights — top-left of each main bump */}
+          <circle cx="46"  cy="23" r="6"    fill="rgba(255,255,255,0.60)" />
+          <circle cx="62"  cy="20" r="7"    fill="rgba(255,255,255,0.55)" />
+          <circle cx="76"  cy="24" r="5.5"  fill="rgba(255,255,255,0.45)" />
         </g>
       </>}
 
       {/* ── FAIR-WEATHER WISPS ── */}
       {!cloudy && !isNight && <>
-        <g className={styles.cloudBg} opacity="0.50">
-          <circle cx="100" cy="11" r="5"   fill="rgba(255,255,255,0.92)" />
-          <circle cx="108" cy="10" r="5.5" fill="rgba(255,255,255,0.92)" />
-          <circle cx="115" cy="12" r="4"   fill="rgba(255,255,255,0.92)" />
-          <rect x="100" y="12" width="19" height="6" rx="2.5" fill="rgba(255,255,255,0.92)" />
+        <g className={styles.cloudBg} opacity="0.55">
+          <circle cx="100" cy="11" r="5"   fill="rgba(255,255,255,0.90)" />
+          <circle cx="108" cy="10" r="5.5" fill="rgba(255,255,255,0.90)" />
+          <circle cx="115" cy="12" r="4"   fill="rgba(255,255,255,0.90)" />
+          <rect x="100" y="12" width="19" height="6" rx="2.5" fill="rgba(255,255,255,0.88)" />
+          <circle cx="106" cy="7"  r="2.5" fill="rgba(255,255,255,0.70)" />
         </g>
-        <g className={styles.cloudMain} opacity="0.34">
-          <circle cx="10"  cy="18" r="4"   fill="rgba(255,255,255,0.92)" />
-          <circle cx="17"  cy="16" r="5.5" fill="rgba(255,255,255,0.92)" />
-          <circle cx="25"  cy="18" r="4"   fill="rgba(255,255,255,0.92)" />
-          <rect x="10" y="18" width="19" height="6" rx="2.5" fill="rgba(255,255,255,0.92)" />
+        <g className={styles.cloudMain} opacity="0.38">
+          <circle cx="10"  cy="18" r="4"   fill="rgba(255,255,255,0.90)" />
+          <circle cx="17"  cy="16" r="5.5" fill="rgba(255,255,255,0.90)" />
+          <circle cx="25"  cy="18" r="4"   fill="rgba(255,255,255,0.90)" />
+          <rect x="10" y="18" width="19" height="6" rx="2.5" fill="rgba(255,255,255,0.88)" />
+          <circle cx="15"  cy="13" r="2.5" fill="rgba(255,255,255,0.70)" />
         </g>
       </>}
 
@@ -341,17 +351,15 @@ export function Activity() {
             <p className={styles.headerDate}>{todayStr}</p>
           </div>
           <div className={styles.weatherWidget}>
-            <div className={styles.weatherGlass}>
-              <WeatherScene hour={hour} weather={weather} />
-              <div className={styles.weatherInfo}>
-                {weather
-                  ? <>
-                      <span className={styles.weatherTemp}>{weather.temp}°</span>
-                      <span className={styles.weatherCond}>{weather.condition}</span>
-                    </>
-                  : <span className={styles.weatherTemp} style={{ opacity: 0.3 }}>—</span>
-                }
-              </div>
+            <WeatherScene hour={hour} weather={weather} />
+            <div className={styles.weatherInfo}>
+              {weather
+                ? <>
+                    <span className={styles.weatherTemp}>{weather.temp}°</span>
+                    <span className={styles.weatherCond}>{weather.condition}</span>
+                  </>
+                : <span className={styles.weatherTemp} style={{ opacity: 0.3 }}>—</span>
+              }
             </div>
           </div>
         </div>
