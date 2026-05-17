@@ -193,7 +193,7 @@
 
 .weatherScene {
     width: 150px;
-    height: 90px;
+    height: 72px;
     flex-shrink: 0;
     display: block;
     overflow: visible;

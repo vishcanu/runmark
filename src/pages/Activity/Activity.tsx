@@ -53,7 +53,7 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
   const bgCloudOp = isNight ? (isStorm ? 0.70 : 0.44) : 0.88;
 
   return (
-    <svg viewBox="0 0 120 72" className={styles.weatherScene} aria-hidden="true">
+    <svg viewBox="0 0 150 72" className={styles.weatherScene} aria-hidden="true">
       <defs>
         <filter id={`${UID}-cs`} x="-25%" y="-25%" width="150%" height="160%">
           <feDropShadow dx="0" dy="2.5" stdDeviation="2" floodColor="rgba(0,30,60,0.20)" />
@@ -103,8 +103,10 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
           [5,6,0.65,0.7],[13,3,0.9,0.9],[21,13,0.55,0.6],[29,5,1.0,0.8],[37,19,0.6,0.7],
           [46,8,0.8,0.9],[54,4,0.55,0.6],[57,15,0.75,0.8],[62,28,0.5,0.5],
           [97,7,0.8,0.9],[105,3,0.65,0.7],[111,14,1.0,0.8],[118,8,0.5,0.6],
+          [125,5,0.75,0.8],[133,12,0.55,0.6],[140,4,0.85,0.9],[146,18,0.6,0.7],[149,9,0.70,0.8],
           [9,38,0.6,0.5],[24,43,0.5,0.6],[41,34,0.7,0.7],[63,48,0.5,0.5],
           [82,42,0.65,0.6],[101,37,0.7,0.7],[116,46,0.55,0.5],
+          [128,38,0.5,0.5],[136,44,0.6,0.6],[143,34,0.55,0.7],[148,47,0.5,0.5],
         ] as [number,number,number,number][]).map(([sx,sy,r,op],i) => (
           <circle key={i} cx={sx} cy={sy} r={r} fill="#ffffff"
             opacity={cloudy ? op * 0.18 : op}
@@ -141,6 +143,13 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
 
       {/* ── CLOUDS — overcast ── */}
       {cloudy && <>
+        {/* Far-right third cloud — fills new viewBox space */}
+        <g className={styles.cloudMain} filter={`url(#${UID}-cs)`} opacity={bgCloudOp * 0.72}>
+          <circle cx="126" cy="38" r="4.5" fill={cloudFill2} />
+          <circle cx="134" cy="34" r="5.5" fill={cloudFill2} />
+          <circle cx="142" cy="36" r="4.5" fill={cloudFill2} />
+          <rect x="122" y="38" width="24" height="5.5" rx="2.8" fill={cloudFill2} />
+        </g>
         {/* Background cloud — top-right, compact icon size */}
         <g className={styles.cloudBg} filter={`url(#${UID}-cs)`} opacity={bgCloudOp}>
           <circle cx="88"  cy="28" r="4.5" fill={cloudFill2} />
@@ -181,7 +190,24 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
           <circle cx="22"  cy="18" r="3.5" fill="rgba(255,255,255,0.90)" />
           <rect x="6" y="18" width="19" height="5" rx="2.5" fill="rgba(255,255,255,0.88)" />
         </g>
+        {/* Right-side wisp cloud in extended space */}
+        <g className={styles.cloudBg} opacity="0.40">
+          <circle cx="126" cy="9"  r="3.5" fill="rgba(255,255,255,0.90)" />
+          <circle cx="132" cy="8"  r="4"   fill="rgba(255,255,255,0.90)" />
+          <circle cx="139" cy="10" r="3"   fill="rgba(255,255,255,0.90)" />
+          <rect x="123" y="10" width="19" height="4.5" rx="2.2" fill="rgba(255,255,255,0.88)" />
+        </g>
       </>}
+
+      {/* ── BIRDS — visible right-side extended space, day only ── */}
+      {!isNight && (
+        <g opacity={cloudy ? 0.28 : 0.62}>
+          <path d="M122,22 Q125.5,18.5 129,22" fill="none" stroke="rgba(255,255,255,0.92)" strokeWidth="1.1" strokeLinecap="round" />
+          <path d="M133,13 Q136.5,9.5 140,13" fill="none" stroke="rgba(255,255,255,0.92)" strokeWidth="1.1" strokeLinecap="round" />
+          <path d="M141,25 Q144,22.5 147,25" fill="none" stroke="rgba(255,255,255,0.92)" strokeWidth="1.0" strokeLinecap="round" />
+          <path d="M126,30 Q128.5,28 131,30" fill="none" stroke="rgba(255,255,255,0.92)" strokeWidth="0.9" strokeLinecap="round" />
+        </g>
+      )}
 
       {/* ── RAIN ── */}
       {isRain && Array.from({ length: 9 }, (_, i) => (
@@ -224,7 +250,7 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
       </>}
 
       {/* Horizon line */}
-      <line x1="0" y1="68" x2="120" y2="68" stroke="rgba(255,255,255,0.16)" strokeWidth="0.8" />
+      <line x1="0" y1="68" x2="150" y2="68" stroke="rgba(255,255,255,0.16)" strokeWidth="0.8" />
     </svg>
   );
 }
