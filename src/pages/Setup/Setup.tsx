@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { ArrowRight, Check, ChevronLeft } from 'lucide-react';
+import { ArrowRight, Check, ChevronLeft, Activity } from 'lucide-react';
 import { saveUserProfile } from '../../hooks/useUserProfile';
 import type { HealthProfile } from '../../hooks/useUserProfile';
 import styles from './Setup.module.css';
@@ -90,22 +90,39 @@ export function Setup({ onComplete }: SetupProps) {
   };
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} style={{ '--setup-color': selectedColor } as React.CSSProperties}>
+
+      {/* Coloured hero area */}
+      <div className={styles.hero}>
+        <div className={styles.heroNav}>
+          {step > 1
+            ? <button className={styles.heroBack} onClick={() => setStep((step - 1) as Step)}><ChevronLeft size={20} /></button>
+            : <span className={styles.heroBackSpacer} />}
+          <span className={styles.heroCount}>{step} / 3</span>
+        </div>
+
+        {step === 1 && (
+          <div className={styles.heroAvatarWrap}>
+            <div className={styles.avatar} style={{ background: selectedColor }}>
+              <span className={styles.avatarInitial}>{initial}</span>
+            </div>
+          </div>
+        )}
+        {step === 2 && (
+          <div className={styles.heroBadge}>
+            <Activity size={40} strokeWidth={1.5} color="rgba(255,255,255,0.92)" />
+          </div>
+        )}
+        {step === 3 && (
+          <div className={styles.heroBadge}>
+            <Check size={42} strokeWidth={2} color="rgba(255,255,255,0.95)" />
+          </div>
+        )}
+      </div>
 
       {/* Progress bar */}
       <div className={styles.progressBar}>
-        <div className={styles.progressFill} style={{ width: `${(step / 3) * 100}%`, background: selectedColor }} />
-      </div>
-
-      {/* Step dots */}
-      <div className={styles.stepDots}>
-        {([1, 2, 3] as Step[]).map((s) => (
-          <div
-            key={s}
-            className={[styles.stepDot, step >= s ? styles.stepDotActive : ''].join(' ')}
-            style={step >= s ? { background: selectedColor } : undefined}
-          />
-        ))}
+        <div className={styles.progressFill} style={{ width: `${(step / 3) * 100}%` }} />
       </div>
 
       <div className={styles.content}>
@@ -113,12 +130,6 @@ export function Setup({ onComplete }: SetupProps) {
         {/* ── STEP 1: Identity ─────────────────────────────── */}
         {step === 1 && (
           <div className={styles.stepWrap}>
-            <div className={styles.avatarRing} style={{ '--ring-color': selectedColor } as React.CSSProperties}>
-              <div className={styles.avatar} style={{ background: selectedColor }}>
-                <span className={styles.avatarInitial}>{initial}</span>
-              </div>
-            </div>
-
             <div className={styles.textBlock}>
               <h1 className={styles.heading}>Create your profile</h1>
               <p className={styles.subtext}>How other runners see you on the map</p>
@@ -167,10 +178,6 @@ export function Setup({ onComplete }: SetupProps) {
         {/* ── STEP 2: Body metrics ─────────────────────────── */}
         {step === 2 && (
           <div className={styles.stepWrap}>
-            <div className={styles.iconBadge} style={{ background: selectedColor + '1a', color: selectedColor }}>
-              <span className={styles.iconBadgeEmoji}>💪</span>
-            </div>
-
             <div className={styles.textBlock}>
               <h1 className={styles.heading}>Body metrics</h1>
               <p className={styles.subtext}>Tap a field and type your number. Used for calorie burn &amp; heart rate zones only.</p>
@@ -199,18 +206,13 @@ export function Setup({ onComplete }: SetupProps) {
               </div>
             </div>
 
-            <div className={styles.actions}>
-              <button className={styles.backBtn} onClick={() => setStep(1)}>
-                <ChevronLeft size={18} /> Back
-              </button>
-              <button
-                className={styles.cta}
-                style={{ background: selectedColor, flex: 1 }}
-                onClick={() => setStep(3)}
-              >
-                Continue <ArrowRight size={16} strokeWidth={2.5} />
-              </button>
-            </div>
+            <button
+              className={styles.cta}
+              style={{ background: selectedColor }}
+              onClick={() => setStep(3)}
+            >
+              Continue <ArrowRight size={16} strokeWidth={2.5} />
+            </button>
           </div>
         )}
 
@@ -246,18 +248,13 @@ export function Setup({ onComplete }: SetupProps) {
               ))}
             </div>
 
-            <div className={styles.actions}>
-              <button className={styles.backBtn} onClick={() => setStep(2)}>
-                <ChevronLeft size={18} /> Back
-              </button>
-              <button
-                className={styles.ctaGlow}
-                style={{ '--cta-color': selectedColor } as React.CSSProperties}
-                onClick={handleComplete}
-              >
-                Start Running <ArrowRight size={16} strokeWidth={2.5} />
-              </button>
-            </div>
+            <button
+              className={styles.ctaGlow}
+              style={{ '--cta-color': selectedColor } as React.CSSProperties}
+              onClick={handleComplete}
+            >
+              Start Running <ArrowRight size={16} strokeWidth={2.5} />
+            </button>
           </div>
         )}
 
