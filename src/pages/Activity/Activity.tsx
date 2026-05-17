@@ -26,6 +26,15 @@ export function Activity() {
   const [actFilter, setActFilter] = useState<ActivityFilter>('all');
   const selectedTerritory = store.selectedId ? store.getTerritory(store.selectedId) : null;
   const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const hour = new Date().getHours();
+  const timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night' =
+    hour >= 5 && hour < 12 ? 'morning' : hour >= 12 && hour < 17 ? 'afternoon' : hour >= 17 && hour < 21 ? 'evening' : 'night';
+  const todCfg = {
+    morning:   { greeting: 'Good Morning',   emoji: '☀️',  bg: 'linear-gradient(150deg,#fbbf24 0%,#ea580c 100%)' },
+    afternoon: { greeting: 'Good Afternoon', emoji: '⛅',  bg: 'linear-gradient(150deg,#38bdf8 0%,#0284c7 100%)' },
+    evening:   { greeting: 'Good Evening',   emoji: '🌇',  bg: 'linear-gradient(150deg,#a855f7 0%,#6366f1 100%)' },
+    night:     { greeting: 'Good Night',     emoji: '🌙',  bg: 'linear-gradient(150deg,#312e81 0%,#1e1b4b 100%)' },
+  }[timeOfDay];
 
   const dayStart = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); }, []);
   const now = Date.now();
@@ -69,6 +78,14 @@ export function Activity() {
   const WEEK_DAYS    = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+  const calendarDays = useMemo(() =>
+    Array.from({ length: 7 }, (_, i) => {
+      const dStart = dayStart - (6 - i) * 86_400_000;
+      const d = new Date(dStart);
+      const dow = d.getDay();
+      return { dayLabel: WEEK_DAYS[dow === 0 ? 6 : dow - 1], dateNum: d.getDate(), active: weeklyActive[i], isToday: i === 6 };
+    }), [dayStart, weeklyActive]);
+
   const barData = useMemo(() => {
     function bv(ts: typeof filtered): number {
       if (chartMode === 'distance') return parseFloat((ts.reduce((s,t) => s+t.distance,0)/1000).toFixed(2));
@@ -97,10 +114,11 @@ export function Activity() {
     (['run','walk','cycle'] as ActivityType[]).map(type => {
       const ts = store.territories.filter(t => t.activityType === type);
       const dist = ts.reduce((s,t) => s+t.distance, 0);
-      return { type, count: ts.length, dist,
+      const dur  = ts.reduce((s,t) => s+t.duration, 0);
+      return { type, count: ts.length, dist, dur,
         steps: ts.reduce((s,t) => s + estimateSteps(t.distance, type, heightCm), 0),
         cals:  ts.reduce((s,t) => s + calcCaloriesBurned(t.distance, t.duration, type, weightKg), 0) };
-    }), [store.territories]);
+    }), [store.territories, heightCm, weightKg]);
 
   const R = 50; const circumference = 2*Math.PI*R;
   const ringValue = isCycle ? todayDist/1000 : todaySteps;
@@ -131,24 +149,31 @@ export function Activity() {
     <div className={styles.page}>
 
       {/* 1. HEADER + WEEKLY CALENDAR */}
-      <div className={styles.header}>
+      <div className={styles.header} style={{ background: todCfg.bg }}>
         <div className={styles.headerRow}>
           <div>
+            <div className={styles.todBadge}>
+              <span className={styles.todEmoji}>{todCfg.emoji}</span>
+              <span className={styles.todGreeting}>{todCfg.greeting}</span>
+            </div>
+            <h1 className={styles.headerName}>{user.name.split(' ')[0]}</h1>
             <p className={styles.headerDate}>{todayStr}</p>
-            <h1 className={styles.headerName}>Hey, {user.name}</h1>
           </div>
           <div className={styles.headerAvatar} style={{ background: user.color }}>{user.initial}</div>
         </div>
         <div className={styles.weekStrip}>
-          {weeklyActive.map((active, i) => (
+          {calendarDays.map((day, i) => (
             <div key={i} className={styles.weekDay}>
-              <div className={active ? styles.weekDotActive : styles.weekDot} />
-              <span className={styles.weekLabel}>{WEEK_DAYS[i]}</span>
+              <span className={styles.weekLabel}>{day.dayLabel}</span>
+              <div className={[styles.weekDateCircle, day.isToday ? styles.weekDateToday : ''].join(' ')}>
+                <span className={styles.weekDateNum}>{day.dateNum}</span>
+              </div>
+              <div className={day.active ? styles.weekDotActive : styles.weekDot} />
             </div>
           ))}
           <div className={styles.weekSummary}>
             <span className={styles.weekSummaryNum}>{activeDaysCount}</span>
-            <span className={styles.weekSummaryLbl}>days</span>
+            <span className={styles.weekSummaryLbl}>active</span>
           </div>
         </div>
       </div>
@@ -222,25 +247,50 @@ export function Activity() {
       {/* 4. ACTIVITY BREAKDOWN CARDS */}
       <div className={styles.section}>
         <p className={styles.sectionTitle}>By Activity</p>
-        <div className={styles.actGrid}>
+        <div className={styles.actList}>
           {ACT_CARD_CFG.map(cfg => {
             const bd = activityBreakdown.find(b => b.type===cfg.type)!;
+            const totalCount = activityBreakdown.reduce((s, b) => s + b.count, 0);
+            const pct = totalCount > 0 ? Math.round((bd.count / totalCount) * 100) : 0;
+            const ACT_EMOJI: Record<string, string> = { run: '🏃', walk: '🚶', cycle: '🚴' };
             return (
               <div key={cfg.type} className={styles.actCard}
-                style={{ '--act-accent': cfg.accent, '--act-bg': cfg.bg } as React.CSSProperties}>
-                <span className={styles.actCardLabel}>{cfg.label}</span>
-                <span className={styles.actCardCount}>{bd.count}</span>
-                <span className={styles.actCardCountLbl}>sessions</span>
-                <div className={styles.actDivider} />
-                <div className={styles.actCardStats}>
-                  <div className={styles.actStat}><span className={styles.actStatVal}>{formatDistance(bd.dist)}</span><span className={styles.actStatLbl}>km</span></div>
-                  <div className={styles.actStat}><span className={styles.actStatVal}>{bd.cals>0?bd.cals.toLocaleString():'—'}</span><span className={styles.actStatLbl}>kcal</span></div>
+                style={{ '--act-accent': cfg.accent } as React.CSSProperties}>
+                <div className={styles.actCardTop}>
+                  <div className={styles.actCardIconWrap} style={{ background: cfg.accent + '18' }}>
+                    <span className={styles.actCardEmoji}>{ACT_EMOJI[cfg.type]}</span>
+                  </div>
+                  <div className={styles.actCardMeta}>
+                    <span className={styles.actCardLabel}>{cfg.label}</span>
+                    <span className={styles.actCardCount}>{bd.count}<span className={styles.actCardCountLbl}> sessions</span></span>
+                  </div>
+                  <div className={styles.actCardDistCol}>
+                    <span className={styles.actCardDistVal}>{formatDistance(bd.dist)}</span>
+                    <span className={styles.actCardDistLbl}>distance</span>
+                  </div>
+                </div>
+                <div className={styles.actCardStatsRow}>
+                  <div className={styles.actStatChip}>
+                    <span className={styles.actStatVal}>{bd.cals > 0 ? bd.cals.toLocaleString() : '—'}</span>
+                    <span className={styles.actStatLbl}>kcal</span>
+                  </div>
                   {cfg.hasSteps && (
-                    <div className={styles.actStat}>
-                      <span className={styles.actStatVal}>{bd.steps>0?(bd.steps>=1000?`${(bd.steps/1000).toFixed(1)}k`:bd.steps):'—'}</span>
+                    <div className={styles.actStatChip}>
+                      <span className={styles.actStatVal}>{bd.steps > 0 ? (bd.steps >= 1000 ? `${(bd.steps/1000).toFixed(1)}k` : bd.steps) : '—'}</span>
                       <span className={styles.actStatLbl}>steps</span>
                     </div>
                   )}
+                  <div className={styles.actStatChip}>
+                    <span className={styles.actStatVal}>{bd.dur > 0 ? formatDuration(bd.dur) : '—'}</span>
+                    <span className={styles.actStatLbl}>active</span>
+                  </div>
+                  <div className={styles.actStatPct} style={{ background: cfg.accent + '18' }}>
+                    <span className={styles.actStatVal} style={{ color: cfg.accent }}>{pct}%</span>
+                    <span className={styles.actStatLbl} style={{ color: cfg.accent + 'bb' }}>of total</span>
+                  </div>
+                </div>
+                <div className={styles.actProgress}>
+                  <div className={styles.actProgressFill} style={{ width: `${pct}%`, background: cfg.accent }} />
                 </div>
               </div>
             );
