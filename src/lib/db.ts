@@ -58,6 +58,7 @@ export async function upsertProfile(
   name: string,
   color: string,
   health: Partial<HealthProfile>,
+  email?: string | null,
 ): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.from('profiles').upsert(
@@ -69,6 +70,7 @@ export async function upsertProfile(
       weight_kg: health.weightKg  ?? null,
       height_cm: health.heightCm  ?? null,
       gender:    health.gender    ?? null,
+      ...(email != null ? { email } : {}),
     },
     { onConflict: 'id' },
   );

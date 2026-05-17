@@ -82,6 +82,25 @@ export function simplifyPath(path: Coordinate[], epsilonM = 8): Coordinate[] {
 }
 
 /**
+ * Simplify a closed polygon ring (where first point === last point).
+ * Opens the ring, runs RDP, then re-closes — so the GeoJSON ring stays valid.
+ *
+ * Why needed: bufferPath / buildRoadRing create one polygon vertex per GPS/snap
+ * node. A straight 200 m road produces 8+ nearly-collinear vertices → wavy wall.
+ * 5 m epsilon removes all straight-section redundancy while keeping every real
+ * corner (a 90° turn deviates ~30 m >> 5 m, always preserved).
+ */
+export function simplifyRing(ring: Coordinate[], epsilonM = 5): Coordinate[] {
+  if (ring.length <= 4) return ring;
+  const first = ring[0], last = ring[ring.length - 1];
+  const isClosed = first[0] === last[0] && first[1] === last[1];
+  const open = isClosed ? ring.slice(0, -1) : ring;
+  if (open.length <= 3) return ring;
+  const simplified = _rdp(open, epsilonM);
+  return isClosed ? [...simplified, simplified[0]] : simplified;
+}
+
+/**
  * Close a loop path cleanly.
  *
  * When the user walks a loop (start ≈ end), OSRM returns a last point that

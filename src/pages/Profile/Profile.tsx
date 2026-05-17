@@ -1,4 +1,4 @@
-﻿import { Building2, Trophy, Map, TrendingUp, Clock, Check, LogOut } from "lucide-react";
+﻿import { Building2, Trophy, Map, TrendingUp, Clock, Check, LogOut, Mail } from "lucide-react";
 import { useTerritoryStore } from "../../features/territory/hooks/useTerritoryStore";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import { formatDistance, formatDuration } from "../../features/map/utils/geo";
@@ -36,6 +36,12 @@ export function Profile() {
           <span className={styles.avatarInitial}>{user.initial}</span>
         </div>
         <h1 className={styles.username}>{user.name}</h1>
+        {user.email && (
+          <div className={styles.userEmail}>
+            <Mail size={12} strokeWidth={2} />
+            {user.email}
+          </div>
+        )}
         <div className={styles.levelBadge}>
           <Trophy size={11} strokeWidth={2.5} />
           Level {level}

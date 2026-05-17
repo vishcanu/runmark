@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRoutes, BrowserRouter } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { upsertProfile } from '../lib/db';
 import { TerritoryStoreProvider } from '../features/territory/hooks/TerritoryStoreProvider';
 import { BottomNav } from '../components/BottomNav/BottomNav';
 import { Welcome } from '../pages/Welcome/Welcome';
@@ -59,6 +60,16 @@ export function App() {
         if (profile.weight_kg) localStorage.setItem('rg_user_weight', String(profile.weight_kg));
         if (profile.height_cm) localStorage.setItem('rg_user_height', String(profile.height_cm));
         if (profile.gender)    localStorage.setItem('rg_user_gender', profile.gender);
+        if (user.email)        localStorage.setItem('rg_user_email',  user.email);
+        // Backfill email into profiles table if not already stored
+        if (user.email && !profile.email) {
+          upsertProfile(user.id, profile.name ?? 'Runner', profile.color ?? '#0284c7', {
+            age:      profile.age       ?? undefined,
+            weightKg: profile.weight_kg ?? undefined,
+            heightCm: profile.height_cm ?? undefined,
+            gender:   profile.gender    ?? undefined,
+          }, user.email).catch(() => {});
+        }
         window.history.replaceState(null, '', '/');
         setScreen('app');
       } else {
@@ -69,6 +80,7 @@ export function App() {
           ?? 'Runner';
         localStorage.setItem('rg_user_name',  googleName);
         localStorage.setItem('rg_user_color', '#0284c7');
+        if (user.email) localStorage.setItem('rg_user_email', user.email);
         window.history.replaceState(null, '', '/');
         setScreen('setup');
       }

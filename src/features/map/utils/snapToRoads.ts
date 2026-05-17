@@ -102,16 +102,16 @@ export async function snapPathToRoads(
     // road may have 15-20 nearly-identical points.  Without simplification
     // these become 15-20 polygon vertices on what should be a straight wall.
     //
-    // 1. RDP simplify at 8 m epsilon:
-    //    - Removes redundant straight-segment points (road noise < 5 m)
-    //    - Preserves real corners (deviation at a 90° turn ≈ 30-50 m >> 8 m)
-    //    - Preserves curves proportionally (circle r=50 m → ~16 pts remain)
+    // 1. RDP simplify at 10 m epsilon:
+    //    - Removes redundant straight-segment points (road noise < 8 m)
+    //    - Preserves real corners (deviation at a 90° turn ≈ 30-50 m >> 10 m)
+    //    - Preserves curves proportionally (circle r=50 m → ~13 pts remain)
     //
     // 2. Close the loop if the user walked back to their start:
     //    - Replaces last point with first point when distance < 20 m
     //    - Prevents micro-gap / extra edge at the polygon join point
     //    - Works for all loop shapes: rectangle, oval, irregular polygon
-    const simplified = simplifyPath(snapped, 8);
+    const simplified = simplifyPath(snapped, 10);
     const cleaned    = closeLoopIfNeeded(simplified, 20);
 
     return cleaned.length >= 3 ? cleaned : path;

@@ -10,7 +10,7 @@ import { useActivityTracker } from '../../features/activity/hooks/useActivityTra
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
-import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing } from '../../features/map/utils/geo';
+import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing, simplifyRing } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
@@ -108,9 +108,13 @@ export function Home() {
     let coords: Coordinate[];
     let innerRing: Coordinate[] | undefined;
     if (linear) {
-      coords = bufferPath(snappedPath, ROAD_HALF);
+      // Corridor: buffer both sides then clean up redundant straight-section vertices
+      coords = simplifyRing(bufferPath(snappedPath, ROAD_HALF), 5);
     } else {
-      [coords, innerRing] = buildRoadRing(snappedPath, ROAD_HALF);
+      // Zone: road-ring donut — simplify both outer edge and inner hole ring
+      const [rawOuter, rawInner] = buildRoadRing(snappedPath, ROAD_HALF);
+      coords    = simplifyRing(rawOuter, 5);
+      innerRing = simplifyRing(rawInner, 5);
     }
     const color    = colorFromId(sessionId);
     const duration = elapsed;

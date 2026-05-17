@@ -12,6 +12,7 @@ export interface HealthProfile {
 export interface UserProfile {
   id:      string;
   name:    string;
+  email:   string | null;
   color:   string;
   initial: string;
   health:  HealthProfile;
@@ -46,8 +47,9 @@ export function useUserProfile(): UserProfile {
   const [name]  = useState(() => localStorage.getItem('rg_user_name')  ?? 'Explorer');
   const [color] = useState(() => localStorage.getItem('rg_user_color') ?? '#0284c7');
   const [id]    = useState(() => getUserId());
+  const [email] = useState(() => localStorage.getItem('rg_user_email'));
   const [health] = useState(() => loadHealth());
-  return { id, name, color, initial: name.charAt(0).toUpperCase(), health };
+  return { id, name, email, color, initial: name.charAt(0).toUpperCase(), health };
 }
 
 // ── Save (called from Login) ──────────────────────────────────
@@ -64,6 +66,7 @@ export function saveUserProfile(
   if (health.gender)           localStorage.setItem('rg_user_gender', health.gender);
 
   // Sync to Supabase (fire-and-forget)
-  const id = getUserId();
-  upsertProfile(id, name, color, health).catch(() => {/* offline — ignore */});
+  const id    = getUserId();
+  const email = localStorage.getItem('rg_user_email');
+  upsertProfile(id, name, color, health, email).catch(() => {/* offline — ignore */});
 }
