@@ -43,24 +43,32 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
 
       {/* ── NIGHT ── */}
       {isNight && <>
-        <circle cx="78" cy="22" r="13" fill="rgba(240,240,220,0.93)" />
-        <circle cx="87" cy="14" r="10" fill="rgba(20,20,55,0.92)" />
-        {[[10,11],[26,5],[44,17],[62,8],[100,15],[114,6]].map(([sx,sy],i) => (
-          <circle key={i} cx={sx} cy={sy} r={i%3===0?1.5:1.0} fill="rgba(255,255,255,0.75)" opacity={0.5+0.5*(i%2)} />
+        {/* Stars — spread across sky, avoiding moon zone (x 70-96, y 8-28) */}
+        {([
+          [5,6,0.6,0.7],[13,3,0.9,0.9],[21,13,0.5,0.6],[29,5,1.0,0.8],[37,19,0.6,0.7],
+          [46,8,0.8,0.9],[54,4,0.5,0.6],[57,15,0.7,0.8],[62,28,0.5,0.5],
+          [97,7,0.8,0.9],[105,3,0.6,0.7],[111,14,1.0,0.8],[118,8,0.5,0.6],
+          [9,38,0.6,0.5],[24,43,0.5,0.6],[41,34,0.7,0.7],[63,48,0.5,0.5],
+          [82,42,0.6,0.6],[101,37,0.7,0.7],[116,46,0.5,0.5],
+        ] as [number,number,number,number][]).map(([sx,sy,r,op],i) => (
+          <circle key={i} cx={sx} cy={sy} r={r} fill="#ffffff" opacity={op} />
         ))}
+        {/* Crescent moon */}
+        <circle cx="80" cy="20" r="9" fill="rgba(238,236,210,0.94)" />
+        <circle cx="87" cy="15" r="7" fill="rgba(18,18,50,0.93)" />
       </>}
 
       {/* ── SUN ── */}
       {!isNight && bodyVisible && <>
-        {!cloudy && <circle cx={bx} cy={by} r="18" fill={sunColor} opacity="0.16" />}
+        {!cloudy && <circle cx={bx} cy={by} r="12" fill={sunColor} opacity="0.15" />}
         {!cloudy && Array.from({ length: 8 }, (_, i) => {
           const a = (i / 8) * Math.PI * 2;
           return <line key={i}
-            x1={bx + 14 * Math.cos(a)} y1={by + 14 * Math.sin(a)}
-            x2={bx + 21 * Math.cos(a)} y2={by + 21 * Math.sin(a)}
-            stroke={sunColor} strokeWidth="2" strokeLinecap="round" opacity="0.85" />;
+            x1={bx + 11 * Math.cos(a)} y1={by + 11 * Math.sin(a)}
+            x2={bx + 16 * Math.cos(a)} y2={by + 16 * Math.sin(a)}
+            stroke={sunColor} strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />;
         })}
-        <circle cx={bx} cy={by} r="10" fill={sunColor} opacity={cloudy ? 0.4 : 1} />
+        <circle cx={bx} cy={by} r="7" fill={sunColor} opacity={cloudy ? 0.4 : 1} />
       </>}
 
       {/* ── CLOUDS ── */}
@@ -100,20 +108,6 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
 
       {/* ── HORIZON ── */}
       <line x1="0" y1="68" x2="120" y2="68" stroke="rgba(255,255,255,0.20)" strokeWidth="1" />
-
-      {/* ── TEMP + CONDITION — right-aligned ── */}
-      {weather && <>
-        <text x="118" y="51" fontSize="7.5" fontWeight="600" fill="rgba(255,255,255,0.60)"
-          textAnchor="end"
-          style={{ fontFamily: 'system-ui,sans-serif', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-          {weather.condition}
-        </text>
-        <text x="118" y="66" fontSize="19" fontWeight="800" fill="rgba(255,255,255,0.95)"
-          textAnchor="end"
-          style={{ fontFamily: 'system-ui,sans-serif', letterSpacing: '-0.04em' }}>
-          {weather.temp}°
-        </text>
-      </>}
     </svg>
   );
 }
@@ -259,7 +253,18 @@ export function Activity() {
             <h1 className={styles.headerName}>{user.name.split(' ')[0]}</h1>
             <p className={styles.headerDate}>{todayStr}</p>
           </div>
-          <WeatherScene hour={hour} weather={weather} />
+          <div className={styles.weatherWidget}>
+            <WeatherScene hour={hour} weather={weather} />
+            <div className={styles.weatherInfo}>
+              {weather
+                ? <>
+                    <span className={styles.weatherTemp}>{weather.temp}°</span>
+                    <span className={styles.weatherCond}>{weather.condition}</span>
+                  </>
+                : <span className={styles.weatherTemp} style={{ opacity: 0.3 }}>—</span>
+              }
+            </div>
+          </div>
         </div>
         <div className={styles.weekStrip}>
           {calendarDays.map((day, i) => (

@@ -12,7 +12,7 @@
 /* ── 1. HEADER ─────────────────────────────────────────── */
 .header {
     background: linear-gradient(150deg, #38bdf8 0%, #0284c7 100%);
-    padding: calc(var(--space-4) + var(--safe-area-top)) var(--space-4) 0;
+    padding: calc(var(--space-4) + var(--safe-area-top)) var(--space-4) var(--space-3);
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -178,12 +178,44 @@
 }
 
 /* ── Weather scene SVG ────────────────────────────────── */
+.weatherWidget {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    gap: 3px;
+}
+
 .weatherScene {
     width: 120px;
     height: 72px;
     flex-shrink: 0;
     display: block;
     overflow: visible;
+}
+
+.weatherInfo {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    line-height: 1;
+}
+
+.weatherTemp {
+    font-size: 22px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.95);
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+
+.weatherCond {
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.60);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
 }
 
 /* ── 2. ACTIVITY FILTER ────────────────────────────────── */
