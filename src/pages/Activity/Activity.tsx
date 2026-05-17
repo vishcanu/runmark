@@ -329,21 +329,20 @@ export function Activity() {
           </svg>
         </div>
         <div className={styles.todayMetrics}>
-          <p className={styles.todayTitle}>Today</p>
           <div className={styles.todayMetric}>
-            <Flame size={13} strokeWidth={2.5} style={{ color: '#f59e0b' }} />
+            <Flame size={16} strokeWidth={2.5} style={{ color: '#f59e0b' }} />
             <div className={styles.tmText}><span className={styles.tmVal}>{todayCals>0?todayCals.toLocaleString():'—'}</span><span className={styles.tmLbl}>Calories</span></div>
           </div>
           <div className={styles.todayMetric}>
-            <TrendingUp size={13} strokeWidth={2.5} style={{ color: '#0284c7' }} />
+            <TrendingUp size={16} strokeWidth={2.5} style={{ color: '#0284c7' }} />
             <div className={styles.tmText}><span className={styles.tmVal}>{formatDistance(todayDist)}</span><span className={styles.tmLbl}>Distance</span></div>
           </div>
           <div className={styles.todayMetric}>
-            <Clock size={13} strokeWidth={2.5} style={{ color: '#7c3aed' }} />
+            <Clock size={16} strokeWidth={2.5} style={{ color: '#7c3aed' }} />
             <div className={styles.tmText}><span className={styles.tmVal}>{todayDuration>0?formatDuration(todayDuration):'—'}</span><span className={styles.tmLbl}>Active</span></div>
           </div>
           <div className={styles.todayMetric}>
-            <MapPin size={13} strokeWidth={2.5} style={{ color: '#10b981' }} />
+            <MapPin size={16} strokeWidth={2.5} style={{ color: '#10b981' }} />
             <div className={styles.tmText}><span className={styles.tmVal}>{todayTs.length}</span><span className={styles.tmLbl}>Zones</span></div>
           </div>
         </div>
@@ -359,7 +358,7 @@ export function Activity() {
             const pct = totalCount > 0 ? Math.round((bd.count / totalCount) * 100) : 0;
             return (
               <div key={cfg.type} className={styles.actCard}
-                style={{ '--act-accent': cfg.accent } as React.CSSProperties}>
+                style={{ '--act-accent': cfg.accent, background: cfg.bg } as React.CSSProperties}>
                 <div className={styles.actCardTop}>
                   <div className={styles.actCardIconWrap} style={{ background: cfg.accent + '18' }}>
                     <cfg.Icon size={22} strokeWidth={2} color={cfg.accent} />

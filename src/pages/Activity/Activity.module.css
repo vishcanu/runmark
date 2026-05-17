@@ -20,7 +20,7 @@
 
 .headerRow {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
 }
@@ -28,7 +28,6 @@
 .headerLeft {
     flex: 1;
     min-width: 0;
-    padding-bottom: 4px;
 }
 
 .headerDate {
@@ -369,15 +368,13 @@
 }
 
 .actCard {
-    background: var(--color-bg-surface);
     border-radius: var(--radius-xl);
-    border: 1px solid var(--color-border-subtle);
-    border-left: 3px solid var(--act-accent, #0284c7);
+    border: 1px solid rgba(0, 0, 0, 0.06);
     padding: var(--space-4);
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
 }
 
 .actCardTop {
@@ -466,10 +463,9 @@
     display: flex;
     align-items: baseline;
     gap: 3px;
-    background: var(--color-bg-primary);
+    background: rgba(255, 255, 255, 0.70);
     border-radius: var(--radius-md);
     padding: 4px 10px;
-    border: 1px solid var(--color-border-subtle);
 }
 
 .actStatPct {
