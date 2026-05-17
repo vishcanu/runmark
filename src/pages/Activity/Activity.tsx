@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo } from 'react';
-import { Flame, TrendingUp, Clock, MapPin, Activity as ActivityIcon } from 'lucide-react';
+import { Flame, TrendingUp, Clock, MapPin, Activity as ActivityIcon, Zap, Bike, Footprints } from 'lucide-react';
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { TerritoryCard } from '../../features/territory/components/TerritoryCard';
 import { Modal } from '../../components/Modal/Modal';
@@ -7,6 +7,7 @@ import { TerritoryDetails } from '../../features/territory/components/TerritoryD
 import { formatDistance, formatDuration } from '../../features/map/utils/geo';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { calcCaloriesBurned, estimateSteps } from '../../features/activity/utils/health';
+import { useWeather, type WeatherData } from '../../features/activity/hooks/useWeather';
 import type { ActivityType } from '../../types';
 import styles from './Activity.module.css';
 
@@ -16,12 +17,116 @@ const CHART_W = 280;
 const CHART_BASELINE = 68;
 const MAX_BAR_H = 54;
 
+// ── Sky + weather scene ────────────────────────────────────────
+function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | null }) {
+  // Arc: centre (140,72) radius 54 — sun travels left horizon → top → right horizon
+  const h = Math.max(5, Math.min(19, hour));
+  const angle = Math.PI * (1 - (h - 5) / 14); // π→0 from 5 am to 7 pm
+  const CX = 140, CY = 72, R = 54;
+  const bx = CX + R * Math.cos(angle);
+  const by = CY - R * Math.sin(angle);
+  const bodyVisible = by < 67;
+
+  const isNight   = hour < 5 || hour >= 20;
+  const isEvening = hour >= 17 && hour < 20;
+  const isMorning = hour >= 5  && hour < 9;
+  const cloudy    = !!(weather?.isCloudy);
+  const isRain    = weather?.isRain    ?? false;
+  const isSnow    = weather?.isSnow    ?? false;
+  const isThunder = weather?.isThunder ?? false;
+  const sunColor  = isEvening ? '#fb923c' : isMorning ? '#fcd34d' : '#fbbf24';
+
+  return (
+    <svg viewBox="0 0 280 72" className={styles.weatherScene} aria-hidden="true">
+      {/* arc guide */}
+      <path d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
+        fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="4 5" />
+
+      {/* ── NIGHT ── */}
+      {isNight && <>
+        <circle cx="155" cy="26" r="14" fill="rgba(240,240,220,0.93)" />
+        <circle cx="165" cy="18" r="11" fill="rgba(20,20,55,0.92)" />
+        {[[35,14],[55,6],[82,21],[108,9],[200,13],[226,5],[250,20],[263,31]].map(([sx,sy],i) => (
+          <circle key={i} cx={sx} cy={sy} r={i%3===0?1.8:1.1} fill="rgba(255,255,255,0.75)" opacity={0.55+0.45*(i%2)} />
+        ))}
+      </>}
+
+      {/* ── SUN ── */}
+      {!isNight && bodyVisible && <>
+        {!cloudy && <circle cx={bx} cy={by} r="20" fill={sunColor} opacity="0.16" />}
+        {!cloudy && Array.from({ length: 8 }, (_, i) => {
+          const a = (i / 8) * Math.PI * 2;
+          return <line key={i}
+            x1={bx + 16 * Math.cos(a)} y1={by + 16 * Math.sin(a)}
+            x2={bx + 24 * Math.cos(a)} y2={by + 24 * Math.sin(a)}
+            stroke={sunColor} strokeWidth="2" strokeLinecap="round" opacity="0.85" />;
+        })}
+        <circle cx={bx} cy={by} r="11" fill={sunColor} opacity={cloudy ? 0.4 : 1} />
+      </>}
+
+      {/* ── CLOUDS ── */}
+      {cloudy && <>
+        <ellipse cx="148" cy="26" rx="29" ry="14" fill="rgba(255,255,255,0.88)" />
+        <ellipse cx="171" cy="31" rx="22" ry="12" fill="rgba(255,255,255,0.82)" />
+        <ellipse cx="129" cy="32" rx="17" ry="10" fill="rgba(255,255,255,0.76)" />
+      </>}
+      {!cloudy && !isNight && <>
+        <ellipse cx="228" cy="13" rx="16" ry="6" fill="rgba(255,255,255,0.26)" />
+        <ellipse cx="50"  cy="18" rx="12" ry="5" fill="rgba(255,255,255,0.20)" />
+      </>}
+
+      {/* ── RAIN ── */}
+      {isRain && Array.from({ length: 11 }, (_, i) => (
+        <line key={i}
+          x1={92 + i * 18} y1={44 + (i % 4) * 5}
+          x2={89 + i * 18} y2={60 + (i % 4) * 5}
+          stroke="rgba(255,255,255,0.60)" strokeWidth="1.5" strokeLinecap="round" />
+      ))}
+
+      {/* ── SNOW ── */}
+      {isSnow && Array.from({ length: 9 }, (_, i) => (
+        <g key={i} transform={`translate(${100 + i * 21},${46 + (i % 3) * 8})`}>
+          <line x1="-3" y1="0" x2="3" y2="0" stroke="rgba(255,255,255,0.80)" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="0" y1="-3" x2="0" y2="3" stroke="rgba(255,255,255,0.80)" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="-2" y1="-2" x2="2" y2="2" stroke="rgba(255,255,255,0.55)" strokeWidth="1" strokeLinecap="round" />
+          <line x1="2" y1="-2" x2="-2" y2="2" stroke="rgba(255,255,255,0.55)" strokeWidth="1" strokeLinecap="round" />
+        </g>
+      ))}
+
+      {/* ── THUNDER ── */}
+      {isThunder && (
+        <polyline points="165,32 158,47 163,47 155,64"
+          fill="none" stroke="#fde047" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      )}
+
+      {/* ── HORIZON ── */}
+      <line x1="0" y1="68" x2="280" y2="68" stroke="rgba(255,255,255,0.20)" strokeWidth="1" />
+
+      {/* ── TEMP + CONDITION ── */}
+      {weather ? <>
+        <text x="16" y="51" fontSize="8.5" fontWeight="600" fill="rgba(255,255,255,0.60)"
+          style={{ fontFamily: 'system-ui,sans-serif', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+          {weather.condition}
+        </text>
+        <text x="16" y="65" fontSize="21" fontWeight="800" fill="rgba(255,255,255,0.95)"
+          style={{ fontFamily: 'system-ui,sans-serif', letterSpacing: '-0.03em' }}>
+          {weather.temp}°C
+        </text>
+      </> : (
+        <text x="16" y="61" fontSize="11" fill="rgba(255,255,255,0.30)"
+          style={{ fontFamily: 'system-ui,sans-serif' }}>—</text>
+      )}
+    </svg>
+  );
+}
+
 type Period = 'daily' | 'weekly' | 'monthly';
 type ActivityFilter = 'all' | ActivityType;
 
 export function Activity() {
   const store = useTerritoryStore();
   const user = useUserProfile();
+  const weather = useWeather();
   const [period, setPeriod] = useState<Period>('daily');
   const [actFilter, setActFilter] = useState<ActivityFilter>('all');
   const selectedTerritory = store.selectedId ? store.getTerritory(store.selectedId) : null;
@@ -140,9 +245,9 @@ export function Activity() {
   const FILTER_CFG = [{key:'all',label:'All'},{key:'run',label:'Run'},{key:'walk',label:'Walk'},{key:'cycle',label:'Cycle'}] as const;
   const PERIOD_CFG = [{key:'daily',label:'Daily'},{key:'weekly',label:'Weekly'},{key:'monthly',label:'Monthly'}] as const;
   const ACT_CARD_CFG = [
-    {type:'run' as ActivityType,label:'Run',accent:'#ef4444',bg:'#fff1f2',hasSteps:true},
-    {type:'walk' as ActivityType,label:'Walk',accent:'#10b981',bg:'#f0fdf4',hasSteps:true},
-    {type:'cycle' as ActivityType,label:'Cycle',accent:'#0ea5e9',bg:'#f0f9ff',hasSteps:false},
+    {type:'run'   as ActivityType, label:'Run',   accent:'#ef4444', bg:'#fff1f2', hasSteps:true,  Icon: Zap       },
+    {type:'walk'  as ActivityType, label:'Walk',  accent:'#10b981', bg:'#f0fdf4', hasSteps:true,  Icon: Footprints},
+    {type:'cycle' as ActivityType, label:'Cycle', accent:'#0ea5e9', bg:'#f0f9ff', hasSteps:false, Icon: Bike      },
   ];
 
   return (
@@ -152,15 +257,13 @@ export function Activity() {
       <div className={styles.header} style={{ background: todCfg.bg }}>
         <div className={styles.headerRow}>
           <div>
-            <div className={styles.todBadge}>
-              <span className={styles.todEmoji}>{todCfg.emoji}</span>
-              <span className={styles.todGreeting}>{todCfg.greeting}</span>
-            </div>
+            <p className={styles.todGreeting}>{todCfg.greeting}</p>
             <h1 className={styles.headerName}>{user.name.split(' ')[0]}</h1>
             <p className={styles.headerDate}>{todayStr}</p>
           </div>
           <div className={styles.headerAvatar} style={{ background: user.color }}>{user.initial}</div>
         </div>
+        <WeatherScene hour={hour} weather={weather} />
         <div className={styles.weekStrip}>
           {calendarDays.map((day, i) => (
             <div key={i} className={styles.weekDay}>
@@ -252,13 +355,12 @@ export function Activity() {
             const bd = activityBreakdown.find(b => b.type===cfg.type)!;
             const totalCount = activityBreakdown.reduce((s, b) => s + b.count, 0);
             const pct = totalCount > 0 ? Math.round((bd.count / totalCount) * 100) : 0;
-            const ACT_EMOJI: Record<string, string> = { run: '🏃', walk: '🚶', cycle: '🚴' };
             return (
               <div key={cfg.type} className={styles.actCard}
                 style={{ '--act-accent': cfg.accent } as React.CSSProperties}>
                 <div className={styles.actCardTop}>
                   <div className={styles.actCardIconWrap} style={{ background: cfg.accent + '18' }}>
-                    <span className={styles.actCardEmoji}>{ACT_EMOJI[cfg.type]}</span>
+                    <cfg.Icon size={22} strokeWidth={2} color={cfg.accent} />
                   </div>
                   <div className={styles.actCardMeta}>
                     <span className={styles.actCardLabel}>{cfg.label}</span>

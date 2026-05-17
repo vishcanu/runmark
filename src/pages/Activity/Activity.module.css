@@ -170,6 +170,14 @@
     color: #0284c7;
 }
 
+/* ── Weather scene SVG ────────────────────────────────── */
+.weatherScene {
+    width: 100%;
+    height: 72px;
+    display: block;
+    overflow: visible;
+}
+
 /* ── 2. ACTIVITY FILTER ────────────────────────────────── */
 .filterWrap {
     padding: var(--space-3) var(--space-4) 0;
