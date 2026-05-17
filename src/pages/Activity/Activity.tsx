@@ -17,14 +17,16 @@ const CHART_W = 280;
 const CHART_BASELINE = 68;
 const MAX_BAR_H = 54;
 
-// ── Compact sky + weather widget (right side of header) ─────────
+// ── Premium sky + weather widget ─────────────────────────────
+const UID = 'ws'; // stable SVG gradient/filter ID prefix
+
 function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | null }) {
   const h = Math.max(5, Math.min(19, hour));
   const angle = Math.PI * (1 - (h - 5) / 14);
   const CX = 60, CY = 72, R = 46;
   const bx = CX + R * Math.cos(angle);
   const by = CY - R * Math.sin(angle);
-  const bodyVisible = by < 67;
+  const bodyVisible = by < 68;
 
   const isNight   = hour < 5 || hour >= 20;
   const isEvening = hour >= 17 && hour < 20;
@@ -34,80 +36,165 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
   const isSnow    = weather?.isSnow    ?? false;
   const isThunder = weather?.isThunder ?? false;
   const sunColor  = isEvening ? '#fb923c' : isMorning ? '#fcd34d' : '#fbbf24';
+  const sunGlow   = isEvening ? 'rgba(251,146,60,0.35)' : 'rgba(251,191,36,0.28)';
 
   return (
     <svg viewBox="0 0 120 72" className={styles.weatherScene} aria-hidden="true">
-      {/* arc guide */}
+      <defs>
+        <filter id={`${UID}-cs`} x="-25%" y="-25%" width="150%" height="160%">
+          <feDropShadow dx="0" dy="2.5" stdDeviation="2" floodColor="rgba(0,30,60,0.20)" />
+        </filter>
+        <filter id={`${UID}-glow`} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="3.5" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <filter id={`${UID}-bolt`} x="-60%" y="-40%" width="220%" height="200%">
+          <feGaussianBlur stdDeviation="2.5" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <linearGradient id={`${UID}-cg1`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.98)" />
+          <stop offset="100%" stopColor="rgba(215,232,252,0.90)" />
+        </linearGradient>
+        <linearGradient id={`${UID}-cg2`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.82)" />
+          <stop offset="100%" stopColor="rgba(206,226,250,0.72)" />
+        </linearGradient>
+        <radialGradient id={`${UID}-sg`} cx="45%" cy="40%" r="55%">
+          <stop offset="0%" stopColor="#fffde7" />
+          <stop offset="100%" stopColor={sunColor} />
+        </radialGradient>
+        <radialGradient id={`${UID}-mg`} cx="38%" cy="32%" r="62%">
+          <stop offset="0%" stopColor="#fffff4" />
+          <stop offset="100%" stopColor="#e5ddb8" />
+        </radialGradient>
+        <linearGradient id={`${UID}-rg`} x1="5%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="rgba(185,215,255,0.90)" />
+          <stop offset="100%" stopColor="rgba(185,215,255,0.05)" />
+        </linearGradient>
+      </defs>
+
+      {/* Dashed arc guide */}
       <path d={`M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`}
-        fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="3 4" />
+        fill="none" stroke="rgba(255,255,255,0.11)" strokeWidth="0.8" strokeDasharray="3 5" />
 
       {/* ── NIGHT ── */}
       {isNight && <>
-        {/* Stars — spread across sky, avoiding moon zone (x 70-96, y 8-28) */}
         {([
-          [5,6,0.6,0.7],[13,3,0.9,0.9],[21,13,0.5,0.6],[29,5,1.0,0.8],[37,19,0.6,0.7],
-          [46,8,0.8,0.9],[54,4,0.5,0.6],[57,15,0.7,0.8],[62,28,0.5,0.5],
-          [97,7,0.8,0.9],[105,3,0.6,0.7],[111,14,1.0,0.8],[118,8,0.5,0.6],
+          [5,6,0.65,0.7],[13,3,0.9,0.9],[21,13,0.55,0.6],[29,5,1.0,0.8],[37,19,0.6,0.7],
+          [46,8,0.8,0.9],[54,4,0.55,0.6],[57,15,0.75,0.8],[62,28,0.5,0.5],
+          [97,7,0.8,0.9],[105,3,0.65,0.7],[111,14,1.0,0.8],[118,8,0.5,0.6],
           [9,38,0.6,0.5],[24,43,0.5,0.6],[41,34,0.7,0.7],[63,48,0.5,0.5],
-          [82,42,0.6,0.6],[101,37,0.7,0.7],[116,46,0.5,0.5],
+          [82,42,0.65,0.6],[101,37,0.7,0.7],[116,46,0.55,0.5],
         ] as [number,number,number,number][]).map(([sx,sy,r,op],i) => (
-          <circle key={i} cx={sx} cy={sy} r={r} fill="#ffffff" opacity={op} />
+          <circle key={i} cx={sx} cy={sy} r={r} fill="#ffffff" opacity={op}
+            className={i%4===0 ? styles.starTwinkle : i%4===1 ? styles.starTwinkle2 : undefined} />
         ))}
-        {/* Crescent moon */}
-        <circle cx="80" cy="20" r="9" fill="rgba(238,236,210,0.94)" />
-        <circle cx="87" cy="15" r="7" fill="rgba(18,18,50,0.93)" />
+        {/* Moon glow halos */}
+        <circle cx="80" cy="20" r="16" fill="rgba(255,250,210,0.09)" />
+        <circle cx="80" cy="20" r="12" fill="rgba(255,250,210,0.15)" />
+        {/* Moon body */}
+        <circle cx="80" cy="20" r="9.5" fill={`url(#${UID}-mg)`} filter={`url(#${UID}-glow)`} />
+        {/* Crescent mask */}
+        <circle cx="87.5" cy="15.5" r="7.8" fill="rgba(12,12,42,0.95)" />
       </>}
 
       {/* ── SUN ── */}
       {!isNight && bodyVisible && <>
-        {!cloudy && <circle cx={bx} cy={by} r="12" fill={sunColor} opacity="0.15" />}
-        {!cloudy && Array.from({ length: 8 }, (_, i) => {
-          const a = (i / 8) * Math.PI * 2;
+        {!cloudy && <>
+          <circle cx={bx} cy={by} r="21" fill={sunGlow} opacity="0.30" />
+          <circle cx={bx} cy={by} r="14" fill={sunGlow} opacity="0.46" />
+        </>}
+        {!cloudy && Array.from({ length: 10 }, (_, i) => {
+          const a = (i / 10) * Math.PI * 2;
           return <line key={i}
-            x1={bx + 11 * Math.cos(a)} y1={by + 11 * Math.sin(a)}
+            x1={bx + 10 * Math.cos(a)} y1={by + 10 * Math.sin(a)}
             x2={bx + 16 * Math.cos(a)} y2={by + 16 * Math.sin(a)}
-            stroke={sunColor} strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />;
+            stroke={sunColor} strokeWidth="1.8" strokeLinecap="round" opacity="0.85" />;
         })}
-        <circle cx={bx} cy={by} r="7" fill={sunColor} opacity={cloudy ? 0.4 : 1} />
+        <circle cx={bx} cy={by} r="7.5"
+          fill={`url(#${UID}-sg)`} opacity={cloudy ? 0.30 : 1}
+          filter={cloudy ? undefined : `url(#${UID}-glow)`} />
       </>}
 
-      {/* ── CLOUDS ── */}
+      {/* ── CLOUDS — overcast ── */}
       {cloudy && <>
-        <ellipse cx="65" cy="25" rx="24" ry="12" fill="rgba(255,255,255,0.88)" />
-        <ellipse cx="84" cy="30" rx="18" ry="10" fill="rgba(255,255,255,0.82)" />
-        <ellipse cx="49" cy="30" rx="14" ry="9"  fill="rgba(255,255,255,0.76)" />
+        {/* Background cloud — top-right, smaller, more transparent */}
+        <g className={styles.cloudBg} filter={`url(#${UID}-cs)`}>
+          <circle cx="92"  cy="22" r="7"   fill={`url(#${UID}-cg2)`} />
+          <circle cx="101" cy="20" r="8.5" fill={`url(#${UID}-cg2)`} />
+          <circle cx="111" cy="23" r="6.5" fill={`url(#${UID}-cg2)`} />
+          <rect x="92" y="24" width="25" height="8" rx="3" fill={`url(#${UID}-cg2)`} />
+        </g>
+        {/* Main foreground cloud */}
+        <g className={styles.cloudMain} filter={`url(#${UID}-cs)`}>
+          <circle cx="36"  cy="35" r="10"   fill={`url(#${UID}-cg1)`} />
+          <circle cx="50"  cy="28" r="13"   fill={`url(#${UID}-cg1)`} />
+          <circle cx="65"  cy="25" r="14.5" fill={`url(#${UID}-cg1)`} />
+          <circle cx="79"  cy="29" r="11.5" fill={`url(#${UID}-cg1)`} />
+          <circle cx="90"  cy="33" r="9"    fill={`url(#${UID}-cg1)`} />
+          <rect x="36" y="34" width="63" height="11" rx="2" fill={`url(#${UID}-cg1)`} />
+        </g>
       </>}
+
+      {/* ── FAIR-WEATHER WISPS ── */}
       {!cloudy && !isNight && <>
-        <ellipse cx="104" cy="11" rx="12" ry="5" fill="rgba(255,255,255,0.24)" />
-        <ellipse cx="20"  cy="16" rx="9"  ry="4" fill="rgba(255,255,255,0.18)" />
+        <g className={styles.cloudBg} opacity="0.50">
+          <circle cx="100" cy="11" r="5"   fill="rgba(255,255,255,0.92)" />
+          <circle cx="108" cy="10" r="5.5" fill="rgba(255,255,255,0.92)" />
+          <circle cx="115" cy="12" r="4"   fill="rgba(255,255,255,0.92)" />
+          <rect x="100" y="12" width="19" height="6" rx="2.5" fill="rgba(255,255,255,0.92)" />
+        </g>
+        <g className={styles.cloudMain} opacity="0.34">
+          <circle cx="10"  cy="18" r="4"   fill="rgba(255,255,255,0.92)" />
+          <circle cx="17"  cy="16" r="5.5" fill="rgba(255,255,255,0.92)" />
+          <circle cx="25"  cy="18" r="4"   fill="rgba(255,255,255,0.92)" />
+          <rect x="10" y="18" width="19" height="6" rx="2.5" fill="rgba(255,255,255,0.92)" />
+        </g>
       </>}
 
       {/* ── RAIN ── */}
-      {isRain && Array.from({ length: 7 }, (_, i) => (
-        <line key={i}
-          x1={14 + i * 16} y1={44 + (i % 3) * 5}
-          x2={11 + i * 16} y2={58 + (i % 3) * 5}
-          stroke="rgba(255,255,255,0.60)" strokeWidth="1.5" strokeLinecap="round" />
+      {isRain && Array.from({ length: 9 }, (_, i) => (
+        <g key={i} className={i%3===0 ? styles.rainDrop : i%3===1 ? styles.rainDrop2 : styles.rainDrop3}>
+          <line
+            x1={12 + i * 11} y1={48 + (i % 3) * 4}
+            x2={9  + i * 11} y2={64 + (i % 3) * 4}
+            stroke={`url(#${UID}-rg)`}
+            strokeWidth={i % 3 === 0 ? "1.8" : "1.4"}
+            strokeLinecap="round" />
+        </g>
       ))}
 
       {/* ── SNOW ── */}
-      {isSnow && Array.from({ length: 6 }, (_, i) => (
-        <g key={i} transform={`translate(${12 + i * 18},${46 + (i % 2) * 9})`}>
-          <line x1="-3" y1="0" x2="3" y2="0" stroke="rgba(255,255,255,0.80)" strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="0" y1="-3" x2="0" y2="3" stroke="rgba(255,255,255,0.80)" strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="-2" y1="-2" x2="2" y2="2" stroke="rgba(255,255,255,0.55)" strokeWidth="1" strokeLinecap="round" />
-          <line x1="2" y1="-2" x2="-2" y2="2" stroke="rgba(255,255,255,0.55)" strokeWidth="1" strokeLinecap="round" />
+      {isSnow && Array.from({ length: 7 }, (_, i) => (
+        <g key={i} className={i%2===0 ? styles.snowFlake : styles.snowFlake2}
+           transform={`translate(${11 + i * 16},${47 + (i % 2) * 8})`}>
+          <circle r="2.4" fill="rgba(220,236,255,0.95)" />
+          <line x1="-4" y1="0" x2="4" y2="0" stroke="rgba(255,255,255,0.82)" strokeWidth="1.2" strokeLinecap="round" />
+          <line x1="0" y1="-4" x2="0" y2="4" stroke="rgba(255,255,255,0.82)" strokeWidth="1.2" strokeLinecap="round" />
+          <line x1="-2.8" y1="-2.8" x2="2.8" y2="2.8" stroke="rgba(255,255,255,0.52)" strokeWidth="0.9" strokeLinecap="round" />
+          <line x1="2.8" y1="-2.8" x2="-2.8" y2="2.8" stroke="rgba(255,255,255,0.52)" strokeWidth="0.9" strokeLinecap="round" />
         </g>
       ))}
 
       {/* ── THUNDER ── */}
-      {isThunder && (
-        <polyline points="70,30 64,44 69,44 62,60"
-          fill="none" stroke="#fde047" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      )}
+      {isThunder && <>
+        {/* Outer glow */}
+        <polyline points="70,30 63,45 69,45 61,62"
+          fill="none" stroke="rgba(253,224,71,0.40)" strokeWidth="7"
+          strokeLinecap="round" strokeLinejoin="round" filter={`url(#${UID}-bolt)`} />
+        {/* Main bolt */}
+        <polyline points="70,30 63,45 69,45 61,62"
+          fill="none" stroke="#fde047" strokeWidth="2.5"
+          strokeLinecap="round" strokeLinejoin="round" />
+        {/* Bright core */}
+        <polyline points="70,30 63,45 69,45 61,62"
+          fill="none" stroke="rgba(255,255,255,0.88)" strokeWidth="0.9"
+          strokeLinecap="round" strokeLinejoin="round" />
+      </>}
 
-      {/* ── HORIZON ── */}
-      <line x1="0" y1="68" x2="120" y2="68" stroke="rgba(255,255,255,0.20)" strokeWidth="1" />
+      {/* Horizon line */}
+      <line x1="0" y1="68" x2="120" y2="68" stroke="rgba(255,255,255,0.16)" strokeWidth="0.8" />
     </svg>
   );
 }
@@ -254,15 +341,17 @@ export function Activity() {
             <p className={styles.headerDate}>{todayStr}</p>
           </div>
           <div className={styles.weatherWidget}>
-            <WeatherScene hour={hour} weather={weather} />
-            <div className={styles.weatherInfo}>
-              {weather
-                ? <>
-                    <span className={styles.weatherTemp}>{weather.temp}°</span>
-                    <span className={styles.weatherCond}>{weather.condition}</span>
-                  </>
-                : <span className={styles.weatherTemp} style={{ opacity: 0.3 }}>—</span>
-              }
+            <div className={styles.weatherGlass}>
+              <WeatherScene hour={hour} weather={weather} />
+              <div className={styles.weatherInfo}>
+                {weather
+                  ? <>
+                      <span className={styles.weatherTemp}>{weather.temp}°</span>
+                      <span className={styles.weatherCond}>{weather.condition}</span>
+                    </>
+                  : <span className={styles.weatherTemp} style={{ opacity: 0.3 }}>—</span>
+                }
+              </div>
             </div>
           </div>
         </div>
