@@ -35,6 +35,7 @@
  *   building_type text,
  *   buildings     jsonb   default '[]',
  *   visit_days    jsonb   default '[]',
+ *   run_log       jsonb   default '[]',
  *   created_at    bigint  not null
  * );
  *
@@ -127,6 +128,7 @@ function territoryToRow(t: Territory) {
     building_type: t.buildingType ?? null,
     buildings:     t.buildings    ?? [],
     visit_days:    t.visitDays    ?? [],
+    run_log:       t.runLog       ?? [],
     created_at:    t.createdAt,
   };
 }
@@ -152,6 +154,7 @@ function rowToTerritory(row: Record<string, unknown>): Territory {
     buildingType:  (row.building_type as import('../types').ConstructionBuildingType | null) ?? undefined,
     buildings:     (row.buildings    as [])    ?? [],
     visitDays:     (row.visit_days   as number[]) ?? [],
+    runLog:        (row.run_log      as import('../types').RunEntry[]) ?? [],
     createdAt:     Number(row.created_at),
   };
 }

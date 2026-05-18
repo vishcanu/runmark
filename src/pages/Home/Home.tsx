@@ -14,7 +14,7 @@ import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath,
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
-import type { Territory, Coordinate, ActivityType } from '../../types';
+import type { Territory, Coordinate, ActivityType, RunEntry } from '../../types';
 import styles from './Home.module.css';
 
 export function Home() {
@@ -137,6 +137,7 @@ export function Home() {
       const visitDays = prevDays.some((d) => Math.floor(d / 86_400_000) === Math.floor(todayMs / 86_400_000))
         ? prevDays
         : [...prevDays, todayMs];
+      const newRun: RunEntry = { ts: Date.now(), dist: currentDistance, dur: duration, type: activityType };
       store.updateTerritory(existing.id, {
         runs:         (existing.runs ?? 1) + 1,
         distance:     existing.distance + currentDistance,
@@ -144,6 +145,7 @@ export function Home() {
         activityType,
         points:       (existing.points ?? 0) + earned,
         visitDays,
+        runLog:       [...(existing.runLog ?? []), newRun],
       });
     } else {
       // Brand-new zone — no pre-generated buildings; construction grows with runs
@@ -165,6 +167,7 @@ export function Home() {
         activityType,
         visitDays:   [Math.floor(Date.now() / 86_400_000) * 86_400_000],
         points:       earned,
+        runLog:       [{ ts: currentStartTime ?? Date.now(), dist: currentDistance, dur: duration, type: activityType }],
       };
       store.addTerritory(territory);
     }

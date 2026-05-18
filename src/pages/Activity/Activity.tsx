@@ -279,11 +279,21 @@ export function Activity() {
   const dayStart = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); }, []);
   const now = Date.now();
 
+  // ── Flatten each territory's runLog into individual run entries ──────────
+  // For territories without runLog (created before this feature), fall back to
+  // treating the whole territory as one run on createdAt.
+  const allRunsAll = useMemo(() =>
+    store.territories.flatMap(t =>
+      t.runLog && t.runLog.length > 0
+        ? t.runLog
+        : [{ ts: t.createdAt, dist: t.distance, dur: t.duration, type: t.activityType ?? 'walk' as ActivityType }]
+    ), [store.territories]);
+
   const weeklyActive = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => {
       const dStart = dayStart - (6 - i) * 86_400_000;
-      return store.territories.some(t => t.createdAt >= dStart && t.createdAt < dStart + 86_400_000);
-    }), [store.territories, dayStart]);
+      return allRunsAll.some(r => r.ts >= dStart && r.ts < dStart + 86_400_000);
+    }), [allRunsAll, dayStart]);
   const activeDaysCount = weeklyActive.filter(Boolean).length;
 
   const filtered = useMemo(() =>
@@ -298,22 +308,30 @@ export function Activity() {
   const weightKg = user.health.weightKg ?? 70;
   const heightCm = user.health.heightCm ?? 170;
 
-  const todayTs = useMemo(() => filtered.filter(t => t.createdAt >= dayStart), [filtered, dayStart]);
-  const todaySteps = useMemo(() => todayTs.reduce((s,t) => s + estimateSteps(t.distance, t.activityType ?? 'walk', heightCm), 0), [todayTs, heightCm]);
-  const todayCals  = useMemo(() => todayTs.reduce((s,t) => s + calcCaloriesBurned(t.distance, t.duration, t.activityType ?? 'walk', weightKg), 0), [todayTs, weightKg]);
-  const todayDist     = useMemo(() => todayTs.reduce((s,t) => s + t.distance, 0), [todayTs]);
-  const todayDuration = useMemo(() => todayTs.reduce((s,t) => s + t.duration, 0), [todayTs]);
+  // Filtered run entries (respects actFilter)
+  const allRuns = useMemo(() =>
+    filtered.flatMap(t =>
+      t.runLog && t.runLog.length > 0
+        ? t.runLog
+        : [{ ts: t.createdAt, dist: t.distance, dur: t.duration, type: t.activityType ?? 'walk' as ActivityType }]
+    ), [filtered]);
+
+  const todayRuns    = useMemo(() => allRuns.filter(r => r.ts >= dayStart), [allRuns, dayStart]);
+  const todaySteps   = useMemo(() => todayRuns.reduce((s,r) => s + estimateSteps(r.dist, r.type, heightCm), 0), [todayRuns, heightCm]);
+  const todayCals    = useMemo(() => todayRuns.reduce((s,r) => s + calcCaloriesBurned(r.dist, r.dur, r.type, weightKg), 0), [todayRuns, weightKg]);
+  const todayDist    = useMemo(() => todayRuns.reduce((s,r) => s + r.dist, 0), [todayRuns]);
+  const todayDuration = useMemo(() => todayRuns.reduce((s,r) => s + r.dur, 0), [todayRuns]);
 
   const periodStart = useMemo(() => {
     if (period === 'daily') return dayStart;
     if (period === 'weekly') return now - 7 * 86_400_000;
     return now - 30 * 86_400_000;
   }, [period, dayStart, now]);
-  const periodTs    = useMemo(() => filtered.filter(t => t.createdAt >= periodStart), [filtered, periodStart]);
-  const periodSteps = useMemo(() => periodTs.reduce((s,t) => s + estimateSteps(t.distance, t.activityType ?? 'walk', heightCm), 0), [periodTs, heightCm]);
-  const periodCals = useMemo(() => periodTs.reduce((s,t) => s + calcCaloriesBurned(t.distance, t.duration, t.activityType ?? 'walk', weightKg), 0), [periodTs, weightKg]);
-  const periodDist = useMemo(() => periodTs.reduce((s,t) => s + t.distance, 0), [periodTs]);
-  const periodDuration = useMemo(() => periodTs.reduce((s,t) => s + t.duration, 0), [periodTs]);
+  const periodRuns    = useMemo(() => allRuns.filter(r => r.ts >= periodStart), [allRuns, periodStart]);
+  const periodSteps   = useMemo(() => periodRuns.reduce((s,r) => s + estimateSteps(r.dist, r.type, heightCm), 0), [periodRuns, heightCm]);
+  const periodCals    = useMemo(() => periodRuns.reduce((s,r) => s + calcCaloriesBurned(r.dist, r.dur, r.type, weightKg), 0), [periodRuns, weightKg]);
+  const periodDist    = useMemo(() => periodRuns.reduce((s,r) => s + r.dist, 0), [periodRuns]);
+  const periodDuration = useMemo(() => periodRuns.reduce((s,r) => s + r.dur, 0), [periodRuns]);
 
   const WEEK_DAYS    = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -327,38 +345,38 @@ export function Activity() {
     }), [dayStart, weeklyActive]);
 
   const barData = useMemo(() => {
-    function bv(ts: typeof filtered): number {
-      if (chartMode === 'distance') return parseFloat((ts.reduce((s,t) => s+t.distance,0)/1000).toFixed(2));
-      return ts.reduce((s,t) => s + estimateSteps(t.distance, t.activityType ?? 'walk', heightCm), 0);
+    function bvRuns(runs: typeof allRuns): number {
+      if (chartMode === 'distance') return parseFloat((runs.reduce((s,r) => s+r.dist, 0)/1000).toFixed(2));
+      return runs.reduce((s,r) => s + estimateSteps(r.dist, r.type, heightCm), 0);
     }
     if (period === 'daily') return Array.from({ length: 7 }, (_, i) => {
       const dStart = dayStart - (6-i)*86_400_000;
-      const ts = filtered.filter(t => t.createdAt >= dStart && t.createdAt < dStart+86_400_000);
+      const runs = allRuns.filter(r => r.ts >= dStart && r.ts < dStart+86_400_000);
       const dow = new Date(dStart).getDay();
-      return { label: WEEK_DAYS[dow===0?6:dow-1], value: bv(ts), isToday: i===6 };
+      return { label: WEEK_DAYS[dow===0?6:dow-1], value: bvRuns(runs), isToday: i===6 };
     });
     if (period === 'weekly') return Array.from({ length: 4 }, (_, i) => {
       const wStart = dayStart - (3-i)*7*86_400_000;
-      const ts = filtered.filter(t => t.createdAt >= wStart && t.createdAt < wStart+7*86_400_000);
-      return { label: `Wk ${i+1}`, value: bv(ts), isToday: i===3 };
+      const runs = allRuns.filter(r => r.ts >= wStart && r.ts < wStart+7*86_400_000);
+      return { label: `Wk ${i+1}`, value: bvRuns(runs), isToday: i===3 };
     });
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-(5-i)); d.setHours(0,0,0,0);
       const mStart = d.getTime(); const mEnd = new Date(d.getFullYear(), d.getMonth()+1, 1).getTime();
-      const ts = filtered.filter(t => t.createdAt >= mStart && t.createdAt < mEnd);
-      return { label: MONTHS_SHORT[d.getMonth()], value: bv(ts), isToday: i===5 };
+      const runs = allRuns.filter(r => r.ts >= mStart && r.ts < mEnd);
+      return { label: MONTHS_SHORT[d.getMonth()], value: bvRuns(runs), isToday: i===5 };
     });
-  }, [period, filtered, dayStart, chartMode, heightCm]);
+  }, [period, allRuns, dayStart, chartMode, heightCm]);
 
   const activityBreakdown = useMemo(() =>
     (['run','walk','cycle'] as ActivityType[]).map(type => {
-      const ts = store.territories.filter(t => t.activityType === type);
-      const dist = ts.reduce((s,t) => s+t.distance, 0);
-      const dur  = ts.reduce((s,t) => s+t.duration, 0);
-      return { type, count: ts.length, dist, dur,
-        steps: ts.reduce((s,t) => s + estimateSteps(t.distance, type, heightCm), 0),
-        cals:  ts.reduce((s,t) => s + calcCaloriesBurned(t.distance, t.duration, type, weightKg), 0) };
-    }), [store.territories, heightCm, weightKg]);
+      const runs = allRunsAll.filter(r => r.type === type);
+      const dist = runs.reduce((s,r) => s+r.dist, 0);
+      const dur  = runs.reduce((s,r) => s+r.dur, 0);
+      return { type, count: runs.length, dist, dur,
+        steps: runs.reduce((s,r) => s + estimateSteps(r.dist, r.type, heightCm), 0),
+        cals:  runs.reduce((s,r) => s + calcCaloriesBurned(r.dist, r.dur, r.type, weightKg), 0) };
+    }), [allRunsAll, heightCm, weightKg]);
 
   const R = 50; const circumference = 2*Math.PI*R;
   const ringValue = isCycle ? todayDist/1000 : todaySteps;
@@ -486,7 +504,7 @@ export function Activity() {
           </div>
           <div className={styles.todayMetric}>
             <MapPin size={16} strokeWidth={2.5} style={{ color: '#10b981' }} />
-            <div className={styles.tmText}><span className={styles.tmVal}>{todayTs.length}</span><span className={styles.tmLbl}>Zones</span></div>
+            <div className={styles.tmText}><span className={styles.tmVal}>{todayRuns.length}</span><span className={styles.tmLbl}>Zones</span></div>
           </div>
         </div>
       </div>
@@ -559,7 +577,7 @@ export function Activity() {
         <div className={styles.chartCard}>
           <div className={styles.periodStats}>
             <div className={styles.pStat}>
-              {isCycle ? (<><span className={styles.pStatVal}>{periodTs.length}</span><span className={styles.pStatLbl}>Sessions</span></>) : (<><span className={styles.pStatVal}>{periodSteps>0?periodSteps.toLocaleString():'—'}</span><span className={styles.pStatLbl}>Steps</span></>)}
+              {isCycle ? (<><span className={styles.pStatVal}>{periodRuns.length}</span><span className={styles.pStatLbl}>Sessions</span></>) : (<><span className={styles.pStatVal}>{periodSteps>0?periodSteps.toLocaleString():'—'}</span><span className={styles.pStatLbl}>Steps</span></>)}
             </div>
             <div className={styles.pStat}><span className={styles.pStatVal}>{periodCals>0?periodCals.toLocaleString():'—'}</span><span className={styles.pStatLbl}>Calories</span></div>
             <div className={styles.pStat}><span className={styles.pStatVal}>{formatDistance(periodDist)}</span><span className={styles.pStatLbl}>Distance</span></div>

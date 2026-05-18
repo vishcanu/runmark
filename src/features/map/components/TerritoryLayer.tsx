@@ -21,7 +21,6 @@ import { getTierInfo, computeDailyStreak } from '../../territory/utils/territory
 
 const SRC        = 'territories-source';
 const SRC_FLOOR  = 'territories-floor-source';
-const SRC_VERTS  = 'territories-verts-source';
 const SRC_LABELS = 'territories-labels-source';
 const SRC_ROADS  = 'territories-roads-source';
 const L_FILL     = 'territories-fill';
@@ -31,7 +30,6 @@ const L_CROWN    = 'territories-crown';
 const L_HALO     = 'territories-halo';
 const L_BORDER   = 'territories-border';
 const L_FLASH    = 'territories-flash';
-const L_PILLARS  = 'territories-pillars';
 const L_LABEL    = 'territories-label';
 // Corridor-specific
 const L_ROAD_SLAB   = 'territories-road-slab';
@@ -169,19 +167,6 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       };
     });
 
-    // Vertex dots — only for zone territories (corridors have too many edge vertices)
-    const vertFeatures = territories
-      .filter((t) => t.shape !== 'corridor')
-      .flatMap((t) => {
-        const sel = t.id === selectedId;
-        const { color } = computeProps(t, sel);
-        return t.coordinates.slice(0, -1).map((coord) => ({
-          type: 'Feature' as const,
-          geometry: { type: 'Point' as const, coordinates: coord },
-          properties: { color, sel: sel ? 1 : 0 },
-        }));
-      });
-
     // Plain outer polygon for floor fill, halo, border — tier-driven properties
     const floorFeatures = territories.map((t) => {
       const sel = t.id === selectedId;
@@ -215,7 +200,6 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
 
     const polyGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: polyFeatures  };
     const floorGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: floorFeatures };
-    const vertGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: vertFeatures  };
     const labelGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: labelFeatures };
     const roadGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: roadFeatures  };
 
@@ -223,13 +207,11 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
     if (existingSrc) {
       existingSrc.setData(polyGeo);
       (map.getSource(SRC_FLOOR)  as GeoJSONSource)?.setData(floorGeo);
-      (map.getSource(SRC_VERTS)  as GeoJSONSource)?.setData(vertGeo);
       (map.getSource(SRC_LABELS) as GeoJSONSource)?.setData(labelGeo);
       (map.getSource(SRC_ROADS)  as GeoJSONSource)?.setData(roadGeo);
     } else {
       map.addSource(SRC,        { type: 'geojson', data: polyGeo  });
       map.addSource(SRC_FLOOR,  { type: 'geojson', data: floorGeo });
-      map.addSource(SRC_VERTS,  { type: 'geojson', data: vertGeo  });
       map.addSource(SRC_LABELS, { type: 'geojson', data: labelGeo });
       map.addSource(SRC_ROADS,  { type: 'geojson', data: roadGeo  });
 
@@ -343,19 +325,6 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
           'line-width':   8,
           'line-opacity': 0.0,        // animated
           'line-blur':    4,
-        },
-      });
-
-      // 7 ── Corner anchor dots — SMALL & PRECISE
-      //      radius 4/3 (selected/idle) — aesthetic, not bulky
-      map.addLayer({
-        id: L_PILLARS, type: 'circle', source: SRC_VERTS,
-        paint: {
-          'circle-radius':       ['case', ['==', ['get', 'sel'], 1], 4, 3],
-          'circle-color':        '#ffffff',
-          'circle-stroke-color': ['get', 'color'],
-          'circle-stroke-width': ['case', ['==', ['get', 'sel'], 1], 2.5, 2],
-          'circle-opacity':       1.0,
         },
       });
 

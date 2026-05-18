@@ -24,6 +24,14 @@ export interface Building {
 }
 
 // ─── Territory Types ──────────────────────────────────────────────────────────
+/** One completed run — stored per-run so Activity page can show per-day accurate stats. */
+export interface RunEntry {
+  ts:   number;       // timestamp when the run finished
+  dist: number;       // metres walked/run/cycled in this single run
+  dur:  number;       // seconds
+  type: ActivityType; // activity type for this specific run
+}
+
 export interface Territory {
   id: string;
   name: string;
@@ -58,6 +66,8 @@ export interface Territory {
   points: number;
   /** Day-floor timestamps (one per calendar day) of every visit — used for streak tracking */
   visitDays?: number[];
+  /** Per-run log — each entry is one completed run; used for accurate per-day stats in Activity page */
+  runLog?: RunEntry[];
   /** Inner hole ring for road-ring zone territories.
    *  outerRing = territory.coordinates (outer road edge, expanded from GPS centerline)
    *  innerHole = this field (inner road edge = block boundary, reversed for GeoJSON hole)
