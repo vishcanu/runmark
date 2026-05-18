@@ -41,6 +41,8 @@ const THEME_GRADS: Record<string, string> = {
 function themeGrad(theme?: string, color?: string) {
   return THEME_GRADS[theme ?? ''] ?? `linear-gradient(135deg, ${color ?? '#0284c7'}, #1e3a5f)`;
 }
+
+export function Home() {
   const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
   const geo = useGeolocation();
   const tracker = useActivityTracker();

@@ -100,7 +100,7 @@ function Confetti({ color }: { color: string }) {
 export function TerritoryVictory({ data, onClose }: Props) {
   const {
     isNew, tierChanged, tierName, territoryName,
-    color, themeGrad, emblem, runDist, runDur,
+    color, themeGrad, emblem, runDist,
     earnedPoints, totalRuns, activityType,
   } = data;
 

@@ -31,7 +31,8 @@ function getRunEntries(t: Territory): RunEntry[] {
     dur:  i === vDays.length - 1 ? Math.max(0, t.duration - perDur  * (vDays.length - 1)) : perDur,
     type: (t.activityType ?? 'walk') as ActivityType,
   }));
-}──
+}
+
 const UID = 'ws'; // stable SVG gradient/filter ID prefix
 
 function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | null }) {
@@ -292,7 +293,6 @@ export function Activity() {
   }[timeOfDay];
 
   const dayStart = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); }, []);
-  const now = Date.now();
 
   // ── Flatten each territory's runLog into individual run entries ──────────
   // Uses visitDays to attribute runs to correct days for legacy territories.
@@ -326,17 +326,6 @@ export function Activity() {
   const todayCals    = useMemo(() => todayRuns.reduce((s,r) => s + calcCaloriesBurned(r.dist, r.dur, r.type, weightKg), 0), [todayRuns, weightKg]);
   const todayDist    = useMemo(() => todayRuns.reduce((s,r) => s + r.dist, 0), [todayRuns]);
   const todayDuration = useMemo(() => todayRuns.reduce((s,r) => s + r.dur, 0), [todayRuns]);
-
-  const periodStart = useMemo(() => {
-    if (period === 'daily') return dayStart;
-    if (period === 'weekly') return now - 7 * 86_400_000;
-    return now - 30 * 86_400_000;
-  }, [period, dayStart, now]);
-  const periodRuns    = useMemo(() => allRuns.filter(r => r.ts >= periodStart), [allRuns, periodStart]);
-  const periodSteps   = useMemo(() => periodRuns.reduce((s,r) => s + estimateSteps(r.dist, r.type, heightCm), 0), [periodRuns, heightCm]);
-  const periodCals    = useMemo(() => periodRuns.reduce((s,r) => s + calcCaloriesBurned(r.dist, r.dur, r.type, weightKg), 0), [periodRuns, weightKg]);
-  const periodDist    = useMemo(() => periodRuns.reduce((s,r) => s + r.dist, 0), [periodRuns]);
-  const periodDuration = useMemo(() => periodRuns.reduce((s,r) => s + r.dur, 0), [periodRuns]);
 
   const WEEK_DAYS    = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -431,9 +420,9 @@ export function Activity() {
   const ringTrack = actFilter==='run'?'#fee2e2':actFilter==='walk'?'#dcfce7':actFilter==='cycle'?'#e0f2fe':'#dbeafe';
 
   const maxBar = Math.max(...barData.map(d=>d.value), 1);
-  const barCount = barData.length;
-  const barW = Math.floor((CHART_W-(barCount+1)*6)/barCount);
-  const gap = (CHART_W-barCount*barW)/(barCount+1);
+  const barRenderCount = barData.length;
+  const barW = Math.floor((CHART_W-(barRenderCount+1)*6)/barRenderCount);
+  const gap = (CHART_W-barRenderCount*barW)/(barRenderCount+1);
   const goalLineY = period==='daily' ? CHART_BASELINE-(chartGoal/Math.max(maxBar,chartGoal))*MAX_BAR_H : null;
   const chartLabel = period==='daily'?(isCycle?'km per day':'steps per day'):period==='weekly'?(isCycle?'km per week':'steps per week'):(isCycle?'km per month':'steps per month');
 
