@@ -4,6 +4,8 @@ import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
 import { Modal } from '../../components/Modal/Modal';
 import { TerritoryDetails } from '../../features/territory/components/TerritoryDetails';
+import { TerritoryVictory, type VictoryData } from '../../components/TerritoryVictory/TerritoryVictory';
+import { getTierInfo } from '../../features/territory/utils/territoryTier';
 import { MapHeader } from '../../components/MapHeader/MapHeader';
 import { useGeolocation } from '../../features/map/hooks/useGeolocation';
 import { useActivityTracker } from '../../features/activity/hooks/useActivityTracker';
@@ -17,7 +19,29 @@ import type { Park } from '../../features/parks/types';
 import type { Territory, Coordinate, ActivityType, RunEntry } from '../../types';
 import styles from './Home.module.css';
 
-export function Home() {
+// Theme gradient map — mirrors TerritoryDetails THEMES
+const THEME_GRADS: Record<string, string> = {
+  azure:   'linear-gradient(135deg,#60a5fa,#1d4ed8)',
+  arctic:  'linear-gradient(135deg,#e0f2fe,#0369a1)',
+  lagoon:  'linear-gradient(135deg,#2dd4bf,#0f766e)',
+  abyss:   'linear-gradient(135deg,#38bdf8,#164e63)',
+  emerald: 'linear-gradient(135deg,#34d399,#065f46)',
+  moss:    'linear-gradient(135deg,#a3e635,#3f6212)',
+  ember:   'linear-gradient(135deg,#fbbf24,#b45309)',
+  inferno: 'linear-gradient(135deg,#f97316,#7f1d1d)',
+  nebula:  'linear-gradient(135deg,#a78bfa,#4c1d95)',
+  aurora:  'linear-gradient(135deg,#f0abfc,#6b21a8)',
+  sakura:  'linear-gradient(135deg,#fda4af,#9f1239)',
+  rose:    'linear-gradient(135deg,#fb7185,#881337)',
+  onyx:    'linear-gradient(135deg,#475569,#0f172a)',
+  gold:    'linear-gradient(135deg,#fde68a,#92400e)',
+  prism:   'linear-gradient(135deg,#818cf8,#06b6d4)',
+  dusk:    'linear-gradient(135deg,#fb923c,#7c3aed)',
+};
+function themeGrad(theme?: string, color?: string) {
+  return THEME_GRADS[theme ?? ''] ?? `linear-gradient(135deg, ${color ?? '#0284c7'}, #1e3a5f)`;
+}
+  const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
   const geo = useGeolocation();
   const tracker = useActivityTracker();
   const store = useTerritoryStore();
@@ -138,14 +162,30 @@ export function Home() {
         ? prevDays
         : [...prevDays, todayMs];
       const newRun: RunEntry = { ts: Date.now(), dist: currentDistance, dur: duration, type: activityType };
+      const prevRuns  = existing.runs ?? 1;
+      const nextRuns  = prevRuns + 1;
       store.updateTerritory(existing.id, {
-        runs:         (existing.runs ?? 1) + 1,
+        runs:         nextRuns,
         distance:     existing.distance + currentDistance,
         lastRunAt:    Date.now(),
         activityType,
         points:       (existing.points ?? 0) + earned,
         visitDays,
         runLog:       [...(existing.runLog ?? []), newRun],
+      });
+      setVictoryData({
+        isNew:         false,
+        tierChanged:   getTierInfo(nextRuns).name !== getTierInfo(prevRuns).name,
+        tierName:      getTierInfo(nextRuns).name,
+        territoryName: existing.name,
+        color:         existing.color,
+        themeGrad:     themeGrad(existing.theme, existing.color),
+        emblem:        existing.emblem ?? 'star',
+        runDist:       currentDistance,
+        runDur:        duration,
+        earnedPoints:  earned,
+        totalRuns:     nextRuns,
+        activityType,
       });
     } else {
       // Brand-new zone — no pre-generated buildings; construction grows with runs
@@ -170,6 +210,20 @@ export function Home() {
         runLog:       [{ ts: currentStartTime ?? Date.now(), dist: currentDistance, dur: duration, type: activityType }],
       };
       store.addTerritory(territory);
+      setVictoryData({
+        isNew:         true,
+        tierChanged:   false,
+        tierName:      getTierInfo(1).name,
+        territoryName: territory.name,
+        color,
+        themeGrad:     themeGrad(undefined, color),
+        emblem:        'star',
+        runDist:       currentDistance,
+        runDur:        duration,
+        earnedPoints:  earned,
+        totalRuns:     1,
+        activityType,
+      });
     }
     tracker.reset();
     setParkCardDismissed(false); // re-show park nudge after activity
@@ -305,6 +359,10 @@ export function Home() {
         onStop={handleStop}
         isSnapping={isSnapping}
       />
+
+      {victoryData && (
+        <TerritoryVictory data={victoryData} onClose={() => setVictoryData(null)} />
+      )}
 
       {selectedTerritory && (
         <Modal
