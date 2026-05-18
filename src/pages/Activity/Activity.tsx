@@ -8,7 +8,7 @@ import { formatDistance, formatDuration } from '../../features/map/utils/geo';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { calcCaloriesBurned, estimateSteps } from '../../features/activity/utils/health';
 import { useWeather, type WeatherData } from '../../features/activity/hooks/useWeather';
-import type { ActivityType } from '../../types';
+import type { ActivityType, RunEntry, Territory } from '../../types';
 import styles from './Activity.module.css';
 
 const DAILY_STEP_GOAL = 8_000;
@@ -17,7 +17,21 @@ const CHART_W = 280;
 const CHART_BASELINE = 68;
 const MAX_BAR_H = 54;
 
-// ── Premium sky + weather widget ─────────────────────────────
+// ── Per-territory run entry fallback ─────────────────────────
+// If territory has runLog, use it. Otherwise distribute distance
+// evenly across visitDays so each day gets correct attribution.
+function getRunEntries(t: Territory): RunEntry[] {
+  if (t.runLog && t.runLog.length > 0) return t.runLog;
+  const vDays = (t.visitDays && t.visitDays.length > 0) ? t.visitDays : [t.createdAt];
+  const perDist = Math.round(t.distance / vDays.length);
+  const perDur  = Math.round(t.duration  / vDays.length);
+  return vDays.map((dayTs, i) => ({
+    ts:   i === vDays.length - 1 ? (t.lastRunAt ?? dayTs) : dayTs,
+    dist: i === vDays.length - 1 ? Math.max(0, t.distance - perDist * (vDays.length - 1)) : perDist,
+    dur:  i === vDays.length - 1 ? Math.max(0, t.duration - perDur  * (vDays.length - 1)) : perDur,
+    type: (t.activityType ?? 'walk') as ActivityType,
+  }));
+}──
 const UID = 'ws'; // stable SVG gradient/filter ID prefix
 
 function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | null }) {
@@ -264,6 +278,7 @@ export function Activity() {
   const weather = useWeather();
   const [period, setPeriod] = useState<Period>('daily');
   const [actFilter, setActFilter] = useState<ActivityFilter>('all');
+  const [selectedBarIdx, setSelectedBarIdx] = useState<number | null>(null);
   const selectedTerritory = store.selectedId ? store.getTerritory(store.selectedId) : null;
   const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const hour = new Date().getHours();
@@ -280,14 +295,9 @@ export function Activity() {
   const now = Date.now();
 
   // ── Flatten each territory's runLog into individual run entries ──────────
-  // For territories without runLog (created before this feature), fall back to
-  // treating the whole territory as one run on createdAt.
+  // Uses visitDays to attribute runs to correct days for legacy territories.
   const allRunsAll = useMemo(() =>
-    store.territories.flatMap(t =>
-      t.runLog && t.runLog.length > 0
-        ? t.runLog
-        : [{ ts: t.createdAt, dist: t.distance, dur: t.duration, type: t.activityType ?? 'walk' as ActivityType }]
-    ), [store.territories]);
+    store.territories.flatMap(getRunEntries), [store.territories]);
 
   const weeklyActive = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => {
@@ -309,12 +319,7 @@ export function Activity() {
   const heightCm = user.health.heightCm ?? 170;
 
   // Filtered run entries (respects actFilter)
-  const allRuns = useMemo(() =>
-    filtered.flatMap(t =>
-      t.runLog && t.runLog.length > 0
-        ? t.runLog
-        : [{ ts: t.createdAt, dist: t.distance, dur: t.duration, type: t.activityType ?? 'walk' as ActivityType }]
-    ), [filtered]);
+  const allRuns = useMemo(() => filtered.flatMap(getRunEntries), [filtered]);
 
   const todayRuns    = useMemo(() => allRuns.filter(r => r.ts >= dayStart), [allRuns, dayStart]);
   const todaySteps   = useMemo(() => todayRuns.reduce((s,r) => s + estimateSteps(r.dist, r.type, heightCm), 0), [todayRuns, heightCm]);
@@ -343,6 +348,43 @@ export function Activity() {
       const dow = d.getDay();
       return { dayLabel: WEEK_DAYS[dow === 0 ? 6 : dow - 1], dateNum: d.getDate(), active: weeklyActive[i], isToday: i === 6 };
     }), [dayStart, weeklyActive]);
+
+  // ── Selected bar time range + stats ─────────────────────────────────────
+  const barCount = period === 'daily' ? 7 : period === 'weekly' ? 4 : 6;
+  const effectiveBarIdx = selectedBarIdx ?? (barCount - 1);
+
+  const selectedBarRange = useMemo(() => {
+    const idx = effectiveBarIdx;
+    if (period === 'daily') {
+      const s = dayStart - (6 - idx) * 86_400_000;
+      return { start: s, end: s + 86_400_000 };
+    }
+    if (period === 'weekly') {
+      const s = dayStart - (3 - idx) * 7 * 86_400_000;
+      return { start: s, end: s + 7 * 86_400_000 };
+    }
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (5 - idx)); d.setHours(0,0,0,0);
+    return { start: d.getTime(), end: new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime() };
+  }, [period, effectiveBarIdx, dayStart]);
+
+  const selectedBarLabel = useMemo(() => {
+    const idx = effectiveBarIdx;
+    if (period === 'daily') {
+      const d = new Date(dayStart - (6 - idx) * 86_400_000);
+      return idx === barCount - 1 ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+    if (period === 'weekly') {
+      return idx === barCount - 1 ? 'This week' : `Week ${idx + 1}`;
+    }
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (5 - idx)); d.setHours(0,0,0,0);
+    return idx === barCount - 1 ? 'This month' : d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }, [period, effectiveBarIdx, barCount, dayStart]);
+
+  const selectedRuns     = useMemo(() => allRuns.filter(r => r.ts >= selectedBarRange.start && r.ts < selectedBarRange.end), [allRuns, selectedBarRange]);
+  const selectedSteps    = useMemo(() => selectedRuns.reduce((s,r) => s + estimateSteps(r.dist, r.type, heightCm), 0), [selectedRuns, heightCm]);
+  const selectedCals     = useMemo(() => selectedRuns.reduce((s,r) => s + calcCaloriesBurned(r.dist, r.dur, r.type, weightKg), 0), [selectedRuns, weightKg]);
+  const selectedDist     = useMemo(() => selectedRuns.reduce((s,r) => s + r.dist, 0), [selectedRuns]);
+  const selectedDuration = useMemo(() => selectedRuns.reduce((s,r) => s + r.dur, 0), [selectedRuns]);
 
   const barData = useMemo(() => {
     function bvRuns(runs: typeof allRuns): number {
@@ -569,19 +611,22 @@ export function Activity() {
             <button key={key}
               className={period===key ? styles.periodTabActive : styles.periodTab}
               style={period===key ? { background: ringColor, boxShadow: `0 1px 6px ${ringColor}66` } : undefined}
-              onClick={() => setPeriod(key as Period)}>
+              onClick={() => { setPeriod(key as Period); setSelectedBarIdx(null); }}>
               {label}
             </button>
           ))}
         </div>
         <div className={styles.chartCard}>
           <div className={styles.periodStats}>
-            <div className={styles.pStat}>
-              {isCycle ? (<><span className={styles.pStatVal}>{periodRuns.length}</span><span className={styles.pStatLbl}>Sessions</span></>) : (<><span className={styles.pStatVal}>{periodSteps>0?periodSteps.toLocaleString():'—'}</span><span className={styles.pStatLbl}>Steps</span></>)}
+            <div className={styles.periodStatsHeader}>
+              <span className={styles.periodStatsLabel}>{selectedBarLabel}</span>
             </div>
-            <div className={styles.pStat}><span className={styles.pStatVal}>{periodCals>0?periodCals.toLocaleString():'—'}</span><span className={styles.pStatLbl}>Calories</span></div>
-            <div className={styles.pStat}><span className={styles.pStatVal}>{formatDistance(periodDist)}</span><span className={styles.pStatLbl}>Distance</span></div>
-            <div className={styles.pStat}><span className={styles.pStatVal}>{periodDuration>0?formatDuration(periodDuration):'—'}</span><span className={styles.pStatLbl}>Active</span></div>
+            <div className={styles.pStat}>
+              {isCycle ? (<><span className={styles.pStatVal}>{selectedRuns.length}</span><span className={styles.pStatLbl}>Sessions</span></>) : (<><span className={styles.pStatVal}>{selectedSteps>0?selectedSteps.toLocaleString():'—'}</span><span className={styles.pStatLbl}>Steps</span></>)}
+            </div>
+            <div className={styles.pStat}><span className={styles.pStatVal}>{selectedCals>0?selectedCals.toLocaleString():'—'}</span><span className={styles.pStatLbl}>Calories</span></div>
+            <div className={styles.pStat}><span className={styles.pStatVal}>{formatDistance(selectedDist)}</span><span className={styles.pStatLbl}>Distance</span></div>
+            <div className={styles.pStat}><span className={styles.pStatVal}>{selectedDuration>0?formatDuration(selectedDuration):'—'}</span><span className={styles.pStatLbl}>Active</span></div>
           </div>
           <div className={styles.barChartWrap}>
             <p className={styles.chartMetricLabel}>{chartLabel}</p>
@@ -592,21 +637,31 @@ export function Activity() {
               {barData.map((bar, i) => {
                 const h = maxBar>0 ? Math.max(4,(bar.value/maxBar)*MAX_BAR_H) : 4;
                 const x = gap+i*(barW+gap); const y = CHART_BASELINE-h;
+                const isSelected = i === effectiveBarIdx;
                 return (
-                  <g key={i}>
-                    <rect x={x} y={y} width={barW} height={h} rx="4" fill={ringColor} opacity={bar.isToday?1:bar.value>0?0.5:0.12} />
+                  <g key={i} style={{ cursor: 'pointer' }} onClick={() => setSelectedBarIdx(i)}>
+                    <rect x={x} y={y} width={barW} height={h} rx="4" fill={ringColor}
+                      opacity={isSelected ? 1 : bar.value>0 ? 0.4 : 0.12} />
+                    {isSelected && <rect x={x} y={CHART_BASELINE} width={barW} height="3" rx="1.5" fill={ringColor} opacity="0.9" />}
                     {bar.value>0 && (
-                      <text x={x+barW/2} y={y-3} textAnchor="middle" fontSize="7" fill={ringColor} opacity={bar.isToday?1:0.75} fontWeight="700">
+                      <text x={x+barW/2} y={y-3} textAnchor="middle" fontSize="7" fill={ringColor}
+                        opacity={isSelected ? 1 : 0.65} fontWeight="700">
                         {chartMode==='distance' ? bar.value.toFixed(1) : bar.value>=1000?`${(bar.value/1000).toFixed(1)}k`:bar.value}
                       </text>
                     )}
+                    {/* Invisible hit-area so tap works on empty bars */}
+                    <rect x={x-2} y={0} width={barW+4} height={CHART_BASELINE+6} rx="0" fill="transparent" />
                   </g>
                 );
               })}
             </svg>
             <div className={styles.barLabels}>
               {barData.map((bar, i) => (
-                <span key={i} className={bar.isToday?styles.barLabelActive:styles.barLabel} style={bar.isToday?{color:ringColor}:undefined}>{bar.label}</span>
+                <span key={i}
+                  className={i === effectiveBarIdx ? styles.barLabelActive : styles.barLabel}
+                  style={{ color: i === effectiveBarIdx ? ringColor : undefined, cursor: 'pointer' }}
+                  onClick={() => setSelectedBarIdx(i)}
+                >{bar.label}</span>
               ))}
             </div>
           </div>

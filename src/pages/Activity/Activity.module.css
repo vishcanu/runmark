@@ -567,6 +567,22 @@
     border-bottom: 1px solid var(--color-border-subtle);
 }
 
+.periodStatsHeader {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    margin-bottom: 2px;
+}
+
+.periodStatsLabel {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-secondary);
+    letter-spacing: 0.02em;
+}
+
 .pStat {
     display: flex;
     flex-direction: column;
