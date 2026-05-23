@@ -416,10 +416,13 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
   }, [map, territories, selectedId, onTerritoryClick]);
 
   // ── Ghost territory overlay (rival player's zones) ──────────
-  const GHOST_SRC    = 'ghost-territories-source';
-  const GHOST_FILL   = 'ghost-territories-fill';
-  const GHOST_BORDER = 'ghost-territories-border';
-  const prevGhostId  = useRef<string | null>(null);
+  const GHOST_SRC     = 'ghost-territories-source';
+  const GHOST_SRC_LBL = 'ghost-territories-labels-source';
+  const GHOST_FILL    = 'ghost-territories-fill';
+  const GHOST_WALL    = 'ghost-territories-wall';
+  const GHOST_BORDER  = 'ghost-territories-border';
+  const GHOST_LABEL   = 'ghost-territories-label';
+  const prevGhostId   = useRef<string | null>(null);
 
   useEffect(() => {
     if (!map) return;
@@ -429,51 +432,87 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
     const features = gTerritories.map(t => ({
       type: 'Feature' as const,
       geometry: { type: 'Polygon' as const, coordinates: [t.coordinates as [number, number][]] },
-      properties: { color: t.color },
+      properties: { color: t.color, height: 16 },
     }));
-    const geo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features };
+    const labelFeatures = gTerritories.map(t => ({
+      type: 'Feature' as const,
+      geometry: { type: 'Point' as const, coordinates: centroid(t.coordinates as [number, number][]) },
+      properties: { name: t.name, color: t.color },
+    }));
+
+    const geo: GeoJSON.FeatureCollection     = { type: 'FeatureCollection', features };
+    const labelGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: labelFeatures };
 
     try {
       const existingSrc = map.getSource(GHOST_SRC) as GeoJSONSource | undefined;
       if (existingSrc) {
         existingSrc.setData(geo);
+        (map.getSource(GHOST_SRC_LBL) as GeoJSONSource | undefined)?.setData(labelGeo);
       } else {
-        map.addSource(GHOST_SRC, { type: 'geojson', data: geo });
-        map.addLayer({
-          id: GHOST_FILL, type: 'fill', source: GHOST_SRC,
-          paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.32 },
-        });
-        map.addLayer({
-          id: GHOST_BORDER, type: 'line', source: GHOST_SRC,
+        map.addSource(GHOST_SRC,     { type: 'geojson', data: geo      });
+        map.addSource(GHOST_SRC_LBL, { type: 'geojson', data: labelGeo });
+
+        // Flat floor tint
+        map.addLayer({ id: GHOST_FILL, type: 'fill', source: GHOST_SRC,
+          paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.28 } });
+
+        // Low ghost walls so the territory feels real, not just a sticker
+        map.addLayer({ id: GHOST_WALL, type: 'fill-extrusion', source: GHOST_SRC,
+          paint: {
+            'fill-extrusion-color':   ['get', 'color'],
+            'fill-extrusion-height':  ['get', 'height'],
+            'fill-extrusion-base':    0,
+            'fill-extrusion-opacity': 0.42,
+          } });
+
+        // Dashed perimeter ring
+        map.addLayer({ id: GHOST_BORDER, type: 'line', source: GHOST_SRC,
           paint: {
             'line-color':     ['get', 'color'],
             'line-width':     2.5,
             'line-opacity':   0.85,
             'line-dasharray': [4, 5],
+          } });
+
+        // Territory name labels (same style as owned territories)
+        map.addLayer({ id: GHOST_LABEL, type: 'symbol', source: GHOST_SRC_LBL,
+          layout: {
+            'text-field':          ['get', 'name'],
+            'text-font':           ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
+            'text-size':           12,
+            'text-anchor':         'center',
+            'text-letter-spacing': 0.08,
+            'text-max-width':      9,
           },
-        });
+          paint: {
+            'text-color':      '#ffffff',
+            'text-halo-color': ['get', 'color'],
+            'text-halo-width': 2.5,
+            'text-halo-blur':  1,
+          } });
       }
     } catch (err) {
       console.warn('[TerritoryLayer] ghost layer error', err);
     }
 
-    // Fly to the ghost territories when a new player is selected
+    // Fly to ghost territories when a new player is selected.
+    // Small timeout lets the route transition finish before flying.
     if (ghost && ghost.id !== prevGhostId.current && gTerritories.length > 0) {
       prevGhostId.current = ghost.id;
-      // Compute bounding box of all ghost territory coordinates
       let minLng =  Infinity, maxLng = -Infinity;
       let minLat =  Infinity, maxLat = -Infinity;
       for (const t of gTerritories) {
         for (const [lng, lat] of (t.coordinates as [number, number][])) {
-          if (lng < minLng) minLng = lng;
-          if (lng > maxLng) maxLng = lng;
-          if (lat < minLat) minLat = lat;
-          if (lat > maxLat) maxLat = lat;
+          if (lng < minLng) minLng = lng;  if (lng > maxLng) maxLng = lng;
+          if (lat < minLat) minLat = lat;  if (lat > maxLat) maxLat = lat;
         }
       }
       const cx = (minLng + maxLng) / 2;
       const cy = (minLat + maxLat) / 2;
-      map.flyTo({ center: [cx, cy], zoom: 15, duration: 1200, essential: true });
+      setTimeout(() => {
+        try { map.flyTo({ center: [cx, cy], zoom: 15, duration: 1200, essential: true }); }
+        catch { /* map mid-transition */ }
+      }, 250);
     } else if (!ghost) {
       prevGhostId.current = null;
     }
