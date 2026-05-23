@@ -13,109 +13,33 @@
 
 /* ── Header ──────────────────────────────────────────────── */
 .header {
-    background: #0d1117;
-    padding: calc(var(--space-8) + var(--safe-area-top)) var(--space-5) 20px;
-    position: relative;
-    overflow: hidden;
-    border-bottom: 1px solid #1e2d3d;
-}
-
-/* subtle grid texture */
-.header::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px);
-    background-size: 28px 28px;
-    pointer-events: none;
+    background: linear-gradient(150deg, #38bdf8 0%, #0284c7 100%);
+    padding: calc(var(--space-8) + var(--safe-area-top)) var(--space-5) var(--space-5);
 }
 
 .headerTop {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
-    position: relative;
-    z-index: 1;
 }
 
 .headerEyebrow {
     font-size: 11px;
-    font-weight: 700;
-    color: #0ea5e9;
+    font-weight: var(--font-semibold);
+    color: rgba(255, 255, 255, 0.65);
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    margin-bottom: 4px;
+    letter-spacing: 0.10em;
+    margin-bottom: 3px;
 }
 
 .headerTitle {
-    font-size: 34px;
-    font-weight: 900;
-    color: #f1f5f9;
-    letter-spacing: -0.05em;
-    line-height: 1;
-}
-
-.rankPill {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border-radius: 20px;
-    border: 1px solid;
-    font-size: 13px;
-    font-weight: 700;
-    flex-shrink: 0;
-    margin-top: 4px;
-}
-
-.headerStats {
-    display: flex;
-    align-items: stretch;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid #1e2d3d;
-    border-radius: 14px;
-    overflow: hidden;
-    position: relative;
-    z-index: 1;
-}
-
-.headerStat {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 14px 8px;
-    gap: 3px;
-}
-
-.headerStatValue {
-    font-size: 22px;
-    font-weight: 900;
-    color: #f1f5f9;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-extrabold);
+    color: #ffffff;
     letter-spacing: -0.04em;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
+    line-height: var(--leading-tight);
 }
 
-.headerStatLabel {
-    font-size: 10px;
-    font-weight: 600;
-    color: #334155;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.headerStatDivider {
-    width: 1px;
-    background: #1e2d3d;
-    flex-shrink: 0;
-    margin: 10px 0;
-}
-
-/* ── legacy headerIcon (not used but kept) */
 .headerIcon {
     width: 44px;
     height: 44px;
@@ -166,92 +90,7 @@
     border-radius: var(--radius-full);
 }
 
-/* ── Rank progress card ──────────────────────────────────── */
-.progressCard {
-    background: var(--color-bg-surface);
-    border-radius: var(--radius-xl);
-    border: 1px solid var(--color-border-subtle);
-    padding: var(--space-4);
-    box-shadow: var(--shadow-sm);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    position: relative;
-    overflow: hidden;
-}
-
-.progressCard::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--rank-color, #0284c7);
-    opacity: 0.8;
-}
-
-.progressTop {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.progressLeft {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-}
-
-.progressIconWrap {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-lg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.progressTitle {
-    font-size: 16px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-    margin-bottom: 2px;
-}
-
-.progressSub {
-    font-size: 12px;
-    color: var(--color-text-muted);
-    font-weight: 500;
-}
-
-.progressPct {
-    font-size: 20px;
-    font-weight: 900;
-    color: var(--rank-color, #0284c7);
-    letter-spacing: -0.04em;
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-}
-
-.progressTrack {
-    height: 7px;
-    background: var(--color-border-subtle);
-    border-radius: var(--radius-full);
-    overflow: hidden;
-}
-
-.progressFill {
-    height: 100%;
-    border-radius: var(--radius-full);
-    transition: width 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* ── Rank card (legacy, kept for compatibility) ────────── */
+/* ── Rank card ─────────────────────────────────────────────── */
 .rankCard {
     background: var(--color-bg-surface);
     border-radius: var(--radius-xl);
@@ -452,39 +291,22 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: 13px var(--space-4);
+    padding: 11px var(--space-4);
     border-bottom: 1px solid var(--color-border-subtle);
-    transition: background 0.15s;
-    cursor: pointer;
+    transition: background var(--transition-base);
 }
 
 .leaderRow:last-child {
     border-bottom: none;
 }
 
-/* Top 3 highlights */
-.leaderRow[data-pos='0'],
-.leaderRowMe[data-pos='0'] {
-    background: rgba(245, 158, 11, 0.05);
-}
-
-.leaderRow[data-pos='1'],
-.leaderRowMe[data-pos='1'] {
-    background: rgba(156, 163, 175, 0.04);
-}
-
-.leaderRow[data-pos='2'],
-.leaderRowMe[data-pos='2'] {
-    background: rgba(180, 83, 9, 0.04);
-}
-
 .leaderRowMe {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: 13px var(--space-4);
+    padding: 11px var(--space-4);
     border-bottom: 1px solid var(--color-border-subtle);
-    background: rgba(14, 165, 233, 0.06);
+    background: var(--color-park-tint);
     border-left: 3px solid var(--color-accent-primary);
 }
 
@@ -494,26 +316,25 @@
 
 .leaderRank {
     font-size: 14px;
-    font-weight: 800;
+    font-weight: var(--font-bold);
     color: var(--color-text-muted);
-    width: 26px;
+    width: 24px;
     text-align: center;
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
 }
 
 .leaderAvatar {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-full);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
-    font-weight: 800;
+    font-size: 13px;
+    font-weight: var(--font-bold);
     color: rgba(255, 255, 255, 0.95);
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .leaderInfo {
