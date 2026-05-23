@@ -7,6 +7,7 @@ import { TerritoryDetails } from '../../features/territory/components/TerritoryD
 import { TerritoryVictory, type VictoryData } from '../../components/TerritoryVictory/TerritoryVictory';
 import { getTierInfo } from '../../features/territory/utils/territoryTier';
 import { MapHeader } from '../../components/MapHeader/MapHeader';
+import { useGhostPlayer, clearGhostPlayer } from '../../features/territory/hooks/useGhostPlayer';
 import { useGeolocation } from '../../features/map/hooks/useGeolocation';
 import { useActivityTracker } from '../../features/activity/hooks/useActivityTracker';
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
@@ -44,6 +45,7 @@ function themeGrad(theme?: string, color?: string) {
 
 export function Home() {
   const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
+  const ghost = useGhostPlayer();
   const geo = useGeolocation();
   const tracker = useActivityTracker();
   const store = useTerritoryStore();
@@ -239,6 +241,36 @@ export function Home() {
   return (
     <div className={styles.page}>
       <MapHeader isActive={tracker.session.status === 'active'} />
+
+      {/* Ghost player banner — shown when viewing a rival's territories on the map */}
+      {ghost && (
+        <div className={styles.ghostBanner}>
+          <div className={styles.ghostAvatar} style={{ background: ghost.color }}>
+            {ghost.name[0].toUpperCase()}
+          </div>
+          <span className={styles.ghostText}>
+            Viewing <strong>{ghost.name}</strong>'s {ghost.territories.length} {ghost.territories.length === 1 ? 'territory' : 'territories'}
+          </span>
+          <button className={styles.ghostClose} onClick={clearGhostPlayer} aria-label="Clear view">
+            <X size={13} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
+
+      {/* Ghost player banner — shown when viewing a rival's territories */}
+      {ghost && (
+        <div className={styles.ghostBanner}>
+          <div className={styles.ghostAvatar} style={{ background: ghost.color }}>
+            {ghost.name[0].toUpperCase()}
+          </div>
+          <span className={styles.ghostText}>
+            Viewing <strong>{ghost.name}</strong>'s {ghost.territories.length} {ghost.territories.length === 1 ? 'territory' : 'territories'}
+          </span>
+          <button className={styles.ghostClose} onClick={clearGhostPlayer} aria-label="Clear view">
+            <X size={13} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
 
       {/* Background-tracking warning toast */}
       {geo.backgrounded && tracker.session.status === 'active' && (

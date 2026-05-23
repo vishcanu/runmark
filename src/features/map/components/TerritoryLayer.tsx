@@ -3,6 +3,7 @@ import type { Map, GeoJSONSource } from 'maplibre-gl';
 import maplibregl from 'maplibre-gl';
 import type { Territory } from '../../../types';
 import { getTierInfo, computeDailyStreak } from '../../territory/utils/territoryTier';
+import { useGhostPlayer } from '../../territory/hooks/useGhostPlayer';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  TERRITORY VISUAL — Solid Walls + Daily Decay
@@ -133,6 +134,7 @@ interface Props {
 
 export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick }: Props) {
   const rafRef = useRef<number | null>(null);
+  const ghost  = useGhostPlayer();
 
   useEffect(() => {
     if (!map) return;
@@ -412,6 +414,42 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
 
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [map, territories, selectedId, onTerritoryClick]);
+
+  // ── Ghost territory overlay (rival player's zones) ──────────
+  const GHOST_SRC    = 'ghost-territories-source';
+  const GHOST_FILL   = 'ghost-territories-fill';
+  const GHOST_BORDER = 'ghost-territories-border';
+
+  useEffect(() => {
+    if (!map) return;
+
+    const features = (ghost?.territories ?? []).map(t => ({
+      type: 'Feature' as const,
+      geometry: { type: 'Polygon' as const, coordinates: [t.coordinates as [number, number][]] },
+      properties: { color: t.color },
+    }));
+    const geo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features };
+
+    const existingSrc = map.getSource(GHOST_SRC) as GeoJSONSource | undefined;
+    if (existingSrc) {
+      existingSrc.setData(geo);
+    } else {
+      map.addSource(GHOST_SRC, { type: 'geojson', data: geo });
+      map.addLayer({
+        id: GHOST_FILL, type: 'fill', source: GHOST_SRC,
+        paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.28 },
+      });
+      map.addLayer({
+        id: GHOST_BORDER, type: 'line', source: GHOST_SRC,
+        paint: {
+          'line-color':      ['get', 'color'],
+          'line-width':      2.5,
+          'line-opacity':    0.80,
+          'line-dasharray':  [4, 5],
+        },
+      });
+    }
+  }, [map, ghost]);
 
   return null;
 }

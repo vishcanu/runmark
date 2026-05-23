@@ -99,6 +99,17 @@ export async function upsertTerritory(userId: string, t: Territory): Promise<voi
   if (error) console.warn('[db] upsertTerritory error', error.message);
 }
 
+export async function fetchPlayerTerritories(userId: string): Promise<Territory[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('territories')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) { console.warn('[db] fetchPlayerTerritories error', error.message); return []; }
+  return (data ?? []).map(rowToTerritory);
+}
+
 export async function deleteTerritory(id: string): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.from('territories').delete().eq('id', id);

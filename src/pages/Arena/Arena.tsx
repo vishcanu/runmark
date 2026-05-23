@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import { Shield, Zap, Flag, Crown, Star, Award, Eye, Target, TrendingUp, Navigation, CheckCircle2 } from 'lucide-react';
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { supabase } from '../../lib/supabase';
+import { setGhostPlayer } from '../../features/territory/hooks/useGhostPlayer';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { formatDistance } from '../../features/map/utils/geo';
+import { PlayerSheet } from '../../components/PlayerSheet/PlayerSheet';
+import type { PlayerEntry } from '../../components/PlayerSheet/PlayerSheet';
 import styles from './Arena.module.css';
 
 // ── Leaderboard entry type ──────────────────────────────────
@@ -54,8 +58,10 @@ function LeaderRankBadge({ pos }: { pos: number }) {
 }
 
 export function Arena() {
+  const navigate = useNavigate();
   const store = useTerritoryStore();
   const user = useUserProfile();
+  const [selectedEntry, setSelectedEntry] = useState<PlayerEntry | null>(null);
 
   const totalDistance = store.territories.reduce((s, t) => s + t.distance, 0);
   const myTerritories = store.territories.length;
@@ -256,6 +262,8 @@ export function Arena() {
               <div
                 key={entry.id}
                 className={entry.isMe ? styles.leaderRowMe : styles.leaderRow}
+                onClick={() => { if (!entry.isMe) setSelectedEntry(entry); }}
+                style={{ cursor: entry.isMe ? 'default' : 'pointer' }}
               >
                 <span className={styles.leaderRank}>
                   <LeaderRankBadge pos={i} />
@@ -314,6 +322,18 @@ export function Arena() {
         </div>
 
       </div>
+
+      {selectedEntry && (
+        <PlayerSheet
+          entry={selectedEntry}
+          onClose={() => setSelectedEntry(null)}
+          onViewMap={(territories) => {
+            setGhostPlayer({ id: selectedEntry.id, name: selectedEntry.name, color: selectedEntry.color, territories });
+            setSelectedEntry(null);
+            navigate('/');
+          }}
+        />
+      )}
     </div>
   );
 }
