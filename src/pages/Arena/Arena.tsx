@@ -1,19 +1,22 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Shield, Zap, Flag, Crown, Star, Award, Eye, Target, TrendingUp, Navigation, CheckCircle2 } from 'lucide-react';
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
+import { supabase } from '../../lib/supabase';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { formatDistance } from '../../features/map/utils/geo';
 import styles from './Arena.module.css';
 
-// ── Ghost runners (seeded, consistent) ─────────────────────
-const GHOST_RUNNERS = [
-  { id: 'g1', name: 'Alex K.',   color: '#dc2626', territories: 12, distanceM: 18500, lastSeen: 'Active now' },
-  { id: 'g2', name: 'Maya R.',   color: '#7c3aed', territories: 9,  distanceM: 14200, lastSeen: '3 min ago'  },
-  { id: 'g3', name: 'Jordan T.', color: '#ea580c', territories: 7,  distanceM: 11800, lastSeen: 'Active now' },
-  { id: 'g4', name: 'Sam W.',    color: '#0891b2', territories: 4,  distanceM: 7100,  lastSeen: '11 min ago' },
-  { id: 'g5', name: 'Riley P.',  color: '#16a34a', territories: 2,  distanceM: 3200,  lastSeen: '22 min ago' },
-];
+// ── Leaderboard entry type ──────────────────────────────────
+interface LeaderEntry {
+  id:          string;
+  name:        string;
+  color:       string;
+  territories: number;
+  distanceM:   number;
+  score:       number;
+  isMe:        boolean;
+}
 
 // ── Rank system ─────────────────────────────────────────────
 type Rank = { title: string; color: string; min: number; max: number; Icon: LucideIcon };
@@ -84,23 +87,45 @@ export function Arena() {
 
   const challengeDone = challengeProgress >= 1;
 
-  // Leaderboard — merge ghost runners + user, sort by score
-  const leaderboard = useMemo(() => {
-    const all = [
-      ...GHOST_RUNNERS.map(g => ({
-        id: g.id, name: g.name, color: g.color,
-        territories: g.territories, distanceM: g.distanceM,
-        score: siegeScore(g.territories, g.distanceM), isMe: false,
-      })),
-      {
-        id: 'me', name: user.name, color: user.color,
-        territories: myTerritories, distanceM: totalDistance,
-        score: myScore, isMe: true,
-      },
-    ];
-    return all.sort((a, b) => b.score - a.score);
-  }, [user.name, user.color, myTerritories, totalDistance, myScore]);
+  // ── Live leaderboard from Supabase ────────────────────────
+  const [leaderEntries, setLeaderEntries] = useState<LeaderEntry[]>([]);
+  const [leaderLoading, setLeaderLoading] = useState(true);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!supabase) { setLeaderLoading(false); return; }
+      const [{ data: profiles }, { data: territories }] = await Promise.all([
+        supabase.from('profiles').select('id, name, color'),
+        supabase.from('territories').select('user_id, distance'),
+      ]);
+      if (cancelled) return;
+
+      const distByUser:  Record<string, number> = {};
+      const countByUser: Record<string, number> = {};
+      for (const t of territories ?? []) {
+        distByUser[t.user_id]  = (distByUser[t.user_id]  ?? 0) + Number(t.distance);
+        countByUser[t.user_id] = (countByUser[t.user_id] ?? 0) + 1;
+      }
+
+      const entries: LeaderEntry[] = (profiles ?? []).map(p => ({
+        id:          p.id,
+        name:        p.name,
+        color:       p.color ?? '#0284c7',
+        territories: countByUser[p.id] ?? 0,
+        distanceM:   distByUser[p.id]  ?? 0,
+        score:       siegeScore(countByUser[p.id] ?? 0, distByUser[p.id] ?? 0),
+        isMe:        p.id === user.id,
+      }));
+
+      setLeaderEntries(entries.sort((a, b) => b.score - a.score));
+      setLeaderLoading(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [user.id]);
+
+  const leaderboard = leaderEntries;
   const myRank = leaderboard.findIndex(e => e.isMe) + 1;
 
   const RankIcon = rank.Icon;
@@ -201,8 +226,31 @@ export function Arena() {
         <div className={styles.section}>
           <div className={styles.sectionRow}>
             <p className={styles.sectionLabel}>Leaderboard</p>
-            <span className={styles.sectionSub}>#{myRank} of {leaderboard.length}</span>
+            {leaderLoading
+              ? <span className={styles.sectionSub}>Loading…</span>
+              : <span className={styles.sectionSub}>{myRank > 0 ? `#${myRank} of ${leaderboard.length}` : `${leaderboard.length} players`}</span>
+            }
           </div>
+          {leaderLoading ? (
+            <div className={styles.leaderboard}>
+              {[0,1,2].map(i => (
+                <div key={i} className={styles.leaderRow} style={{ opacity: 0.35 }}>
+                  <span className={styles.leaderRank}><span className={styles.leaderRankNum}>{i+1}</span></span>
+                  <div className={styles.leaderAvatar} style={{ background: '#cbd5e1' }} />
+                  <div className={styles.leaderInfo}>
+                    <p className={styles.leaderName} style={{ width: 80, background: '#e2e8f0', borderRadius: 4, color: 'transparent' }}>—</p>
+                    <p className={styles.leaderMeta} style={{ width: 120, background: '#f1f5f9', borderRadius: 4, color: 'transparent' }}>—</p>
+                  </div>
+                  <span className={styles.leaderScore} style={{ background: '#f1f5f9', borderRadius: 4, color: 'transparent' }}>—</span>
+                </div>
+              ))}
+            </div>
+          ) : leaderboard.length === 0 ? (
+            <div className={styles.emptyFeed}>
+              <Award size={24} strokeWidth={1.5} className={styles.emptyFeedIcon} />
+              <p className={styles.emptyFeedText}>No players yet — be the first to claim a territory!</p>
+            </div>
+          ) : (
           <div className={styles.leaderboard}>
             {leaderboard.map((entry, i) => (
               <div
@@ -228,6 +276,7 @@ export function Arena() {
               </div>
             ))}
           </div>
+          )}
         </div>
 
         {/* ── Claims feed ───────────────────────────────────── */}
