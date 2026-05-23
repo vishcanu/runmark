@@ -150,6 +150,19 @@
     letter-spacing: 0.02em;
 }
 
+/* ── Already-sieging notice ───────────────────────────────── */
+.siegeNotice {
+    margin: 0 12px 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    font-size: 11px;
+    color: var(--color-text-secondary, #64748b);
+    line-height: 1.5;
+    text-align: center;
+}
+
 /* ── Active Attack Banner ─────────────────────────────────── */
 .attackBanner {
     display: flex;

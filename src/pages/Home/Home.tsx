@@ -5,7 +5,7 @@ import { useUserProfile } from '../../hooks/useUserProfile';
 import { SiegeDots, SiegePanel } from '../../components/SiegeHUD/SiegeHUD';
 import { AttackSheet } from '../../components/AttackSheet/AttackSheet';
 import { AttackStrike } from '../../components/AttackStrike/AttackStrike';
-import { fetchEnemyTerritories, launchAttack } from '../../lib/db';
+import { fetchEnemyTerritories, launchAttack, clearDefendedAttacks } from '../../lib/db';
 import { getMapInstance } from '../../features/map/mapSingleton';
 import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
@@ -319,7 +319,15 @@ export function Home() {
     tracker.reset();
     setParkCardDismissed(false); // re-show park nudge after activity
     setSelectedPark(null);
-  }, [geo, tracker, store]);
+    // Check if any of our territories were under attack with defense window open.
+    // Any completed run automatically defends them — the core health loop.
+    clearDefendedAttacks(user.id).then(defended => {
+      if (defended.length > 0) {
+        console.info('[Home] Defended territories:', defended.join(', '));
+        loadEnemyTerritories(); // refresh so the attack visuals clear
+      }
+    });
+  }, [geo, tracker, store, user.id, loadEnemyTerritories]);
 
   const selectedTerritory = store.selectedId
     ? store.getTerritory(store.selectedId)
@@ -479,6 +487,7 @@ export function Home() {
         <AttackSheet
           territory={attackTarget}
           charges={charges}
+          currentUserId={user.id}
           onAttack={handleAttack}
           onClose={() => setAttackTarget(null)}
         />

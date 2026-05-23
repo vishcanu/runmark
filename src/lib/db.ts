@@ -166,6 +166,8 @@ export async function launchAttack(
     attack_type:       type,
     attacker_id:       attackerId,
     attack_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+    // 24h window for the territory owner to run and cancel this attack
+    defense_deadline:  new Date(Date.now() + 86_400_000).toISOString(),
   };
   if (type === 'tremor') updates.runs = 1;
   if (newName) updates.name = newName;
@@ -181,6 +183,36 @@ export async function launchAttack(
     return { ok: false, error: error.message };
   }
   return { ok: true };
+}
+
+/**
+ * Called after every run/walk/cycle.
+ * Finds own territories that are under attack AND still within the 24h defense window.
+ * Clears the attack — the run counts as the defense.
+ * Returns the names of defended territories (for UI feedback).
+ */
+export async function clearDefendedAttacks(userId: string): Promise<string[]> {
+  if (!supabase) return [];
+  const now = new Date().toISOString();
+  // Find own territories that have an active attack + defense window still open
+  const { data: attacked, error } = await supabase
+    .from('territories')
+    .select('id, name')
+    .eq('user_id', userId)
+    .not('attack_type', 'is', null)
+    .gt('defense_deadline', now);
+  if (error || !attacked?.length) return [];
+  const ids = attacked.map(r => r.id as string);
+  await supabase
+    .from('territories')
+    .update({
+      attack_type:       null,
+      attacker_id:       null,
+      attack_expires_at: null,
+      defense_deadline:  null,
+    })
+    .in('id', ids);
+  return attacked.map(r => r.name as string);
 }
 
 // ── Territories ──────────────────────────────────────────────
@@ -278,5 +310,8 @@ function rowToTerritory(row: Record<string, unknown>): Territory {
       ? new Date(row.attack_expires_at as string).getTime()
       : null,
     attackerId:    (row.attacker_id  as string  | null) ?? null,
+    defenseDeadline: row.defense_deadline
+      ? new Date(row.defense_deadline as string).getTime()
+      : null,
   };
 }

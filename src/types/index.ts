@@ -79,6 +79,8 @@ export interface Territory {
   attackType?:      AttackType | null;
   attackExpiresAt?: number | null;
   attackerId?:      string | null;
+  /** Deadline by which the owner must run to cancel the active attack (ms timestamp) */
+  defenseDeadline?: number | null;
 }
 
 // ─── Activity Types ───────────────────────────────────────────────────────────

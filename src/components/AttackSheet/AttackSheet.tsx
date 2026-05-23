@@ -27,10 +27,11 @@ const POWERS: {
 ];
 
 interface Props {
-  territory: WorldTerritory;
-  charges:   SiegeCharges;
-  onAttack:  (type: AttackType, newName?: string) => Promise<void>;
-  onClose:   () => void;
+  territory:     WorldTerritory;
+  charges:       SiegeCharges;
+  currentUserId: string;
+  onAttack:      (type: AttackType, newName?: string) => Promise<void>;
+  onClose:       () => void;
 }
 
 // ── Time remaining formatter ─────────────────────────────────
@@ -45,7 +46,7 @@ function formatTimeRemaining(expiresAt: number): string {
   return `${totalMinutes}m left`;
 }
 
-export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
+export function AttackSheet({ territory, charges, currentUserId, onAttack, onClose }: Props) {
   const [pending, setPending]     = useState<AttackType | null>(null);
   const [executing, setExecuting] = useState(false);
   const [renameTo, setRenameTo]   = useState('');
@@ -60,9 +61,13 @@ export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
     : null;
   const isActiveAttack = !!activeAttackPower &&
     (territory.attackExpiresAt === null || territory.attackExpiresAt === undefined || territory.attackExpiresAt > Date.now());
+  const isMyActiveSiege = isActiveAttack && territory.attackerId === currentUserId;
   const attackExpiryText = territory.attackExpiresAt
     ? formatTimeRemaining(territory.attackExpiresAt)
     : 'Permanent';
+  const defenseText = territory.defenseDeadline && territory.defenseDeadline > Date.now()
+    ? `Owner can defend until ${new Date(territory.defenseDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : null;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     dragStart.current = e.touches[0].clientY;
@@ -143,8 +148,8 @@ export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
           <div
             className={styles.attackBanner}
             style={{
-              background:   `${activeAttackPower.color}12`,
-              borderColor:  `${activeAttackPower.color}40`,
+              background:  isMyActiveSiege ? `${activeAttackPower.color}18` : `${activeAttackPower.color}12`,
+              borderColor: `${activeAttackPower.color}40`,
             }}
           >
             <div className={styles.attackBannerIcon} style={{ background: `${activeAttackPower.color}20` }}>
@@ -152,11 +157,19 @@ export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
             </div>
             <div className={styles.attackBannerBody}>
               <span className={styles.attackBannerTitle} style={{ color: activeAttackPower.color }}>
-                {activeAttackPower.label} in progress
+                {isMyActiveSiege
+                  ? `Your ${activeAttackPower.label} siege is active`
+                  : `${activeAttackPower.label} in progress`}
               </span>
               <span className={styles.attackBannerMeta}>
-                <AlertTriangle size={10} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} />
-                By {territory.attackerName ?? 'Unknown'} · {attackExpiryText}
+                {isMyActiveSiege
+                  ? `${attackExpiryText}${defenseText ? ` · ${defenseText}` : ''}`
+                  : (
+                    <>
+                      <AlertTriangle size={10} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} />
+                      By {territory.attackerName ?? 'Unknown'} · {attackExpiryText}
+                    </>
+                  )}
               </span>
             </div>
           </div>
@@ -183,16 +196,17 @@ export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
             const have       = charges[p.key];
             const canAfford  = have >= cost;
             const armed      = pending === p.key;
+            const blocked    = isMyActiveSiege;
             return (
               <button
                 key={p.key}
                 className={[
                   styles.row,
                   armed         ? styles.rowArmed   : '',
-                  !canAfford    ? styles.rowDisabled : '',
+                  !canAfford || blocked ? styles.rowDisabled : '',
                 ].filter(Boolean).join(' ')}
                 style={armed ? { borderColor: `${p.color}60`, background: `${p.color}0a` } : undefined}
-                disabled={!canAfford || executing}
+                disabled={!canAfford || executing || blocked}
                 onClick={() => handleArm(p.key)}
               >
                 {/* Icon */}
@@ -223,6 +237,13 @@ export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
             );
           })}
         </div>
+
+        {/* ── Already-sieging notice ── */}
+        {isMyActiveSiege && (
+          <p className={styles.siegeNotice}>
+            Wait for your current siege to expire or be defended before launching another.
+          </p>
+        )}
 
         {/* ── Confirm bar — appears when armed ── */}
         <div className={[styles.confirmBar, pending ? styles.confirmBarVisible : ''].join(' ')}>
