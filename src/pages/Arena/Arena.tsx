@@ -147,46 +147,59 @@ export function Arena() {
             <p className={styles.headerEyebrow}>City Siege</p>
             <h1 className={styles.headerTitle}>The Arena</h1>
           </div>
-          <div className={styles.headerIcon}>
-            <Shield size={22} strokeWidth={1.75} />
+          <div
+            className={styles.rankPill}
+            style={{ background: rank.color + '22', borderColor: rank.color + '44', color: rank.color }}
+          >
+            <RankIcon size={14} strokeWidth={2.5} />
+            <span>{rank.title}</span>
+          </div>
+        </div>
+        <div className={styles.headerStats}>
+          <div className={styles.headerStat}>
+            <span className={styles.headerStatValue}>{myScore.toLocaleString()}</span>
+            <span className={styles.headerStatLabel}>Score</span>
+          </div>
+          <div className={styles.headerStatDivider} />
+          <div className={styles.headerStat}>
+            <span className={styles.headerStatValue}>{myRank > 0 ? `#${myRank}` : '—'}</span>
+            <span className={styles.headerStatLabel}>Position</span>
+          </div>
+          <div className={styles.headerStatDivider} />
+          <div className={styles.headerStat}>
+            <span className={styles.headerStatValue}>{myTerritories}</span>
+            <span className={styles.headerStatLabel}>Zones</span>
           </div>
         </div>
       </div>
 
       <div className={styles.body}>
 
-        {/* ── Rank card ─────────────────────────────────────── */}
-        <div className={styles.rankCard} style={{ '--rank-color': rank.color } as React.CSSProperties}>
-          <div className={styles.rankTop}>
-            <div className={styles.rankIconWrap} style={{ background: rank.color + '18', color: rank.color }}>
-              <RankIcon size={20} strokeWidth={1.75} />
+        {/* ── Rank progress card ────────────────────────────── */}
+        <div className={styles.progressCard} style={{ '--rank-color': rank.color } as React.CSSProperties}>
+          <div className={styles.progressTop}>
+            <div className={styles.progressLeft}>
+              <div className={styles.progressIconWrap} style={{ background: rank.color + '18', color: rank.color }}>
+                <RankIcon size={16} strokeWidth={1.75} />
+              </div>
+              <div>
+                <p className={styles.progressTitle} style={{ color: rank.color }}>{rank.title}</p>
+                <p className={styles.progressSub}>
+                  {nextRank
+                    ? `${nextRank.min - myTerritories} zone${nextRank.min - myTerritories !== 1 ? 's' : ''} to ${nextRank.title}`
+                    : 'Maximum rank — you rule the city'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className={styles.rankEyebrow}>Your Rank</p>
-              <p className={styles.rankTitle} style={{ color: rank.color }}>{rank.title}</p>
-            </div>
-            <div className={styles.rankScore}>
-              <span className={styles.rankScoreValue}>{myScore.toLocaleString()}</span>
-              <span className={styles.rankScoreLabel}>pts</span>
-            </div>
+            <span className={styles.progressPct}>{Math.round(rankProgress * 100)}%</span>
           </div>
           {nextRank && (
-            <div className={styles.rankProgress}>
-              <div className={styles.rankProgressTrack}>
-                <div
-                  className={styles.rankProgressFill}
-                  style={{ width: `${rankProgress * 100}%`, background: rank.color }}
-                />
-              </div>
-              <p className={styles.rankProgressHint}>
-                {nextRank.min - myTerritories > 0
-                  ? `${nextRank.min - myTerritories} more ${nextRank.min - myTerritories === 1 ? 'territory' : 'territories'} to reach ${nextRank.title}`
-                  : `Almost there!`}
-              </p>
+            <div className={styles.progressTrack}>
+              <div
+                className={styles.progressFill}
+                style={{ width: `${rankProgress * 100}%`, background: rank.color }}
+              />
             </div>
-          )}
-          {!nextRank && (
-            <p className={styles.rankProgressHint}>Maximum rank — you rule the city.</p>
           )}
         </div>
 
@@ -262,6 +275,7 @@ export function Arena() {
               <div
                 key={entry.id}
                 className={entry.isMe ? styles.leaderRowMe : styles.leaderRow}
+                data-pos={i}
                 onClick={() => { if (!entry.isMe) setSelectedEntry(entry); }}
                 style={{ cursor: entry.isMe ? 'default' : 'pointer' }}
               >
