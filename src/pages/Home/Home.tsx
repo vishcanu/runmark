@@ -1,7 +1,7 @@
 import { useCallback, useState, useMemo, useEffect } from 'react';
 import { Trees, Waves, MapPin, X, Play, Navigation } from 'lucide-react';
 import { useSiegeCharges, computeEarnedCharges } from '../../hooks/useSiegeCharges';
-import { SiegeHUD } from '../../components/SiegeHUD/SiegeHUD';
+import { SiegeDots, SiegePanel } from '../../components/SiegeHUD/SiegeHUD';
 import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
 import { Modal } from '../../components/Modal/Modal';
@@ -19,7 +19,7 @@ import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath,
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
-import type { Territory, Coordinate, ActivityType, RunEntry, SiegeCharges } from '../../types';
+import type { Territory, Coordinate, ActivityType, RunEntry } from '../../types';
 import styles from './Home.module.css';
 
 // Theme gradient map — mirrors TerritoryDetails THEMES
@@ -47,7 +47,7 @@ function themeGrad(theme?: string, color?: string) {
 
 export function Home() {
   const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
-  const [lastEarned, setLastEarned] = useState<Partial<SiegeCharges> | null>(null);
+  const [showSiegePanel, setShowSiegePanel] = useState(false);
   const { charges, addCharges } = useSiegeCharges();
   const ghost = useGhostPlayer();
   const geo = useGeolocation();
@@ -195,7 +195,6 @@ export function Home() {
         store.territories.length, wasActiveYday,
       );
       addCharges(siegeEarned);
-      setLastEarned(siegeEarned);
       setVictoryData({
         isNew:         false,
         tierChanged:   getTierInfo(nextRuns).name !== getTierInfo(prevRuns).name,
@@ -239,7 +238,6 @@ export function Home() {
         store.territories.length + 1, wasActiveYday,
       );
       addCharges(siegeEarned);
-      setLastEarned(siegeEarned);
       setVictoryData({
         isNew:         true,
         tierChanged:   false,
@@ -266,7 +264,18 @@ export function Home() {
 
   return (
     <div className={styles.page}>
-      <MapHeader isActive={tracker.session.status === 'active'} />
+      <MapHeader
+        isActive={tracker.session.status === 'active'}
+        centerContent={
+          <button
+            className={styles.siegeTrigger}
+            onClick={() => setShowSiegePanel(true)}
+            aria-label="Siege Powers"
+          >
+            <SiegeDots charges={charges} />
+          </button>
+        }
+      />
 
       {/* Ghost player banner — shown when viewing a rival's territories on the map */}
       {ghost && (
@@ -395,10 +404,10 @@ export function Home() {
         </div>
       )}
 
-      {/* Siege HUD — charge counts, bottom-left above activity controls */}
-      <div className={styles.siegeHUD}>
-        <SiegeHUD charges={charges} justEarned={lastEarned} />
-      </div>
+      {/* Siege panel — full charge breakdown, opened from header dots */}
+      {showSiegePanel && (
+        <SiegePanel charges={charges} onClose={() => setShowSiegePanel(false)} />
+      )}
 
       <ActivityControls
         status={tracker.session.status}

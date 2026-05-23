@@ -9,13 +9,20 @@
     height: 100%;
 }
 
-/* Siege HUD — charge pill bar, bottom-left above activity controls */
-.siegeHUD {
-    position: absolute;
-    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 74px);
-    left: 14px;
-    z-index: 20;
-    pointer-events: auto;
+/* Siege trigger button — reset styles (actual appearance is in MapHeader.module.css) */
+.siegeTrigger {
+    display: flex;
+    align-items: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 20px;
+    transition: background 0.15s;
+}
+
+.siegeTrigger:active {
+    background: rgba(0, 0, 0, 0.06);
 }
 
 /* Ghost player banner — slides down when viewing a rival's territories */

@@ -6,9 +6,10 @@ import styles from './MapHeader.module.css';
 
 interface MapHeaderProps {
   isActive?: boolean;
+  centerContent?: React.ReactNode;
 }
 
-export function MapHeader({ isActive = false }: MapHeaderProps) {
+export function MapHeader({ isActive = false, centerContent }: MapHeaderProps) {
   const user = useUserProfile();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -43,14 +44,14 @@ export function MapHeader({ isActive = false }: MapHeaderProps) {
         <span className={styles.brandWord}>RunMark</span>
       </div>
 
-      {/* ── Center: recording pill (only when active) ─────── */}
+      {/* ── Center: recording pill or injected content ─────── */}
       <div className={styles.center}>
-        {isActive && (
+        {isActive ? (
           <div className={styles.recPill}>
             <span className={styles.recDot} />
             Recording
           </div>
-        )}
+        ) : centerContent ?? null}
       </div>
 
       {/* ── Right: avatar + dropdown ─────────────────────── */}

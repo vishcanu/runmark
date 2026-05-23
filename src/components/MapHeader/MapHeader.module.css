@@ -51,14 +51,14 @@
     line-height: 1;
 }
 
-/* ─── Center: recording pill ─────────────────────────────── */
+/* ─── Center: recording pill or siege trigger ────────────── */
 .center {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    pointer-events: none;
+    pointer-events: auto;
 }
 
 .recPill {
@@ -96,6 +96,23 @@
     }
 }
 
+
+/* ─── Siege trigger button (in center slot) ──────────────── */
+.siegeTrigger {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: var(--radius-full);
+    transition: background 0.15s;
+}
+
+.siegeTrigger:active {
+    background: rgba(0, 0, 0, 0.06);
+}
 
 /* ─── Right: avatar ──────────────────────────────────────── */
 .right {
