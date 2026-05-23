@@ -1,7 +1,7 @@
 ﻿import { useEffect, useRef } from 'react';
 import type { Map, GeoJSONSource } from 'maplibre-gl';
 import maplibregl from 'maplibre-gl';
-import type { Territory } from '../../../types';
+import type { Territory, WorldTerritory } from '../../../types';
 import { getTierInfo, computeDailyStreak } from '../../territory/utils/territoryTier';
 import { useGhostPlayer } from '../../territory/hooks/useGhostPlayer';
 
@@ -130,9 +130,11 @@ interface Props {
   territories: Territory[];
   selectedId: string | null;
   onTerritoryClick: (id: string) => void;
+  enemyTerritories?: WorldTerritory[];
+  onEnemyTerritoryClick?: (t: WorldTerritory) => void;
 }
 
-export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick }: Props) {
+export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick, enemyTerritories = [], onEnemyTerritoryClick }: Props) {
   const rafRef = useRef<number | null>(null);
   const ghost  = useGhostPlayer();
 
@@ -517,6 +519,96 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
       prevGhostId.current = null;
     }
   }, [map, ghost]);
+
+  // ── Enemy territory layer (all other players' zones) ────────
+  const ENEMY_SRC    = 'enemy-territories-source';
+  const L_ENEMY_FILL = 'enemy-territories-fill';
+  const L_ENEMY_WALL = 'enemy-territories-wall';
+  const L_ENEMY_BDR  = 'enemy-territories-border';
+  const L_ENEMY_LBL  = 'enemy-territories-label';
+
+  useEffect(() => {
+    if (!map) return;
+
+    const features = enemyTerritories.map(t => ({
+      type: 'Feature' as const,
+      id: t.id,
+      geometry: { type: 'Polygon' as const, coordinates: [t.coordinates as [number, number][]] },
+      properties: { id: t.id, color: t.ownerColor, name: t.name, owner: t.ownerName },
+    }));
+    const geo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features };
+
+    try {
+      const existingSrc = map.getSource(ENEMY_SRC) as GeoJSONSource | undefined;
+      if (existingSrc) {
+        existingSrc.setData(geo);
+      } else {
+        map.addSource(ENEMY_SRC, { type: 'geojson', data: geo });
+
+        // Flat floor tint — below own territory layers
+        map.addLayer(
+          { id: L_ENEMY_FILL, type: 'fill', source: ENEMY_SRC,
+            paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 } },
+          L_FILL,   // insert below own territory floor
+        );
+
+        // Short enemy walls (16m) so they look active but clearly foreign
+        map.addLayer(
+          { id: L_ENEMY_WALL, type: 'fill-extrusion', source: ENEMY_SRC,
+            paint: {
+              'fill-extrusion-color':   ['get', 'color'],
+              'fill-extrusion-height':  16,
+              'fill-extrusion-base':    0,
+              'fill-extrusion-opacity': 0.38,
+            } },
+          L_FILL,
+        );
+
+        // Dashed hostile border
+        map.addLayer(
+          { id: L_ENEMY_BDR, type: 'line', source: ENEMY_SRC,
+            paint: {
+              'line-color':     ['get', 'color'],
+              'line-width':     2,
+              'line-opacity':   0.70,
+              'line-dasharray': [3, 4],
+            } },
+          L_FILL,
+        );
+
+        // Name label (owner: name)
+        map.addLayer({
+          id: L_ENEMY_LBL, type: 'symbol', source: ENEMY_SRC,
+          layout: {
+            'text-field':          ['concat', ['get', 'name'], '\n', ['get', 'owner']],
+            'text-font':           ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
+            'text-size':           10,
+            'text-anchor':         'center',
+            'text-max-width':      8,
+            'text-line-height':    1.3,
+          },
+          paint: {
+            'text-color':      '#ffffff',
+            'text-halo-color': ['get', 'color'],
+            'text-halo-width': 2,
+            'text-halo-blur':  1,
+          },
+        });
+
+        // Click handler
+        map.on('click', L_ENEMY_FILL, (e) => {
+          const id = e.features?.[0]?.properties?.id as string | undefined;
+          if (!id || !onEnemyTerritoryClick) return;
+          const t = enemyTerritories.find(et => et.id === id);
+          if (t) onEnemyTerritoryClick(t);
+        });
+        map.on('mouseenter', L_ENEMY_FILL, () => { map.getCanvas().style.cursor = 'crosshair'; });
+        map.on('mouseleave', L_ENEMY_FILL, () => { map.getCanvas().style.cursor = ''; });
+      }
+    } catch (err) {
+      console.warn('[TerritoryLayer] enemy layer error', err);
+    }
+  }, [map, enemyTerritories, onEnemyTerritoryClick]);
 
   return null;
 }

@@ -7,7 +7,7 @@ import { PathLayer } from './PathLayer';
 import { BuildingLayer } from '../../building/components/BuildingLayer';
 import { ParkLayer } from '../../parks/components/ParkLayer';
 import { ParkBoundaryLayer } from '../../parks/components/ParkBoundaryLayer';
-import type { Territory, Coordinate } from '../../../types';
+import type { Territory, Coordinate, WorldTerritory } from '../../../types';
 import type { Park } from '../../parks/types';
 import styles from './MapView.module.css';
 
@@ -23,6 +23,8 @@ interface MapViewProps {
   closestParkId: string | null;
   centerTarget: Coordinate | null;
   selectedPark: Park | null;
+  enemyTerritories?: WorldTerritory[];
+  onEnemyTerritoryClick?: (t: WorldTerritory) => void;
 }
 
 export function MapView({
@@ -37,6 +39,8 @@ export function MapView({
   closestParkId,
   centerTarget,
   selectedPark,
+  enemyTerritories,
+  onEnemyTerritoryClick,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { map, isReady, flyTo } = useMap(containerRef);
@@ -74,6 +78,8 @@ export function MapView({
             territories={territories}
             selectedId={selectedTerritoryId}
             onTerritoryClick={onTerritoryClick}
+            enemyTerritories={enemyTerritories}
+            onEnemyTerritoryClick={onEnemyTerritoryClick}
           />
           <PathLayer map={map} path={activePath} />
           <BuildingLayer map={map} territories={territories} />

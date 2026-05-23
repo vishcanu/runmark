@@ -49,7 +49,7 @@
  */
 
 import { supabase } from './supabase';
-import type { Territory, SiegeCharges } from '../types';
+import type { Territory, SiegeCharges, WorldTerritory, AttackType } from '../types';
 import { SIEGE_ZERO } from '../types';
 import type { HealthProfile } from '../hooks/useUserProfile';
 
@@ -111,6 +111,62 @@ export async function saveCharges(userId: string, c: SiegeCharges): Promise<void
     })
     .eq('id', userId);
   if (error) console.warn('[db] saveCharges error', error.message);
+}
+
+// ── Enemy territories (all players except current user) ───────
+
+export async function fetchEnemyTerritories(excludeUserId: string): Promise<WorldTerritory[]> {
+  if (!supabase) return [];
+  // Fetch all territories not owned by current user
+  const { data: rows, error } = await supabase
+    .from('territories')
+    .select('*')
+    .neq('user_id', excludeUserId);
+  if (error) { console.warn('[db] fetchEnemyTerritories error', error.message); return []; }
+  if (!rows?.length) return [];
+
+  // Fetch owner profiles in one batch
+  const ownerIds = [...new Set(rows.map(r => r.user_id as string))];
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, name, color')
+    .in('id', ownerIds);
+  const profileMap = new Map(
+    (profiles ?? []).map(p => [p.id as string, p as { id: string; name: string; color: string }]),
+  );
+
+  return rows.map(row => {
+    const owner = profileMap.get(row.user_id as string);
+    return {
+      ...rowToTerritory(row),
+      userId:     row.user_id as string,
+      ownerName:  owner?.name  ?? 'Unknown',
+      ownerColor: owner?.color ?? '#64748b',
+    };
+  });
+}
+
+// ── Siege attacks ─────────────────────────────────────────────
+
+export async function launchAttack(
+  attackerId: string,
+  territoryId: string,
+  type: AttackType,
+  expiresAt: number | null,   // null = permanent (tremor)
+): Promise<void> {
+  if (!supabase) return;
+  const updates: Record<string, unknown> = {
+    attack_type:       type,
+    attacker_id:       attackerId,
+    attack_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+  };
+  // Tremor collapses the territory to Tier 1 immediately
+  if (type === 'tremor') updates.runs = 1;
+  const { error } = await supabase
+    .from('territories')
+    .update(updates)
+    .eq('id', territoryId);
+  if (error) console.warn('[db] launchAttack error', error.message);
 }
 
 // ── Territories ──────────────────────────────────────────────
@@ -202,5 +258,11 @@ function rowToTerritory(row: Record<string, unknown>): Territory {
     visitDays:     (row.visit_days   as number[]) ?? [],
     runLog:        (row.run_log      as import('../types').RunEntry[]) ?? [],
     createdAt:     Number(row.created_at),
+    userId:        (row.user_id      as string  | null) ?? undefined,
+    attackType:    (row.attack_type  as AttackType | null) ?? null,
+    attackExpiresAt: row.attack_expires_at
+      ? new Date(row.attack_expires_at as string).getTime()
+      : null,
+    attackerId:    (row.attacker_id  as string  | null) ?? null,
   };
 }

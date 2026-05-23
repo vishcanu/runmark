@@ -1,7 +1,10 @@
 import { useCallback, useState, useMemo, useEffect } from 'react';
 import { Trees, Waves, MapPin, X, Play, Navigation } from 'lucide-react';
 import { useSiegeCharges, computeEarnedCharges } from '../../hooks/useSiegeCharges';
+import { useUserProfile } from '../../hooks/useUserProfile';
 import { SiegeDots, SiegePanel } from '../../components/SiegeHUD/SiegeHUD';
+import { AttackSheet } from '../../components/AttackSheet/AttackSheet';
+import { fetchEnemyTerritories, launchAttack } from '../../lib/db';
 import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
 import { Modal } from '../../components/Modal/Modal';
@@ -19,7 +22,8 @@ import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath,
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
-import type { Territory, Coordinate, ActivityType, RunEntry } from '../../types';
+import type { Territory, Coordinate, ActivityType, RunEntry, WorldTerritory, AttackType } from '../../types';
+import { ATTACK_COSTS, ATTACK_DURATIONS_MS } from '../../types';
 import styles from './Home.module.css';
 
 // Theme gradient map — mirrors TerritoryDetails THEMES
@@ -48,7 +52,10 @@ function themeGrad(theme?: string, color?: string) {
 export function Home() {
   const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
   const [showSiegePanel, setShowSiegePanel] = useState(false);
-  const { charges, addCharges } = useSiegeCharges();
+  const [attackTarget, setAttackTarget] = useState<WorldTerritory | null>(null);
+  const [enemyTerritories, setEnemyTerritories] = useState<WorldTerritory[]>([]);
+  const { charges, addCharges, spendCharges } = useSiegeCharges();
+  const user = useUserProfile();
   const ghost = useGhostPlayer();
   const geo = useGeolocation();
   const tracker = useActivityTracker();
@@ -90,6 +97,37 @@ export function Home() {
       }
     }
   }, [geo.position, tracker.session.status]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load enemy territories once on mount (refresh after attack too)
+  const loadEnemyTerritories = useCallback(() => {
+    if (!user.id) return;
+    fetchEnemyTerritories(user.id).then(setEnemyTerritories);
+  }, [user.id]);
+
+  useEffect(() => { loadEnemyTerritories(); }, [loadEnemyTerritories]);
+
+  // Handle tap on enemy territory — open attack sheet
+  const handleEnemyTerritoryClick = useCallback((t: WorldTerritory) => {
+    setAttackTarget(t);
+  }, []);
+
+  // Execute an attack
+  const handleAttack = useCallback(async (type: AttackType) => {
+    if (!attackTarget) return;
+    const cost      = ATTACK_COSTS[type];
+    const duration  = ATTACK_DURATIONS_MS[type];
+    const expiresAt = duration > 0 ? Date.now() + duration : null;
+    spendCharges({ [type]: cost } as Partial<typeof charges>);
+    await launchAttack(user.id, attackTarget.id, type, expiresAt);
+    // Optimistically update enemy territory attack state locally
+    setEnemyTerritories(prev =>
+      prev.map(t => t.id === attackTarget.id
+        ? { ...t, attackType: type, attackExpiresAt: expiresAt, attackerId: user.id }
+        : t
+      )
+    );
+    setAttackTarget(null);
+  }, [attackTarget, spendCharges, user.id, charges]);
 
   const handleStart = useCallback((type: ActivityType = 'run') => {
     geo.startWatching();
@@ -311,6 +349,8 @@ export function Home() {
         closestParkId={closestPark?.id ?? null}
         centerTarget={mapCenterTarget}
         selectedPark={selectedPark}
+        enemyTerritories={enemyTerritories}
+        onEnemyTerritoryClick={handleEnemyTerritoryClick}
       />
 
       {/* Parks tray — horizontal scroll list, shown when idle */}
@@ -402,6 +442,16 @@ export function Home() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Attack sheet — opened when tapping an enemy territory */}
+      {attackTarget && (
+        <AttackSheet
+          territory={attackTarget}
+          charges={charges}
+          onAttack={handleAttack}
+          onClose={() => setAttackTarget(null)}
+        />
       )}
 
       {/* Siege panel — full charge breakdown, opened from header dots */}

@@ -73,6 +73,12 @@ export interface Territory {
    *  innerHole = this field (inner road edge = block boundary, reversed for GeoJSON hole)
    *  Together they form a donut polygon: road strip filled, block interior empty. */
   innerRing?: Coordinate[];
+  /** Owner user ID — populated when territory is fetched from Supabase */
+  userId?: string;
+  /** Active attack state written by the attacker */
+  attackType?:      AttackType | null;
+  attackExpiresAt?: number | null;
+  attackerId?:      string | null;
 }
 
 // ─── Activity Types ───────────────────────────────────────────────────────────
@@ -102,3 +108,29 @@ export interface SiegeCharges {
 
 export const SIEGE_MAX: SiegeCharges = { inferno: 5, cyclone: 3, tremor: 5, deluge: 3, vortex: 1 };
 export const SIEGE_ZERO: SiegeCharges = { inferno: 0, cyclone: 0, tremor: 0, deluge: 0, vortex: 0 };
+
+// ─── Siege Attack System ──────────────────────────────────────────────────────
+export type AttackType = 'inferno' | 'cyclone' | 'tremor' | 'deluge' | 'vortex';
+
+export const ATTACK_COSTS: Record<AttackType, number> = {
+  inferno: 1,
+  cyclone: 1,
+  tremor:  3,   // heavy — collapses tier
+  deluge:  1,
+  vortex:  1,
+};
+
+export const ATTACK_DURATIONS_MS: Record<AttackType, number> = {
+  inferno: 86_400_000,   // 24h
+  cyclone: 43_200_000,   // 12h
+  tremor:  0,            // permanent until re-run
+  deluge:  172_800_000,  // 48h
+  vortex:  7_200_000,    // 2h
+};
+
+/** A territory enriched with owner info — used for enemy territory rendering & attacks */
+export interface WorldTerritory extends Territory {
+  userId:     string;
+  ownerName:  string;
+  ownerColor: string;
+}
