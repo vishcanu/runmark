@@ -38,7 +38,8 @@ const L_ROAD_STRIPE = 'territories-road-stripe';
 // Cleared-ground overlay — subtle tint inside owned territory
 const L_GROUND     = 'territories-ground';
 // City-unlock golden pulse ring
-const L_CITY_GLOW  = 'territories-city-glow';
+const L_CITY_GLOW    = 'territories-city-glow';
+const L_UNDER_ATTACK = 'territories-under-attack';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -183,6 +184,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           id: t.id, color, sel: sel ? 1 : 0, floorOpacity, haloWidth, borderWidth,
           shape: isCorr ? 'corridor' : 'zone',
           cityUnlocked: cityUnlocked ? 1 : 0,
+          attackType: (t.attackType && (!t.attackExpiresAt || t.attackExpiresAt > Date.now())) ? t.attackType : '',
         },
       };
     });
@@ -329,6 +331,27 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           'line-width':   8,
           'line-opacity': 0.0,        // animated
           'line-blur':    4,
+        },
+      });
+
+      // Under-attack alert border — own territories currently being sieged
+      const underAttackColor = ([
+        'case',
+        ['==', ['get', 'attackType'], 'inferno'], '#ff4500',
+        ['==', ['get', 'attackType'], 'cyclone'], '#a855f7',
+        ['==', ['get', 'attackType'], 'tremor'],  '#92400e',
+        ['==', ['get', 'attackType'], 'deluge'],  '#0ea5e9',
+        ['==', ['get', 'attackType'], 'vortex'],  '#4c1d95',
+        '#ef4444',
+      ] as unknown) as string;
+      map.addLayer({
+        id: L_UNDER_ATTACK, type: 'line', source: SRC_FLOOR,
+        filter: ['!=', ['get', 'attackType'], ''],
+        paint: {
+          'line-color':   underAttackColor,
+          'line-width':   5,
+          'line-opacity': 0.85,
+          'line-blur':    3,
         },
       });
 
@@ -526,16 +549,33 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
   const L_ENEMY_WALL = 'enemy-territories-wall';
   const L_ENEMY_BDR  = 'enemy-territories-border';
   const L_ENEMY_LBL  = 'enemy-territories-label';
+  const L_ENEMY_ATK  = 'enemy-territories-attack';
 
   useEffect(() => {
     if (!map) return;
 
-    const features = enemyTerritories.map(t => ({
-      type: 'Feature' as const,
-      id: t.id,
-      geometry: { type: 'Polygon' as const, coordinates: [t.coordinates as [number, number][]] },
-      properties: { id: t.id, color: t.ownerColor, name: t.name, owner: t.ownerName },
-    }));
+    const now = Date.now();
+    // MapLibre expression that picks an attack colour or falls back to owner colour
+    // Cast via unknown because TS can't narrow the nested array to ExpressionSpecification
+    const attackColorExpr = ([
+      'case',
+      ['==', ['get', 'attackType'], 'inferno'], '#ff4500',
+      ['==', ['get', 'attackType'], 'cyclone'], '#a855f7',
+      ['==', ['get', 'attackType'], 'tremor'],  '#92400e',
+      ['==', ['get', 'attackType'], 'deluge'],  '#0ea5e9',
+      ['==', ['get', 'attackType'], 'vortex'],  '#4c1d95',
+      ['get', 'color'],
+    ] as unknown) as string;
+    const features = enemyTerritories.map(t => {
+      const activeAttack = (t.attackType && (!t.attackExpiresAt || t.attackExpiresAt > now))
+        ? t.attackType : '';
+      return {
+        type: 'Feature' as const,
+        id: t.id,
+        geometry: { type: 'Polygon' as const, coordinates: [t.coordinates as [number, number][]] },
+        properties: { id: t.id, color: t.ownerColor, name: t.name, owner: t.ownerName, attackType: activeAttack },
+      };
+    });
     const geo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features };
 
     try {
@@ -548,7 +588,10 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
         // Flat floor tint — below own territory layers
         map.addLayer(
           { id: L_ENEMY_FILL, type: 'fill', source: ENEMY_SRC,
-            paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 } },
+            paint: {
+              'fill-color':   attackColorExpr,
+              'fill-opacity': ['case', ['!=', ['get', 'attackType'], ''], 0.38, 0.22],
+            } },
           L_FILL,   // insert below own territory floor
         );
 
@@ -556,10 +599,10 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
         map.addLayer(
           { id: L_ENEMY_WALL, type: 'fill-extrusion', source: ENEMY_SRC,
             paint: {
-              'fill-extrusion-color':   ['get', 'color'],
-              'fill-extrusion-height':  16,
+              'fill-extrusion-color':   attackColorExpr,
+              'fill-extrusion-height':  ['case', ['==', ['get', 'attackType'], 'tremor'], 5, 16],
               'fill-extrusion-base':    0,
-              'fill-extrusion-opacity': 0.38,
+              'fill-extrusion-opacity': 0.45,  // constant per MapLibre spec
             } },
           L_FILL,
         );
@@ -568,9 +611,9 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
         map.addLayer(
           { id: L_ENEMY_BDR, type: 'line', source: ENEMY_SRC,
             paint: {
-              'line-color':     ['get', 'color'],
-              'line-width':     2,
-              'line-opacity':   0.70,
+              'line-color':     attackColorExpr,
+              'line-width':     ['case', ['!=', ['get', 'attackType'], ''], 3, 2],
+              'line-opacity':   ['case', ['!=', ['get', 'attackType'], ''], 1.0, 0.70],
               'line-dasharray': [3, 4],
             } },
           L_FILL,
@@ -589,9 +632,21 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           },
           paint: {
             'text-color':      '#ffffff',
-            'text-halo-color': ['get', 'color'],
+            'text-halo-color': attackColorExpr,
             'text-halo-width': 2,
             'text-halo-blur':  1,
+          },
+        });
+
+        // Attack glow ring — solid bright border only over territories under active siege
+        map.addLayer({
+          id: L_ENEMY_ATK, type: 'line', source: ENEMY_SRC,
+          filter: ['!=', ['get', 'attackType'], ''],
+          paint: {
+            'line-color':   attackColorExpr,
+            'line-width':   5,
+            'line-opacity': 0.9,
+            'line-blur':    3,
           },
         });
 

@@ -153,8 +153,8 @@ export async function launchAttack(
   territoryId: string,
   type: AttackType,
   expiresAt: number | null,   // null = permanent (tremor)
-): Promise<void> {
-  if (!supabase) return;
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: 'no_client' };
   const updates: Record<string, unknown> = {
     attack_type:       type,
     attacker_id:       attackerId,
@@ -162,11 +162,20 @@ export async function launchAttack(
   };
   // Tremor collapses the territory to Tier 1 immediately
   if (type === 'tremor') updates.runs = 1;
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from('territories')
-    .update(updates)
+    .update(updates, { count: 'exact' })
     .eq('id', territoryId);
-  if (error) console.warn('[db] launchAttack error', error.message);
+  if (error) {
+    console.error('[db] launchAttack error:', error.message, '| code:', error.code);
+    return { ok: false, error: error.message };
+  }
+  if ((count ?? 0) === 0) {
+    console.warn('[db] launchAttack: 0 rows updated — RLS policy is blocking cross-user writes.');
+    console.warn('Fix: run this SQL in Supabase → CREATE POLICY "siege_attacks" ON territories FOR UPDATE TO authenticated USING (true) WITH CHECK (true);');
+    return { ok: false, error: 'rls_blocked' };
+  }
+  return { ok: true };
 }
 
 // ── Territories ──────────────────────────────────────────────

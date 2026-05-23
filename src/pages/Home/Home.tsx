@@ -22,7 +22,7 @@ import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath,
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
-import type { Territory, Coordinate, ActivityType, RunEntry, WorldTerritory, AttackType } from '../../types';
+import type { Territory, Coordinate, ActivityType, RunEntry, WorldTerritory, AttackType, SiegeCharges } from '../../types';
 import { ATTACK_COSTS, ATTACK_DURATIONS_MS } from '../../types';
 import styles from './Home.module.css';
 
@@ -118,7 +118,13 @@ export function Home() {
     const duration  = ATTACK_DURATIONS_MS[type];
     const expiresAt = duration > 0 ? Date.now() + duration : null;
     spendCharges({ [type]: cost } as Partial<typeof charges>);
-    await launchAttack(user.id, attackTarget.id, type, expiresAt);
+    const result = await launchAttack(user.id, attackTarget.id, type, expiresAt);
+    if (!result.ok) {
+      // Refund charge — attack didn't land (likely RLS)
+      addCharges({ [type]: cost } as Partial<SiegeCharges>);
+      console.error('[Home] Attack failed:', result.error);
+      return;
+    }
     // Optimistically update enemy territory attack state locally
     setEnemyTerritories(prev =>
       prev.map(t => t.id === attackTarget.id
@@ -127,7 +133,7 @@ export function Home() {
       )
     );
     setAttackTarget(null);
-  }, [attackTarget, spendCharges, user.id, charges]);
+  }, [attackTarget, spendCharges, addCharges, user.id, charges]);
 
   const handleStart = useCallback((type: ActivityType = 'run') => {
     geo.startWatching();
