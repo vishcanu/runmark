@@ -29,13 +29,14 @@ const POWERS: {
 interface Props {
   territory: WorldTerritory;
   charges:   SiegeCharges;
-  onAttack:  (type: AttackType) => Promise<void>;
+  onAttack:  (type: AttackType, newName?: string) => Promise<void>;
   onClose:   () => void;
 }
 
 export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
   const [pending, setPending]     = useState<AttackType | null>(null);
   const [executing, setExecuting] = useState(false);
+  const [renameTo, setRenameTo]   = useState('');
   const confirmTimer              = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStart                 = useRef<number | null>(null);
 
@@ -67,7 +68,7 @@ export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
     if (confirmTimer.current) clearTimeout(confirmTimer.current);
     setExecuting(true);
     try {
-      await onAttack(pending);
+      await onAttack(pending, renameTo.trim() || undefined);
     } finally {
       setExecuting(false);
       setPending(null);
@@ -113,6 +114,21 @@ export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
             </div>
           </div>
           <Shield size={20} style={{ color: territory.ownerColor, opacity: 0.5, flexShrink: 0 }} />
+        </div>
+
+        {/* ── Rename (optional) ── */}
+        <div className={styles.renameRow}>
+          <span className={styles.renameLabel}>Rename territory (optional)</span>
+          <input
+            type="text"
+            className={styles.renameInput}
+            placeholder={territory.name}
+            value={renameTo}
+            onChange={e => setRenameTo(e.target.value)}
+            maxLength={30}
+            autoComplete="off"
+            spellCheck={false}
+          />
         </div>
 
         {/* ── Attack rows ── */}

@@ -116,13 +116,13 @@ export function Home() {
   }, []);
 
   // Execute an attack
-  const handleAttack = useCallback(async (type: AttackType) => {
+  const handleAttack = useCallback(async (type: AttackType, newName?: string) => {
     if (!attackTarget) return;
     const cost      = ATTACK_COSTS[type];
     const duration  = ATTACK_DURATIONS_MS[type];
     const expiresAt = duration > 0 ? Date.now() + duration : null;
     spendCharges({ [type]: cost } as Partial<typeof charges>);
-    const result = await launchAttack(user.id, attackTarget.id, type, expiresAt);
+    const result = await launchAttack(user.id, attackTarget.id, type, expiresAt, newName);
     if (!result.ok) {
       // Refund charge — attack didn't land (likely RLS)
       addCharges({ [type]: cost } as Partial<SiegeCharges>);
@@ -133,11 +133,13 @@ export function Home() {
     // Optimistically update enemy territory attack state locally
     setEnemyTerritories(prev =>
       prev.map(t => t.id === target.id
-        ? { ...t, attackType: type, attackExpiresAt: expiresAt, attackerId: user.id }
+        ? { ...t, attackType: type, attackExpiresAt: expiresAt, attackerId: user.id, name: newName ?? t.name }
         : t
       )
     );
     setAttackTarget(null);
+    // Refresh from server so subsequent attacks use fresh data
+    loadEnemyTerritories();
     // Fly map to attacked territory so the player sees the effect
     const mapInst = getMapInstance();
     if (mapInst) {
@@ -146,9 +148,10 @@ export function Home() {
     }
     // Show dramatic strike overlay, auto-dismiss after 2.6 s
     if (strikeTimerRef.current) clearTimeout(strikeTimerRef.current);
-    setStrike({ type, targetName: target.name, ownerName: target.ownerName });
+    const displayName = newName?.trim() || target.name;
+    setStrike({ type, targetName: displayName, ownerName: target.ownerName });
     strikeTimerRef.current = setTimeout(() => setStrike(null), 2600);
-  }, [attackTarget, spendCharges, addCharges, user.id, charges]);
+  }, [attackTarget, spendCharges, addCharges, user.id, charges, loadEnemyTerritories]);
 
   const handleStart = useCallback((type: ActivityType = 'run') => {
     geo.startWatching();

@@ -153,6 +153,7 @@ export async function launchAttack(
   territoryId: string,
   type: AttackType,
   expiresAt: number | null,   // null = permanent (tremor)
+  newName?: string,           // optional rename by attacker
 ): Promise<{ ok: boolean; error?: string }> {
   if (!supabase) return { ok: false, error: 'no_client' };
   const updates: Record<string, unknown> = {
@@ -160,18 +161,21 @@ export async function launchAttack(
     attacker_id:       attackerId,
     attack_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
   };
-  // Tremor collapses the territory to Tier 1 immediately
   if (type === 'tremor') updates.runs = 1;
-  const { error, count } = await supabase
+  if (newName) updates.name = newName;
+  // Use .select('id') so PostgREST returns the updated row — the only reliable
+  // way to detect 0-row updates (count: 'exact' returns null for mutations).
+  const { data, error } = await supabase
     .from('territories')
-    .update(updates, { count: 'exact' })
-    .eq('id', territoryId);
+    .update(updates)
+    .eq('id', territoryId)
+    .select('id');
   if (error) {
     console.error('[db] launchAttack error:', error.message, '| code:', error.code);
     return { ok: false, error: error.message };
   }
-  if ((count ?? 0) === 0) {
-    console.warn('[db] launchAttack: 0 rows updated — RLS policy is blocking cross-user writes.');
+  if (!data || data.length === 0) {
+    console.warn('[db] launchAttack: 0 rows returned — RLS policy is blocking cross-user writes.');
     console.warn('Fix: run this SQL in Supabase → CREATE POLICY "siege_attacks" ON territories FOR UPDATE TO authenticated USING (true) WITH CHECK (true);');
     return { ok: false, error: 'rls_blocked' };
   }
