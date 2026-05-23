@@ -133,7 +133,8 @@ export function Home() {
     // Optimistically update enemy territory attack state locally
     setEnemyTerritories(prev =>
       prev.map(t => t.id === target.id
-        ? { ...t, attackType: type, attackExpiresAt: expiresAt, attackerId: user.id, name: newName ?? t.name }
+        ? { ...t, attackType: type, attackExpiresAt: expiresAt, attackerId: user.id,
+            attackerName: user.name, name: newName ?? t.name }
         : t
       )
     );

@@ -130,7 +130,8 @@ export const ATTACK_DURATIONS_MS: Record<AttackType, number> = {
 
 /** A territory enriched with owner info — used for enemy territory rendering & attacks */
 export interface WorldTerritory extends Territory {
-  userId:     string;
-  ownerName:  string;
-  ownerColor: string;
+  userId:       string;
+  ownerName:    string;
+  ownerColor:   string;
+  attackerName?: string;  // profile name of whoever launched the current attack
 }

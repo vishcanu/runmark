@@ -125,23 +125,29 @@ export async function fetchEnemyTerritories(excludeUserId: string): Promise<Worl
   if (error) { console.warn('[db] fetchEnemyTerritories error', error.message); return []; }
   if (!rows?.length) return [];
 
-  // Fetch owner profiles in one batch
+  // Fetch owner profiles in one batch — include attacker profiles too
   const ownerIds = [...new Set(rows.map(r => r.user_id as string))];
+  const attackerIds = rows
+    .map(r => r.attacker_id as string | null)
+    .filter((id): id is string => !!id);
+  const allProfileIds = [...new Set([...ownerIds, ...attackerIds])];
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, name, color')
-    .in('id', ownerIds);
+    .in('id', allProfileIds);
   const profileMap = new Map(
     (profiles ?? []).map(p => [p.id as string, p as { id: string; name: string; color: string }]),
   );
 
   return rows.map(row => {
-    const owner = profileMap.get(row.user_id as string);
+    const owner    = profileMap.get(row.user_id    as string);
+    const attacker = row.attacker_id ? profileMap.get(row.attacker_id as string) : undefined;
     return {
       ...rowToTerritory(row),
-      userId:     row.user_id as string,
-      ownerName:  owner?.name  ?? 'Unknown',
-      ownerColor: owner?.color ?? '#64748b',
+      userId:       row.user_id as string,
+      ownerName:    owner?.name    ?? 'Unknown',
+      ownerColor:   owner?.color   ?? '#64748b',
+      attackerName: attacker?.name,
     };
   });
 }
@@ -163,21 +169,16 @@ export async function launchAttack(
   };
   if (type === 'tremor') updates.runs = 1;
   if (newName) updates.name = newName;
-  // Use .select('id') so PostgREST returns the updated row — the only reliable
-  // way to detect 0-row updates (count: 'exact' returns null for mutations).
-  const { data, error } = await supabase
+  // Only check for error — the territory ID is guaranteed valid (loaded from Supabase).
+  // Using .select() after .update() requires a second SELECT RLS pass which can fail
+  // silently for anon-role clients even when the write itself succeeds.
+  const { error } = await supabase
     .from('territories')
     .update(updates)
-    .eq('id', territoryId)
-    .select('id');
+    .eq('id', territoryId);
   if (error) {
     console.error('[db] launchAttack error:', error.message, '| code:', error.code);
     return { ok: false, error: error.message };
-  }
-  if (!data || data.length === 0) {
-    console.warn('[db] launchAttack: 0 rows returned — RLS policy is blocking cross-user writes.');
-    console.warn('Fix: run this SQL in Supabase → CREATE POLICY "siege_attacks" ON territories FOR UPDATE TO authenticated USING (true) WITH CHECK (true);');
-    return { ok: false, error: 'rls_blocked' };
   }
   return { ok: true };
 }

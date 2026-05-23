@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Flame, Wind, Mountain, Waves, Zap, X, Shield, Swords } from 'lucide-react';
+import { Flame, Wind, Mountain, Waves, Zap, X, Shield, Swords, AlertTriangle } from 'lucide-react';
 import type { SiegeCharges, WorldTerritory, AttackType } from '../../types';
 import { ATTACK_COSTS } from '../../types';
 import { getTierInfo } from '../../features/territory/utils/territoryTier';
@@ -33,6 +33,18 @@ interface Props {
   onClose:   () => void;
 }
 
+// ── Time remaining formatter ─────────────────────────────────
+function formatTimeRemaining(expiresAt: number): string {
+  const diff = expiresAt - Date.now();
+  if (diff <= 0) return 'Expired';
+  const totalMinutes = Math.floor(diff / 60_000);
+  const totalHours   = Math.floor(diff / 3_600_000);
+  const days         = Math.floor(totalHours / 24);
+  if (days >= 1)        return `${days}d ${totalHours % 24}h left`;
+  if (totalHours >= 1)  return `${totalHours}h ${totalMinutes % 60}m left`;
+  return `${totalMinutes}m left`;
+}
+
 export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
   const [pending, setPending]     = useState<AttackType | null>(null);
   const [executing, setExecuting] = useState(false);
@@ -41,6 +53,16 @@ export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
   const dragStart                 = useRef<number | null>(null);
 
   const tier = getTierInfo(territory.runs ?? 1);
+
+  // Active attack on this territory (non-expired)
+  const activeAttackPower = territory.attackType
+    ? POWERS.find(p => p.key === territory.attackType)
+    : null;
+  const isActiveAttack = !!activeAttackPower &&
+    (territory.attackExpiresAt === null || territory.attackExpiresAt === undefined || territory.attackExpiresAt > Date.now());
+  const attackExpiryText = territory.attackExpiresAt
+    ? formatTimeRemaining(territory.attackExpiresAt)
+    : 'Permanent';
 
   const handleTouchStart = (e: React.TouchEvent) => {
     dragStart.current = e.touches[0].clientY;
@@ -116,8 +138,31 @@ export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
           <Shield size={20} style={{ color: territory.ownerColor, opacity: 0.5, flexShrink: 0 }} />
         </div>
 
-        {/* ── Rename (optional) ── */}
-        <div className={styles.renameRow}>
+        {/* ── Active attack status ── */}
+        {isActiveAttack && activeAttackPower && (
+          <div
+            className={styles.attackBanner}
+            style={{
+              background:   `${activeAttackPower.color}12`,
+              borderColor:  `${activeAttackPower.color}40`,
+            }}
+          >
+            <div className={styles.attackBannerIcon} style={{ background: `${activeAttackPower.color}20` }}>
+              <activeAttackPower.Icon size={16} strokeWidth={2} style={{ color: activeAttackPower.color }} />
+            </div>
+            <div className={styles.attackBannerBody}>
+              <span className={styles.attackBannerTitle} style={{ color: activeAttackPower.color }}>
+                {activeAttackPower.label} in progress
+              </span>
+              <span className={styles.attackBannerMeta}>
+                <AlertTriangle size={10} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} />
+                By {territory.attackerName ?? 'Unknown'} · {attackExpiryText}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Rename (optional) ── */}        <div className={styles.renameRow}>
           <span className={styles.renameLabel}>Rename territory (optional)</span>
           <input
             type="text"
