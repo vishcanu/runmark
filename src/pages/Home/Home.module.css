@@ -9,6 +9,15 @@
     height: 100%;
 }
 
+/* Siege HUD — charge pill bar, bottom-left above activity controls */
+.siegeHUD {
+    position: absolute;
+    bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 74px);
+    left: 14px;
+    z-index: 20;
+    pointer-events: auto;
+}
+
 /* Ghost player banner — slides down when viewing a rival's territories */
 .ghostBanner {
     position: absolute;

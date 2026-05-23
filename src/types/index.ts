@@ -89,3 +89,16 @@ export interface ActivitySession {
   distance: number;
   activityType: ActivityType;
 }
+
+// ─── Siege System ─────────────────────────────────────────────────────────────
+/** Charge counts for each of the 5 siege powers */
+export interface SiegeCharges {
+  inferno: number;  // max 5 — earned by km covered
+  cyclone: number;  // max 3 — earned per session completed
+  tremor:  number;  // max 5 — earned by revisiting territories
+  deluge:  number;  // max 3 — earned by daily streaks
+  vortex:  number;  // max 1 — earned by holding 5+ territories
+}
+
+export const SIEGE_MAX: SiegeCharges = { inferno: 5, cyclone: 3, tremor: 5, deluge: 3, vortex: 1 };
+export const SIEGE_ZERO: SiegeCharges = { inferno: 0, cyclone: 0, tremor: 0, deluge: 0, vortex: 0 };

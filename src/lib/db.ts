@@ -49,7 +49,8 @@
  */
 
 import { supabase } from './supabase';
-import type { Territory } from '../types';
+import type { Territory, SiegeCharges } from '../types';
+import { SIEGE_ZERO } from '../types';
 import type { HealthProfile } from '../hooks/useUserProfile';
 
 // ── Profile ──────────────────────────────────────────────────
@@ -76,6 +77,40 @@ export async function upsertProfile(
     { onConflict: 'id' },
   );
   if (error) console.warn('[db] upsertProfile error', error.message);
+}
+
+// ── Siege Charges ─────────────────────────────────────────────
+
+export async function fetchCharges(userId: string): Promise<SiegeCharges> {
+  if (!supabase) return { ...SIEGE_ZERO };
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('charge_inferno, charge_cyclone, charge_tremor, charge_deluge, charge_vortex')
+    .eq('id', userId)
+    .single();
+  if (error || !data) return { ...SIEGE_ZERO };
+  return {
+    inferno: (data.charge_inferno as number) ?? 0,
+    cyclone: (data.charge_cyclone as number) ?? 0,
+    tremor:  (data.charge_tremor  as number) ?? 0,
+    deluge:  (data.charge_deluge  as number) ?? 0,
+    vortex:  (data.charge_vortex  as number) ?? 0,
+  };
+}
+
+export async function saveCharges(userId: string, c: SiegeCharges): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      charge_inferno: c.inferno,
+      charge_cyclone: c.cyclone,
+      charge_tremor:  c.tremor,
+      charge_deluge:  c.deluge,
+      charge_vortex:  c.vortex,
+    })
+    .eq('id', userId);
+  if (error) console.warn('[db] saveCharges error', error.message);
 }
 
 // ── Territories ──────────────────────────────────────────────

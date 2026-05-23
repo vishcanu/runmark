@@ -1,5 +1,7 @@
 import { useCallback, useState, useMemo, useEffect } from 'react';
 import { Trees, Waves, MapPin, X, Play, Navigation } from 'lucide-react';
+import { useSiegeCharges, computeEarnedCharges } from '../../hooks/useSiegeCharges';
+import { SiegeHUD } from '../../components/SiegeHUD/SiegeHUD';
 import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
 import { Modal } from '../../components/Modal/Modal';
@@ -17,7 +19,7 @@ import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath,
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
-import type { Territory, Coordinate, ActivityType, RunEntry } from '../../types';
+import type { Territory, Coordinate, ActivityType, RunEntry, SiegeCharges } from '../../types';
 import styles from './Home.module.css';
 
 // Theme gradient map — mirrors TerritoryDetails THEMES
@@ -45,6 +47,8 @@ function themeGrad(theme?: string, color?: string) {
 
 export function Home() {
   const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
+  const [lastEarned, setLastEarned] = useState<Partial<SiegeCharges> | null>(null);
+  const { charges, addCharges } = useSiegeCharges();
   const ghost = useGhostPlayer();
   const geo = useGeolocation();
   const tracker = useActivityTracker();
@@ -156,6 +160,14 @@ export function Home() {
       return haversineDistance(newCentroid, c) < 120;
     });
 
+    // ── Siege: check yesterday streak BEFORE modifying territory timestamps ──
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const yesterdayStart = todayStart.getTime() - 86_400_000;
+    const wasActiveYday = store.territories.some(t => {
+      const lr = t.lastRunAt ?? t.createdAt;
+      return lr >= yesterdayStart && lr < todayStart.getTime();
+    });
+
     if (existing) {
       // Accumulate stats onto the existing territory
       const earned = calcPoints(currentDistance, activityType, false);
@@ -177,6 +189,13 @@ export function Home() {
         visitDays,
         runLog:       [...(existing.runLog ?? []), newRun],
       });
+      // ── Siege: earn charges for this revisit ─────────────────────────
+      const siegeEarned = computeEarnedCharges(
+        currentDistance, activityType, false,
+        store.territories.length, wasActiveYday,
+      );
+      addCharges(siegeEarned);
+      setLastEarned(siegeEarned);
       setVictoryData({
         isNew:         false,
         tierChanged:   getTierInfo(nextRuns).name !== getTierInfo(prevRuns).name,
@@ -214,6 +233,13 @@ export function Home() {
         runLog:       [{ ts: currentStartTime ?? Date.now(), dist: currentDistance, dur: duration, type: activityType }],
       };
       store.addTerritory(territory);
+      // ── Siege: earn charges for new territory ────────────────────────
+      const siegeEarned = computeEarnedCharges(
+        currentDistance, activityType, true,
+        store.territories.length + 1, wasActiveYday,
+      );
+      addCharges(siegeEarned);
+      setLastEarned(siegeEarned);
       setVictoryData({
         isNew:         true,
         tierChanged:   false,
@@ -243,21 +269,6 @@ export function Home() {
       <MapHeader isActive={tracker.session.status === 'active'} />
 
       {/* Ghost player banner — shown when viewing a rival's territories on the map */}
-      {ghost && (
-        <div className={styles.ghostBanner}>
-          <div className={styles.ghostAvatar} style={{ background: ghost.color }}>
-            {ghost.name[0].toUpperCase()}
-          </div>
-          <span className={styles.ghostText}>
-            Viewing <strong>{ghost.name}</strong>'s {ghost.territories.length} {ghost.territories.length === 1 ? 'territory' : 'territories'}
-          </span>
-          <button className={styles.ghostClose} onClick={clearGhostPlayer} aria-label="Clear view">
-            <X size={13} strokeWidth={2.5} />
-          </button>
-        </div>
-      )}
-
-      {/* Ghost player banner — shown when viewing a rival's territories */}
       {ghost && (
         <div className={styles.ghostBanner}>
           <div className={styles.ghostAvatar} style={{ background: ghost.color }}>
@@ -383,6 +394,11 @@ export function Home() {
           </div>
         </div>
       )}
+
+      {/* Siege HUD — charge counts, bottom-left above activity controls */}
+      <div className={styles.siegeHUD}>
+        <SiegeHUD charges={charges} justEarned={lastEarned} />
+      </div>
 
       <ActivityControls
         status={tracker.session.status}
