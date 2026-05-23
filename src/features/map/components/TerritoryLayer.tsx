@@ -419,35 +419,63 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick 
   const GHOST_SRC    = 'ghost-territories-source';
   const GHOST_FILL   = 'ghost-territories-fill';
   const GHOST_BORDER = 'ghost-territories-border';
+  const prevGhostId  = useRef<string | null>(null);
 
   useEffect(() => {
     if (!map) return;
 
-    const features = (ghost?.territories ?? []).map(t => ({
+    const gTerritories = ghost?.territories ?? [];
+
+    const features = gTerritories.map(t => ({
       type: 'Feature' as const,
       geometry: { type: 'Polygon' as const, coordinates: [t.coordinates as [number, number][]] },
       properties: { color: t.color },
     }));
     const geo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features };
 
-    const existingSrc = map.getSource(GHOST_SRC) as GeoJSONSource | undefined;
-    if (existingSrc) {
-      existingSrc.setData(geo);
-    } else {
-      map.addSource(GHOST_SRC, { type: 'geojson', data: geo });
-      map.addLayer({
-        id: GHOST_FILL, type: 'fill', source: GHOST_SRC,
-        paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.28 },
-      });
-      map.addLayer({
-        id: GHOST_BORDER, type: 'line', source: GHOST_SRC,
-        paint: {
-          'line-color':      ['get', 'color'],
-          'line-width':      2.5,
-          'line-opacity':    0.80,
-          'line-dasharray':  [4, 5],
-        },
-      });
+    try {
+      const existingSrc = map.getSource(GHOST_SRC) as GeoJSONSource | undefined;
+      if (existingSrc) {
+        existingSrc.setData(geo);
+      } else {
+        map.addSource(GHOST_SRC, { type: 'geojson', data: geo });
+        map.addLayer({
+          id: GHOST_FILL, type: 'fill', source: GHOST_SRC,
+          paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.32 },
+        });
+        map.addLayer({
+          id: GHOST_BORDER, type: 'line', source: GHOST_SRC,
+          paint: {
+            'line-color':     ['get', 'color'],
+            'line-width':     2.5,
+            'line-opacity':   0.85,
+            'line-dasharray': [4, 5],
+          },
+        });
+      }
+    } catch (err) {
+      console.warn('[TerritoryLayer] ghost layer error', err);
+    }
+
+    // Fly to the ghost territories when a new player is selected
+    if (ghost && ghost.id !== prevGhostId.current && gTerritories.length > 0) {
+      prevGhostId.current = ghost.id;
+      // Compute bounding box of all ghost territory coordinates
+      let minLng =  Infinity, maxLng = -Infinity;
+      let minLat =  Infinity, maxLat = -Infinity;
+      for (const t of gTerritories) {
+        for (const [lng, lat] of (t.coordinates as [number, number][])) {
+          if (lng < minLng) minLng = lng;
+          if (lng > maxLng) maxLng = lng;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+        }
+      }
+      const cx = (minLng + maxLng) / 2;
+      const cy = (minLat + maxLat) / 2;
+      map.flyTo({ center: [cx, cy], zoom: 15, duration: 1200, essential: true });
+    } else if (!ghost) {
+      prevGhostId.current = null;
     }
   }, [map, ghost]);
 
