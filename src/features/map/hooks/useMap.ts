@@ -78,11 +78,15 @@ export function applyRunMarkTheme(map: Map) {
   set('road-rail',              'line-color',       '#c4c8d4');
   set('road-rail-tracks',       'line-color',       '#c4c8d4');
 
-  // Buildings — subtle blue-grey so 3D extrusion looks clean
-  set('building',               'fill-color',       '#d4dae8');
-  set('building',               'fill-outline-color','#bcc4d8');
-  set('building-3d',            'fill-extrusion-color', '#d4dae8');
-  set('building-3d',            'fill-extrusion-opacity', 0.85);
+  // Buildings — hidden completely (flat footprints + 3D extrusions)
+  // Only streets/roads remain visible, like Google Maps style
+  const hide = (layer: string) => {
+    try {
+      if (map.getLayer(layer)) map.setLayoutProperty(layer, 'visibility', 'none');
+    } catch { /* layer may not exist at this zoom */ }
+  };
+  hide('building');
+  hide('building-3d');
 
   // Labels — dark slate for readability
   const labelColor = '#334155';
@@ -119,18 +123,6 @@ export function useMap(containerRef: React.RefObject<HTMLDivElement | null>) {
     map.on('load', () => {
       // Apply RunMark colour theme over the base Liberty style
       applyRunMarkTheme(map);
-
-      // Enable 3D building extrusion from the base style
-      try {
-        const buildingLayer = map.getLayer('building');
-        if (buildingLayer) {
-          map.setPaintProperty('building', 'fill-extrusion-height', [
-            'interpolate', ['linear'], ['zoom'],
-            15, 0,
-            15.05, ['get', 'render_height'],
-          ]);
-        }
-      } catch { /* style may not have building layer */ }
       setMapInstance(map);
       setIsReady(true);
     });

@@ -136,8 +136,14 @@ interface Props {
 }
 
 export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick, enemyTerritories = [], onEnemyTerritoryClick }: Props) {
-  const rafRef = useRef<number | null>(null);
-  const ghost  = useGhostPlayer();
+  const rafRef              = useRef<number | null>(null);
+  // Refs always point to the latest prop values so the one-time click handler
+  // registered on source creation never becomes stale.
+  const enemyTerritoriesRef = useRef<WorldTerritory[]>(enemyTerritories);
+  const onEnemyClickRef     = useRef(onEnemyTerritoryClick);
+  enemyTerritoriesRef.current = enemyTerritories;
+  onEnemyClickRef.current     = onEnemyTerritoryClick;
+  const ghost = useGhostPlayer();
 
   useEffect(() => {
     if (!map) return;
@@ -650,12 +656,12 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           },
         });
 
-        // Click handler
+        // Click handler — uses refs so it always resolves against the latest data
         map.on('click', L_ENEMY_FILL, (e) => {
           const id = e.features?.[0]?.properties?.id as string | undefined;
-          if (!id || !onEnemyTerritoryClick) return;
-          const t = enemyTerritories.find(et => et.id === id);
-          if (t) onEnemyTerritoryClick(t);
+          if (!id || !onEnemyClickRef.current) return;
+          const t = enemyTerritoriesRef.current.find(et => et.id === id);
+          if (t) onEnemyClickRef.current(t);
         });
         map.on('mouseenter', L_ENEMY_FILL, () => { map.getCanvas().style.cursor = 'crosshair'; });
         map.on('mouseleave', L_ENEMY_FILL, () => { map.getCanvas().style.cursor = ''; });

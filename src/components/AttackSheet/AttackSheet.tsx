@@ -173,7 +173,7 @@ export function AttackSheet({ territory, charges, onAttack, onClose }: Props) {
                 Launch {pendingPower.label} on "{territory.name}"?
               </span>
               <button
-                className={styles.confirmBtn}
+                className={[styles.confirmBtn, executing ? styles.confirmBtnLaunching : ''].filter(Boolean).join(' ')}
                 style={{ background: pendingPower.color }}
                 onClick={handleConfirm}
                 disabled={executing}

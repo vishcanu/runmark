@@ -1,10 +1,12 @@
-import { useCallback, useState, useMemo, useEffect } from 'react';
+import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { Trees, Waves, MapPin, X, Play, Navigation } from 'lucide-react';
 import { useSiegeCharges, computeEarnedCharges } from '../../hooks/useSiegeCharges';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { SiegeDots, SiegePanel } from '../../components/SiegeHUD/SiegeHUD';
 import { AttackSheet } from '../../components/AttackSheet/AttackSheet';
+import { AttackStrike } from '../../components/AttackStrike/AttackStrike';
 import { fetchEnemyTerritories, launchAttack } from '../../lib/db';
+import { getMapInstance } from '../../features/map/mapSingleton';
 import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
 import { Modal } from '../../components/Modal/Modal';
@@ -54,6 +56,8 @@ export function Home() {
   const [showSiegePanel, setShowSiegePanel] = useState(false);
   const [attackTarget, setAttackTarget] = useState<WorldTerritory | null>(null);
   const [enemyTerritories, setEnemyTerritories] = useState<WorldTerritory[]>([]);
+  const [strike, setStrike] = useState<{ type: AttackType; targetName: string; ownerName: string } | null>(null);
+  const strikeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { charges, addCharges, spendCharges } = useSiegeCharges();
   const user = useUserProfile();
   const ghost = useGhostPlayer();
@@ -125,14 +129,25 @@ export function Home() {
       console.error('[Home] Attack failed:', result.error);
       return;
     }
+    const target = attackTarget; // capture before state clears
     // Optimistically update enemy territory attack state locally
     setEnemyTerritories(prev =>
-      prev.map(t => t.id === attackTarget.id
+      prev.map(t => t.id === target.id
         ? { ...t, attackType: type, attackExpiresAt: expiresAt, attackerId: user.id }
         : t
       )
     );
     setAttackTarget(null);
+    // Fly map to attacked territory so the player sees the effect
+    const mapInst = getMapInstance();
+    if (mapInst) {
+      const center = polyCentroid(target.coordinates as Coordinate[]);
+      mapInst.flyTo({ center, zoom: 17, pitch: 55, bearing: 20, duration: 1400 });
+    }
+    // Show dramatic strike overlay, auto-dismiss after 2.6 s
+    if (strikeTimerRef.current) clearTimeout(strikeTimerRef.current);
+    setStrike({ type, targetName: target.name, ownerName: target.ownerName });
+    strikeTimerRef.current = setTimeout(() => setStrike(null), 2600);
   }, [attackTarget, spendCharges, addCharges, user.id, charges]);
 
   const handleStart = useCallback((type: ActivityType = 'run') => {
@@ -448,6 +463,11 @@ export function Home() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Strike overlay — full-screen dramatic animation after a successful attack */}
+      {strike && (
+        <AttackStrike type={strike.type} targetName={strike.targetName} ownerName={strike.ownerName} />
       )}
 
       {/* Attack sheet — opened when tapping an enemy territory */}

@@ -301,3 +301,21 @@
     opacity: 0.6;
     cursor: not-allowed;
 }
+
+.confirmBtnLaunching {
+    animation: launchPulse 0.55s ease-in-out infinite;
+}
+
+@keyframes launchPulse {
+
+    0%,
+    100% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 1.0;
+        transform: scale(1.04);
+    }
+}
