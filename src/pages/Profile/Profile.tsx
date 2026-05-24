@@ -176,24 +176,70 @@ export function Profile() {
           <span className={styles.levelDot}>·</span>
           <span className={styles.xpChip}>{totalPoints.toLocaleString()} pts</span>
         </div>
+
+        {/* XP bar lives inside the hero — no repeated level text */}
+        <div className={styles.heroXp}>
+          <div className={styles.xpRow}>
+            <span className={styles.xpText}>Progress to level {level + 1}</span>
+            <span className={styles.xpPct}>{Math.round(progressToNext)}%</span>
+          </div>
+          <div className={styles.xpTrack}>
+            <div
+              className={styles.xpFill}
+              style={{ width: `${Math.min(progressToNext, 100)}%` }}
+            />
+          </div>
+          <span className={styles.xpHint}>
+            {formatDistance(Math.max(0, 1000 - (totalDistance % 1000)))} to next level
+          </span>
+        </div>
       </div>
 
-      {/* ── XP Progress ───────────────────────────────────── */}
-      <div className={styles.xpCard}>
-        <div className={styles.xpRow}>
-          <span className={styles.xpText}>Level {level} → {level + 1}</span>
-          <span className={styles.xpPct}>{Math.round(progressToNext)}%</span>
+      {/* ── Health profile (top) ──────────────────────────── */}
+      {hasHealth && (
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>Health Profile</div>
+          <div className={styles.healthCard}>
+            {bmi != null && (
+              <div className={styles.healthBmiRow}>
+                <Shield size={14} strokeWidth={2} style={{ color: "var(--color-accent-primary)" }} />
+                <div className={styles.healthBmiInner}>
+                  <span className={styles.healthBmiValue}>{bmi}</span>
+                  <span className={styles.healthBmiLabel}>BMI · {bmiLabel}</span>
+                </div>
+              </div>
+            )}
+            <div className={styles.healthGrid}>
+              {user.health.age && (
+                <div className={styles.healthItem}>
+                  <span className={styles.healthItemVal}>{user.health.age}</span>
+                  <span className={styles.healthItemLabel}>Age</span>
+                </div>
+              )}
+              {user.health.weightKg && (
+                <div className={styles.healthItem}>
+                  <span className={styles.healthItemVal}>{user.health.weightKg}</span>
+                  <span className={styles.healthItemLabel}>Weight kg</span>
+                </div>
+              )}
+              {user.health.heightCm && (
+                <div className={styles.healthItem}>
+                  <span className={styles.healthItemVal}>{user.health.heightCm}</span>
+                  <span className={styles.healthItemLabel}>Height cm</span>
+                </div>
+              )}
+              {user.health.gender && (
+                <div className={styles.healthItem}>
+                  <span className={styles.healthItemVal} style={{ textTransform: "capitalize" }}>
+                    {user.health.gender}
+                  </span>
+                  <span className={styles.healthItemLabel}>Gender</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <div className={styles.xpTrack}>
-          <div
-            className={styles.xpFill}
-            style={{ width: `${Math.min(progressToNext, 100)}%` }}
-          />
-        </div>
-        <span className={styles.xpHint}>
-          {formatDistance(Math.max(0, 1000 - (totalDistance % 1000)))} to unlock level {level + 1}
-        </span>
-      </div>
+      )}
 
       {/* ── Stats ─────────────────────────────────────────── */}
       <div className={styles.section}>
@@ -344,51 +390,7 @@ export function Profile() {
         </div>
       </div>
 
-      {/* ── Health profile ────────────────────────────────── */}
-      {hasHealth && (
-        <div className={styles.section}>
-          <div className={styles.sectionTitle}>Health Profile</div>
-          <div className={styles.healthCard}>
-            {bmi != null && (
-              <div className={styles.healthBmiRow}>
-                <Shield size={14} strokeWidth={2} style={{ color: "var(--color-accent-primary)" }} />
-                <div className={styles.healthBmiInner}>
-                  <span className={styles.healthBmiValue}>{bmi}</span>
-                  <span className={styles.healthBmiLabel}>BMI · {bmiLabel}</span>
-                </div>
-              </div>
-            )}
-            <div className={styles.healthGrid}>
-              {user.health.age && (
-                <div className={styles.healthItem}>
-                  <span className={styles.healthItemVal}>{user.health.age}</span>
-                  <span className={styles.healthItemLabel}>Age</span>
-                </div>
-              )}
-              {user.health.weightKg && (
-                <div className={styles.healthItem}>
-                  <span className={styles.healthItemVal}>{user.health.weightKg}</span>
-                  <span className={styles.healthItemLabel}>Weight kg</span>
-                </div>
-              )}
-              {user.health.heightCm && (
-                <div className={styles.healthItem}>
-                  <span className={styles.healthItemVal}>{user.health.heightCm}</span>
-                  <span className={styles.healthItemLabel}>Height cm</span>
-                </div>
-              )}
-              {user.health.gender && (
-                <div className={styles.healthItem}>
-                  <span className={styles.healthItemVal} style={{ textTransform: "capitalize" }}>
-                    {user.health.gender}
-                  </span>
-                  <span className={styles.healthItemLabel}>Gender</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* ── Sign out ──────────────────────────────────────── */}
       <div className={styles.signOutSection}>
