@@ -38,7 +38,7 @@ const UID = 'ws'; // stable SVG gradient/filter ID prefix
 function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | null }) {
   const h = Math.max(5, Math.min(19, hour));
   const angle = Math.PI * (1 - (h - 5) / 14);
-  const CX = 60, CY = 72, R = 46;
+  const CX = 75, CY = 72, R = 65;
   const bx = CX + R * Math.cos(angle);
   const by = CY - R * Math.sin(angle);
   const bodyVisible = by < 68;
