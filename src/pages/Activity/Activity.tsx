@@ -68,7 +68,7 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
   const bgCloudOp = isNight ? (isStorm ? 0.70 : 0.44) : 0.88;
 
   return (
-    <svg viewBox="0 14 150 72" className={styles.weatherScene} aria-hidden="true">
+    <svg viewBox="0 2 150 72" className={styles.weatherScene} aria-hidden="true">
       <defs>
         <filter id={`${UID}-cs`} x="-25%" y="-25%" width="150%" height="160%">
           <feDropShadow dx="0" dy="2.5" stdDeviation="2" floodColor="rgba(0,30,60,0.20)" />
@@ -158,35 +158,35 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
 
       {/* ── CLOUDS — overcast ── */}
       {cloudy && <>
-        {/* Far-right third cloud — fills new viewBox space */}
+        {/* Far-right third cloud */}
         <g className={styles.cloudMain} filter={`url(#${UID}-cs)`} opacity={bgCloudOp * 0.72}>
-          <circle cx="126" cy="38" r="4.5" fill={cloudFill2} />
-          <circle cx="134" cy="34" r="5.5" fill={cloudFill2} />
-          <circle cx="142" cy="36" r="4.5" fill={cloudFill2} />
-          <rect x="122" y="38" width="24" height="5.5" rx="2.8" fill={cloudFill2} />
+          <circle cx="127" cy="39" r="3.5" fill={cloudFill2} />
+          <circle cx="134" cy="35" r="4.5" fill={cloudFill2} />
+          <circle cx="141" cy="37" r="3.5" fill={cloudFill2} />
+          <rect x="124" y="39" width="20" height="4.5" rx="2.2" fill={cloudFill2} />
         </g>
-        {/* Background cloud — top-right, compact icon size */}
+        {/* Background cloud — top-right */}
         <g className={styles.cloudBg} filter={`url(#${UID}-cs)`} opacity={bgCloudOp}>
-          <circle cx="88"  cy="28" r="4.5" fill={cloudFill2} />
-          <circle cx="96"  cy="25" r="6"   fill={cloudFill2} />
-          <circle cx="104" cy="27" r="5"   fill={cloudFill2} />
-          <rect x="84" y="29" width="25" height="6" rx="3" fill={cloudFill2} />
+          <circle cx="88"  cy="29" r="3.5" fill={cloudFill2} />
+          <circle cx="96"  cy="26" r="5"   fill={cloudFill2} />
+          <circle cx="104" cy="28" r="4"   fill={cloudFill2} />
+          <rect x="85" y="30" width="22" height="5" rx="2.5" fill={cloudFill2} />
           {!isNight && <>
-            <circle cx="94"  cy="22" r="2.8" fill="rgba(255,255,255,0.60)" />
-            <circle cx="102" cy="21" r="3"   fill="rgba(255,255,255,0.55)" />
+            <circle cx="94"  cy="23" r="2.2" fill="rgba(255,255,255,0.60)" />
+            <circle cx="102" cy="22" r="2.4" fill="rgba(255,255,255,0.55)" />
           </>}
         </g>
-        {/* Main foreground cloud — icon-sized, 4 puffs */}
+        {/* Main foreground cloud */}
         <g className={styles.cloudMain} filter={`url(#${UID}-cs)`} opacity={cloudOp}>
-          <circle cx="40"  cy="44" r="6"   fill={cloudFill1} />
-          <circle cx="49"  cy="40" r="7.5" fill={cloudFill1} />
-          <circle cx="58"  cy="38" r="8"   fill={cloudFill1} />
-          <circle cx="67"  cy="41" r="6.5" fill={cloudFill1} />
-          <circle cx="74"  cy="44" r="5.5" fill={cloudFill1} />
-          <rect x="36" y="44" width="43" height="7" rx="3.5" fill={cloudFill1} />
+          <circle cx="40"  cy="45" r="5"   fill={cloudFill1} />
+          <circle cx="49"  cy="41" r="6"   fill={cloudFill1} />
+          <circle cx="58"  cy="40" r="6.5" fill={cloudFill1} />
+          <circle cx="67"  cy="42" r="5.5" fill={cloudFill1} />
+          <circle cx="74"  cy="45" r="4.5" fill={cloudFill1} />
+          <rect x="37" y="45" width="40" height="6" rx="3" fill={cloudFill1} />
           {!isNight && <>
-            <circle cx="47" cy="37" r="3.5" fill="rgba(255,255,255,0.60)" />
-            <circle cx="57" cy="34" r="4"   fill="rgba(255,255,255,0.52)" />
+            <circle cx="47" cy="38" r="2.8" fill="rgba(255,255,255,0.60)" />
+            <circle cx="57" cy="36" r="3.2" fill="rgba(255,255,255,0.52)" />
           </>}
         </g>
       </>}
