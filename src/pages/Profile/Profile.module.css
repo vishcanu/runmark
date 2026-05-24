@@ -13,36 +13,20 @@
 
 /* ─── Hero ───────────────────────────────────────────────── */
 .hero {
-    position: relative;
-    background: var(--color-bg-surface);
+    background-color: var(--color-bg-surface);
     border-bottom: 1px solid var(--color-border-subtle);
     padding: calc(var(--space-8) + var(--safe-area-top)) var(--space-5) var(--space-6);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--space-2);
-    overflow: hidden;
-}
-
-/* Personalised tinted wash behind the avatar */
-.heroBg {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg,
-            var(--user-color, #0284c7) 0%,
-            transparent 70%);
-    opacity: 0.07;
-    pointer-events: none;
 }
 
 .avatarRing {
-    position: relative;
-    z-index: 1;
     width: 92px;
     height: 92px;
     border-radius: var(--radius-full);
     padding: 3px;
-    background: var(--user-color, #0284c7);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
     margin-bottom: var(--space-1);
 }

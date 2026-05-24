@@ -153,10 +153,11 @@ export function Profile() {
       {/* ── Hero ──────────────────────────────────────────── */}
       <div
         className={styles.hero}
-        style={{ "--user-color": user.color } as React.CSSProperties}
+        style={{
+          backgroundImage: `linear-gradient(180deg, ${user.color}12 0%, transparent 60%)`,
+        } as React.CSSProperties}
       >
-        <div className={styles.heroBg} />
-        <div className={styles.avatarRing}>
+        <div className={styles.avatarRing} style={{ background: user.color }}>
           <div className={styles.avatar} style={{ background: user.color }}>
             <span className={styles.avatarInitial}>{user.initial}</span>
           </div>
