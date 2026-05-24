@@ -68,7 +68,7 @@ function WeatherScene({ hour, weather }: { hour: number; weather: WeatherData | 
   const bgCloudOp = isNight ? (isStorm ? 0.70 : 0.44) : 0.88;
 
   return (
-    <svg viewBox="0 10 150 72" className={styles.weatherScene} aria-hidden="true">
+    <svg viewBox="0 18 150 72" className={styles.weatherScene} aria-hidden="true">
       <defs>
         <filter id={`${UID}-cs`} x="-25%" y="-25%" width="150%" height="160%">
           <feDropShadow dx="0" dy="2.5" stdDeviation="2" floodColor="rgba(0,30,60,0.20)" />
