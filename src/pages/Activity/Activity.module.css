@@ -197,7 +197,7 @@
     height: 96px;
     flex-shrink: 0;
     display: block;
-    overflow: visible;
+    overflow: hidden;
 }
 
 .weatherInfo {
