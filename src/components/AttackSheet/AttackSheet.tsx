@@ -62,6 +62,7 @@ export function AttackSheet({ territory, charges, currentUserId, onAttack, onClo
   const isActiveAttack = !!activeAttackPower &&
     (territory.attackExpiresAt === null || territory.attackExpiresAt === undefined || territory.attackExpiresAt > Date.now());
   const isMyActiveSiege = isActiveAttack && territory.attackerId === currentUserId;
+  const isProtected     = (territory.runs ?? 1) < 2; // 1-run territories are shielded
   const attackExpiryText = territory.attackExpiresAt
     ? formatTimeRemaining(territory.attackExpiresAt)
     : 'Permanent';
@@ -167,10 +168,23 @@ export function AttackSheet({ territory, charges, currentUserId, onAttack, onClo
                   : (
                     <>
                       <AlertTriangle size={10} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} />
-                      By {territory.attackerName ?? 'Unknown'} · {attackExpiryText}
+                      By {territory.attackerName ?? 'Unknown'} · {attackExpiryText} · Attacks blocked
                     </>
                   )}
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Protected territory (≤ 1 run) ── */}
+        {isProtected && !isActiveAttack && (
+          <div className={styles.attackBanner} style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
+            <div className={styles.attackBannerIcon} style={{ background: '#e0f2fe' }}>
+              <Shield size={16} strokeWidth={2} style={{ color: '#0284c7' }} />
+            </div>
+            <div className={styles.attackBannerBody}>
+              <span className={styles.attackBannerTitle} style={{ color: '#0284c7' }}>Territory Protected</span>
+              <span className={styles.attackBannerMeta}>Needs 2+ runs before it can be targeted</span>
             </div>
           </div>
         )}
@@ -196,17 +210,17 @@ export function AttackSheet({ territory, charges, currentUserId, onAttack, onClo
             const have       = charges[p.key];
             const canAfford  = have >= cost;
             const armed      = pending === p.key;
-            const blocked    = isMyActiveSiege;
+            const blocked    = isActiveAttack; // block all new attacks while any siege is live
             return (
               <button
                 key={p.key}
                 className={[
                   styles.row,
                   armed         ? styles.rowArmed   : '',
-                  !canAfford || blocked ? styles.rowDisabled : '',
+                  !canAfford || blocked || isProtected ? styles.rowDisabled : '',
                 ].filter(Boolean).join(' ')}
                 style={armed ? { borderColor: `${p.color}60`, background: `${p.color}0a` } : undefined}
-                disabled={!canAfford || executing || blocked}
+                disabled={!canAfford || executing || blocked || isProtected}
                 onClick={() => handleArm(p.key)}
               >
                 {/* Icon */}

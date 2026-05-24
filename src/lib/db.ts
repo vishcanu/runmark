@@ -139,7 +139,8 @@ export async function fetchEnemyTerritories(excludeUserId: string): Promise<Worl
     (profiles ?? []).map(p => [p.id as string, p as { id: string; name: string; color: string }]),
   );
 
-  return rows.map(row => {
+  const now = Date.now();
+  const mapped: WorldTerritory[] = rows.map(row => {
     const owner    = profileMap.get(row.user_id    as string);
     const attacker = row.attacker_id ? profileMap.get(row.attacker_id as string) : undefined;
     return {
@@ -150,6 +151,33 @@ export async function fetchEnemyTerritories(excludeUserId: string): Promise<Worl
       attackerName: attacker?.name,
     };
   });
+
+  // ── Process expired attacks (fire-and-forget) ─────────────
+  const expiredVortexIds: string[] = [];
+  const expiredOtherIds:  string[] = [];
+  for (const t of mapped) {
+    if (!t.attackType || t.attackExpiresAt == null) continue; // no attack or permanent (== catches undefined too)
+    if (t.attackExpiresAt > now) continue;                     // still active
+    if (t.attackType === 'vortex') expiredVortexIds.push(t.id);
+    else expiredOtherIds.push(t.id);
+  }
+  // Vortex expired → delete the territory (turf becomes claimable again)
+  if (expiredVortexIds.length > 0) {
+    supabase.from('territories').delete().in('id', expiredVortexIds).then(() => {});
+  }
+  // Other expired attacks → clear attack fields only
+  if (expiredOtherIds.length > 0) {
+    supabase.from('territories').update({
+      attack_type: null, attacker_id: null, attack_expires_at: null, defense_deadline: null,
+    }).in('id', expiredOtherIds).then(() => {});
+  }
+  const deletedSet = new Set(expiredVortexIds);
+  return mapped
+    .filter(t => !deletedSet.has(t.id))
+    .map(t => expiredOtherIds.includes(t.id)
+      ? { ...t, attackType: null as null, attackExpiresAt: null, attackerId: null, defenseDeadline: null }
+      : t
+    );
 }
 
 // ── Siege attacks ─────────────────────────────────────────────
@@ -162,6 +190,20 @@ export async function launchAttack(
   newName?: string,           // optional rename by attacker
 ): Promise<{ ok: boolean; error?: string }> {
   if (!supabase) return { ok: false, error: 'no_client' };
+  // Guard: prevent overwriting an existing active attack
+  const { data: existing } = await supabase
+    .from('territories')
+    .select('attack_type, attack_expires_at')
+    .eq('id', territoryId)
+    .single();
+  if (existing?.attack_type) {
+    const expiry = existing.attack_expires_at
+      ? new Date(existing.attack_expires_at as string).getTime()
+      : null;
+    if (expiry === null || expiry > Date.now()) {
+      return { ok: false, error: 'conflict' };
+    }
+  }
   const updates: Record<string, unknown> = {
     attack_type:       type,
     attacker_id:       attackerId,
@@ -213,6 +255,22 @@ export async function clearDefendedAttacks(userId: string): Promise<string[]> {
     })
     .in('id', ids);
   return attacked.map(r => r.name as string);
+}
+
+// ── Own territories under attack ─────────────────────────────
+
+/** Returns the user's own territories that are currently under an active attack. */
+export async function fetchOwnAttackedTerritories(userId: string): Promise<Territory[]> {
+  if (!supabase) return [];
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('territories')
+    .select('*')
+    .eq('user_id', userId)
+    .not('attack_type', 'is', null)
+    .gt('defense_deadline', now);
+  if (error || !data?.length) return [];
+  return data.map(rowToTerritory);
 }
 
 // ── Territories ──────────────────────────────────────────────

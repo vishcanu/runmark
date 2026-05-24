@@ -5,7 +5,8 @@ import { useUserProfile } from '../../hooks/useUserProfile';
 import { SiegeDots, SiegePanel } from '../../components/SiegeHUD/SiegeHUD';
 import { AttackSheet } from '../../components/AttackSheet/AttackSheet';
 import { AttackStrike } from '../../components/AttackStrike/AttackStrike';
-import { fetchEnemyTerritories, launchAttack, clearDefendedAttacks } from '../../lib/db';
+import { DefenseSuccess } from '../../components/DefenseSuccess/DefenseSuccess';
+import { fetchEnemyTerritories, launchAttack, clearDefendedAttacks, fetchOwnAttackedTerritories } from '../../lib/db';
 import { getMapInstance } from '../../features/map/mapSingleton';
 import { MapView } from '../../features/map/components/MapView';
 import { ActivityControls } from '../../features/activity/components/ActivityControls';
@@ -58,6 +59,8 @@ export function Home() {
   const [enemyTerritories, setEnemyTerritories] = useState<WorldTerritory[]>([]);
   const [strike, setStrike] = useState<{ type: AttackType; targetName: string; ownerName: string; attackerName: string } | null>(null);
   const [attackedId, setAttackedId] = useState<string | null>(null);
+  const [ownAttacked, setOwnAttacked] = useState<Territory[]>([]);
+  const [defended, setDefended] = useState<string[]>([]);
   const { charges, addCharges, spendCharges } = useSiegeCharges();
   const user = useUserProfile();
   const ghost = useGhostPlayer();
@@ -110,6 +113,14 @@ export function Home() {
 
   useEffect(() => { loadEnemyTerritories(); }, [loadEnemyTerritories]);
 
+  // Load own territories that are currently under active attack
+  const loadOwnAttacked = useCallback(() => {
+    if (!user.id) return;
+    fetchOwnAttackedTerritories(user.id).then(setOwnAttacked);
+  }, [user.id]);
+
+  useEffect(() => { loadOwnAttacked(); }, [loadOwnAttacked]);
+
   // Handle tap on enemy territory — open attack sheet
   const handleEnemyTerritoryClick = useCallback((t: WorldTerritory) => {
     setAttackTarget(t);
@@ -124,9 +135,11 @@ export function Home() {
     spendCharges({ [type]: cost } as Partial<typeof charges>);
     const result = await launchAttack(user.id, attackTarget.id, type, expiresAt, newName);
     if (!result.ok) {
-      // Refund charge — attack didn't land (likely RLS)
+      // Refund charge — attack didn't land
       addCharges({ [type]: cost } as Partial<SiegeCharges>);
-      console.error('[Home] Attack failed:', result.error);
+      if (result.error !== 'conflict') {
+        console.error('[Home] Attack failed:', result.error);
+      }
       return;
     }
     const target = attackTarget; // capture before state clears
@@ -326,10 +339,11 @@ export function Home() {
     setSelectedPark(null);
     // Check if any of our territories were under attack with defense window open.
     // Any completed run automatically defends them — the core health loop.
-    clearDefendedAttacks(user.id).then(defended => {
-      if (defended.length > 0) {
-        console.info('[Home] Defended territories:', defended.join(', '));
-        loadEnemyTerritories(); // refresh so the attack visuals clear
+    clearDefendedAttacks(user.id).then(names => {
+      if (names.length > 0) {
+        setDefended(names);
+        setOwnAttacked([]);      // clear local siege state immediately
+        loadEnemyTerritories();  // refresh enemy map visuals
       }
     });
   }, [geo, tracker, store, user.id, loadEnemyTerritories]);
@@ -365,6 +379,21 @@ export function Home() {
           <button className={styles.ghostClose} onClick={clearGhostPlayer} aria-label="Clear view">
             <X size={13} strokeWidth={2.5} />
           </button>
+        </div>
+      )}
+
+      {/* Under-attack banner — own territories currently being sieged */}
+      {ownAttacked.length > 0 && !ghost && tracker.session.status !== 'active' && (
+        <div className={styles.underAttackBanner}>
+          <div className={styles.underAttackDot} />
+          <div className={styles.underAttackText}>
+            <span className={styles.underAttackTitle}>
+              {ownAttacked.length === 1
+                ? `“${ownAttacked[0].name}” is under siege`
+                : `${ownAttacked.length} territories under siege`}
+            </span>
+            <span className={styles.underAttackHint}>Run to defend</span>
+          </div>
         </div>
       )}
 
@@ -491,6 +520,14 @@ export function Home() {
           ownerName={strike.ownerName}
           attackerName={strike.attackerName}
           onClose={() => { setStrike(null); setAttackedId(null); }}
+        />
+      )}
+
+      {/* Defense success — shown after a run that cleared an active siege */}
+      {defended.length > 0 && (
+        <DefenseSuccess
+          territories={defended}
+          onClose={() => setDefended([])}
         />
       )}
 
