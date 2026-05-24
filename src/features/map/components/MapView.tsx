@@ -25,6 +25,7 @@ interface MapViewProps {
   selectedPark: Park | null;
   enemyTerritories?: WorldTerritory[];
   onEnemyTerritoryClick?: (t: WorldTerritory) => void;
+  attackedTerritoryId?: string | null;
 }
 
 export function MapView({
@@ -41,6 +42,7 @@ export function MapView({
   selectedPark,
   enemyTerritories,
   onEnemyTerritoryClick,
+  attackedTerritoryId,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { map, isReady, flyTo } = useMap(containerRef);
@@ -80,6 +82,7 @@ export function MapView({
             onTerritoryClick={onTerritoryClick}
             enemyTerritories={enemyTerritories}
             onEnemyTerritoryClick={onEnemyTerritoryClick}
+            attackedTerritoryId={attackedTerritoryId}
           />
           <PathLayer map={map} path={activePath} />
           <BuildingLayer map={map} territories={territories} />

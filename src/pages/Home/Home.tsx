@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
+import { useCallback, useState, useMemo, useEffect } from 'react';
 import { Trees, Waves, MapPin, X, Play, Navigation } from 'lucide-react';
 import { useSiegeCharges, computeEarnedCharges } from '../../hooks/useSiegeCharges';
 import { useUserProfile } from '../../hooks/useUserProfile';
@@ -57,7 +57,7 @@ export function Home() {
   const [attackTarget, setAttackTarget] = useState<WorldTerritory | null>(null);
   const [enemyTerritories, setEnemyTerritories] = useState<WorldTerritory[]>([]);
   const [strike, setStrike] = useState<{ type: AttackType; targetName: string; ownerName: string } | null>(null);
-  const strikeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [attackedId, setAttackedId] = useState<string | null>(null);
   const { charges, addCharges, spendCharges } = useSiegeCharges();
   const user = useUserProfile();
   const ghost = useGhostPlayer();
@@ -153,11 +153,10 @@ export function Home() {
       const center = polyCentroid(target.coordinates as Coordinate[]);
       mapInst.flyTo({ center, zoom: 17, pitch: 55, bearing: 20, duration: 1400 });
     }
-    // Show dramatic strike overlay, auto-dismiss after 4.8 s
-    if (strikeTimerRef.current) clearTimeout(strikeTimerRef.current);
+    // Show siege launch card — user must dismiss manually
     const displayName = newName?.trim() || target.name;
+    setAttackedId(target.id);
     setStrike({ type, targetName: displayName, ownerName: target.ownerName });
-    strikeTimerRef.current = setTimeout(() => setStrike(null), 5200);
   }, [attackTarget, spendCharges, addCharges, user.id, charges, loadEnemyTerritories]);
 
   const handleStart = useCallback((type: ActivityType = 'run') => {
@@ -390,6 +389,7 @@ export function Home() {
         selectedPark={selectedPark}
         enemyTerritories={enemyTerritories}
         onEnemyTerritoryClick={handleEnemyTerritoryClick}
+        attackedTerritoryId={attackedId}
       />
 
       {/* Parks tray — horizontal scroll list, shown when idle */}
@@ -485,7 +485,12 @@ export function Home() {
 
       {/* Strike overlay — full-screen dramatic animation after a successful attack */}
       {strike && (
-        <AttackStrike type={strike.type} targetName={strike.targetName} ownerName={strike.ownerName} />
+        <AttackStrike
+          type={strike.type}
+          targetName={strike.targetName}
+          ownerName={strike.ownerName}
+          onClose={() => { setStrike(null); setAttackedId(null); }}
+        />
       )}
 
       {/* Attack sheet — opened when tapping an enemy territory */}

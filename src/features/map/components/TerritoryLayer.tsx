@@ -133,9 +133,10 @@ interface Props {
   onTerritoryClick: (id: string) => void;
   enemyTerritories?: WorldTerritory[];
   onEnemyTerritoryClick?: (t: WorldTerritory) => void;
+  attackedTerritoryId?: string | null;
 }
 
-export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick, enemyTerritories = [], onEnemyTerritoryClick }: Props) {
+export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick, enemyTerritories = [], onEnemyTerritoryClick, attackedTerritoryId }: Props) {
   const rafRef              = useRef<number | null>(null);
   // Refs always point to the latest prop values so the one-time click handler
   // registered on source creation never becomes stale.
@@ -670,6 +671,113 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
       console.warn('[TerritoryLayer] enemy layer error', err);
     }
   }, [map, enemyTerritories, onEnemyTerritoryClick]);
+
+  // ── Just-attacked territory pulse animation ───────────────
+  // A dedicated pulsing layer over the territory the player just attacked.
+  // Active while the AttackStrike card is showing; cleared when user dismisses.
+  const L_ATK_FILL  = 'atk-pulse-fill';
+  const L_ATK_RING1 = 'atk-pulse-ring1';
+  const L_ATK_RING2 = 'atk-pulse-ring2';
+  const SRC_ATK     = 'atk-pulse-source';
+
+  const ATTACK_COLORS: Record<string, string> = {
+    inferno: '#ef4444',
+    cyclone: '#8b5cf6',
+    tremor:  '#d97706',
+    deluge:  '#0ea5e9',
+    vortex:  '#7c3aed',
+  };
+
+  useEffect(() => {
+    if (!map) return;
+
+    const cleanupLayers = () => {
+      [L_ATK_RING2, L_ATK_RING1, L_ATK_FILL].forEach(id => {
+        try { if (map.getLayer(id)) map.removeLayer(id); } catch { /* teardown */ }
+      });
+      try { if (map.getSource(SRC_ATK)) map.removeSource(SRC_ATK); } catch { /* teardown */ }
+    };
+
+    if (!attackedTerritoryId) {
+      cleanupLayers();
+      return;
+    }
+
+    const t = enemyTerritoriesRef.current.find(et => et.id === attackedTerritoryId);
+    if (!t) return;
+
+    const attackColor = ATTACK_COLORS[t.attackType ?? ''] ?? '#ef4444';
+    const coords      = t.coordinates as [number, number][];
+
+    const geo: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [coords] },
+        properties: {},
+      }],
+    };
+
+    cleanupLayers();
+
+    try {
+      map.addSource(SRC_ATK, { type: 'geojson', data: geo });
+
+      // Filled tint over the territory
+      map.addLayer({
+        id: L_ATK_FILL, type: 'fill', source: SRC_ATK,
+        paint: { 'fill-color': attackColor, 'fill-opacity': 0 },
+      });
+
+      // Inner glow ring
+      map.addLayer({
+        id: L_ATK_RING1, type: 'line', source: SRC_ATK,
+        paint: { 'line-color': attackColor, 'line-width': 5, 'line-opacity': 0, 'line-blur': 2 },
+      });
+
+      // Outer diffuse halo ring
+      map.addLayer({
+        id: L_ATK_RING2, type: 'line', source: SRC_ATK,
+        paint: { 'line-color': attackColor, 'line-width': 14, 'line-opacity': 0, 'line-blur': 10 },
+      });
+    } catch (err) {
+      console.warn('[TerritoryLayer] atk-pulse layer error', err);
+      return;
+    }
+
+    // Drive all three layers with a fast rAF pulse
+    let phase     = 0;
+    let lastFrame = 0;
+    let rafId: number;
+
+    const animate = (now: number) => {
+      rafId = requestAnimationFrame(animate);
+      if (now - lastFrame < 33) return; // ~30 fps
+      lastFrame = now;
+      phase += 0.11; // ~2 Hz pulse
+
+      const p     = 0.5 + 0.5 * Math.sin(phase);        // 0 → 1 → 0
+      const sharp = Math.pow(p, 1.5);                    // slight sharpening
+
+      try {
+        if (map.getLayer(L_ATK_FILL))  map.setPaintProperty(L_ATK_FILL,  'fill-opacity',  0.06 + sharp * 0.14);
+        if (map.getLayer(L_ATK_RING1)) {
+          map.setPaintProperty(L_ATK_RING1, 'line-opacity', 0.55 + sharp * 0.45);
+          map.setPaintProperty(L_ATK_RING1, 'line-width',   3    + sharp * 6);
+        }
+        if (map.getLayer(L_ATK_RING2)) {
+          map.setPaintProperty(L_ATK_RING2, 'line-opacity', 0.18 + sharp * 0.32);
+          map.setPaintProperty(L_ATK_RING2, 'line-width',   10   + sharp * 12);
+        }
+      } catch { /* mid-teardown */ }
+    };
+    rafId = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      cleanupLayers();
+    };
+  }, [map, attackedTerritoryId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
 }
