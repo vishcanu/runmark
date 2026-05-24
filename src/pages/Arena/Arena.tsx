@@ -262,7 +262,6 @@ export function Arena() {
               <div
                 key={entry.id}
                 className={entry.isMe ? styles.leaderRowMe : styles.leaderRow}
-                data-pos={i}
                 onClick={() => { if (!entry.isMe) setSelectedEntry(entry); }}
                 style={{ cursor: entry.isMe ? 'default' : 'pointer' }}
               >
