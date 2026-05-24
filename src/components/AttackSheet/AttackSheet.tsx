@@ -260,7 +260,7 @@ export function AttackSheet({ territory, charges, currentUserId, onAttack, onClo
                 onClick={handleConfirm}
                 disabled={executing}
               >
-                {executing ? 'Launching…' : 'Confirm Attack'}
+                {executing ? '⚡ Charging...' : 'Confirm Attack'}
               </button>
             </>
           )}

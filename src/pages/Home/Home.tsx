@@ -138,20 +138,26 @@ export function Home() {
         : t
       )
     );
+    // ── Charge-up delay ── keep sheet open showing "Charging..." for 1.4 s
+    // The Supabase write already succeeded above; this is purely for drama.
+    await new Promise<void>(r => setTimeout(r, 1400));
+    // Close the attack sheet
     setAttackTarget(null);
     // Refresh from server so subsequent attacks use fresh data
     loadEnemyTerritories();
+    // Haptic feedback on supported devices
+    navigator.vibrate?.([80, 40, 160, 40, 280]);
     // Fly map to attacked territory so the player sees the effect
     const mapInst = getMapInstance();
     if (mapInst) {
       const center = polyCentroid(target.coordinates as Coordinate[]);
       mapInst.flyTo({ center, zoom: 17, pitch: 55, bearing: 20, duration: 1400 });
     }
-    // Show dramatic strike overlay, auto-dismiss after 2.6 s
+    // Show dramatic strike overlay, auto-dismiss after 4.8 s
     if (strikeTimerRef.current) clearTimeout(strikeTimerRef.current);
     const displayName = newName?.trim() || target.name;
     setStrike({ type, targetName: displayName, ownerName: target.ownerName });
-    strikeTimerRef.current = setTimeout(() => setStrike(null), 2600);
+    strikeTimerRef.current = setTimeout(() => setStrike(null), 5200);
   }, [attackTarget, spendCharges, addCharges, user.id, charges, loadEnemyTerritories]);
 
   const handleStart = useCallback((type: ActivityType = 'run') => {

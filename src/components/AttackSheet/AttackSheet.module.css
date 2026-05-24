@@ -385,6 +385,8 @@
     flex-shrink: 0;
     letter-spacing: -0.01em;
     transition: opacity 0.15s;
+    position: relative;
+    overflow: hidden;
 }
 
 .confirmBtn:disabled {
@@ -392,20 +394,28 @@
     cursor: not-allowed;
 }
 
+/* Sweeping shimmer during charge-up */
 .confirmBtnLaunching {
-    animation: launchPulse 0.55s ease-in-out infinite;
+    animation: none;
 }
 
-@keyframes launchPulse {
+.confirmBtnLaunching::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 80%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.45) 50%, transparent 100%);
+    animation: chargeSweep 0.75s ease-in-out infinite;
+}
 
-    0%,
-    100% {
-        opacity: 0.7;
-        transform: scale(1);
+@keyframes chargeSweep {
+    from {
+        left: -120%;
     }
 
-    50% {
-        opacity: 1.0;
-        transform: scale(1.04);
+    to {
+        left: 140%;
     }
 }

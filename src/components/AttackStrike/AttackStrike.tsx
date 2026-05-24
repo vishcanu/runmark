@@ -25,27 +25,45 @@ export function AttackStrike({ type, targetName, ownerName }: Props) {
   const cfg = CFG[type];
   return (
     <div className={styles.overlay}>
+      {/* Radial background glow */}
+      <div
+        className={styles.bgGlow}
+        style={{ background: `radial-gradient(ellipse 70% 50% at 50% 46%, ${cfg.ringGlow}, transparent 70%)` }}
+      />
+      {/* Expanding ripple rings */}
+      <div className={styles.ripple1} style={{ borderColor: cfg.color }} />
+      <div className={styles.ripple2} style={{ borderColor: cfg.color }} />
+      <div className={styles.ripple3} style={{ borderColor: cfg.color }} />
+
       <div className={styles.content}>
+        {/* Icon */}
         <div
           className={styles.iconRing}
           style={{
             borderColor: cfg.color,
-            boxShadow: `0 0 0 8px ${cfg.ringGlow}, 0 0 60px ${cfg.ringGlow}`,
+            boxShadow: `0 0 0 10px ${cfg.ringGlow}, 0 0 80px ${cfg.ringGlow}`,
           }}
         >
-          <cfg.Icon size={52} strokeWidth={1.5} style={{ color: cfg.color }} />
+          <cfg.Icon size={64} strokeWidth={1.5} style={{ color: cfg.color }} />
         </div>
 
+        {/* Labels — each staggered */}
         <p className={styles.verb}>SIEGE LAUNCHED</p>
 
-        <p className={styles.attackName} style={{ color: cfg.color, textShadow: `0 0 28px ${cfg.ringGlow}` }}>
+        <p className={styles.attackName} style={{ color: cfg.color, textShadow: `0 0 40px ${cfg.ringGlow}` }}>
           {cfg.label}
         </p>
 
         <div className={styles.divider} style={{ background: cfg.color }} />
 
         <p className={styles.targetName}>{targetName}</p>
-        <p className={styles.ownerName}>{ownerName}</p>
+        <p className={styles.ownerName}>owned by {ownerName}</p>
+
+        {/* Defense window */}
+        <div className={styles.defenseBarWrap}>
+          <div className={styles.defenseBarFill} style={{ background: cfg.color }} />
+        </div>
+        <p className={styles.defenseHint}>Owner has 24h to defend by running</p>
       </div>
     </div>
   );
