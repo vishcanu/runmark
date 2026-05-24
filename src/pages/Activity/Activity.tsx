@@ -453,7 +453,7 @@ export function Activity() {
                     <span className={styles.weatherTemp}>{weather.temp}°</span>
                     <span className={styles.weatherCond}>{weather.condition}</span>
                   </>
-                : <span className={styles.weatherTemp} style={{ opacity: 0.3 }}>—</span>
+                : <span className={styles.weatherTemp} style={{ opacity: 0.3 }}>—°</span>
               }
             </div>
           </div>
