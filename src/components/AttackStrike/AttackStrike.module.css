@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════
-   AttackStrike — light-themed siege launch bottom sheet
-   Manual dismiss — no auto-close
+   AttackStrike — light-themed rich siege launch card
+   Manual dismiss · Canvas share image · Staggered animations
    ══════════════════════════════════════════════════════════ */
 
 /* ── Dim backdrop ─────────────────────────────────────────── */
@@ -11,11 +11,11 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    background: rgba(18, 18, 20, 0.50);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: rgba(18, 18, 20, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    animation: overlayIn 0.2s ease forwards;
+    animation: overlayIn 0.22s ease forwards;
 }
 
 @keyframes overlayIn {
@@ -35,10 +35,16 @@
     max-width: 480px;
     background: #ffffff;
     border-radius: 24px 24px 0 0;
-    box-shadow: 0 -8px 40px rgba(18, 18, 20, 0.14), 0 -2px 8px rgba(18, 18, 20, 0.06);
-    overflow: hidden;
-    animation: cardSlide 0.42s cubic-bezier(0.34, 1.36, 0.64, 1) forwards;
+    box-shadow: 0 -12px 48px rgba(18, 18, 20, 0.16), 0 -2px 8px rgba(18, 18, 20, 0.06);
+    overflow-y: auto;
+    scrollbar-width: none;
+    max-height: 96dvh;
+    animation: cardSlide 0.44s cubic-bezier(0.34, 1.3, 0.64, 1) forwards;
     will-change: transform;
+}
+
+.card::-webkit-scrollbar {
+    display: none;
 }
 
 @keyframes cardSlide {
@@ -60,7 +66,7 @@
     margin: 12px auto 0;
 }
 
-/* ── Close button (top-right) ─────────────────────────────── */
+/* ── Top-right close btn ──────────────────────────────────── */
 .closeBtnTop {
     position: absolute;
     top: 16px;
@@ -68,7 +74,7 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: rgba(24, 24, 27, 0.07);
+    background: rgba(24, 24, 27, 0.08);
     border: none;
     display: flex;
     align-items: center;
@@ -76,22 +82,24 @@
     cursor: pointer;
     color: #52525b;
     transition: background 0.15s ease;
-    z-index: 1;
+    z-index: 2;
 }
 
 .closeBtnTop:active {
-    background: rgba(24, 24, 27, 0.14);
+    background: rgba(24, 24, 27, 0.16);
 }
 
-/* ── Banner (gradient header) ─────────────────────────────── */
+/* ── Banner ───────────────────────────────────────────────── */
 .banner {
-    padding: 24px 24px 20px;
+    position: relative;
+    overflow: hidden;
+    padding: 28px 24px 22px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    border-bottom: 1px solid;
-    animation: fadeIn 0.3s ease both;
+    border-bottom: 1px solid rgba(24, 24, 27, 0.07);
+    animation: fadeIn 0.28s ease both;
 }
 
 @keyframes fadeIn {
@@ -104,31 +112,66 @@
     }
 }
 
+/* ── Floating particles (attack color) ───────────────────── */
+.particle {
+    position: absolute;
+    bottom: -6px;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    animation: floatUp linear infinite;
+}
+
+@keyframes floatUp {
+    0% {
+        transform: translateY(0) scale(1);
+        opacity: 0;
+    }
+
+    12% {
+        opacity: 0.60;
+    }
+
+    80% {
+        opacity: 0.16;
+    }
+
+    100% {
+        transform: translateY(-140px) scale(0.15);
+        opacity: 0;
+    }
+}
+
 /* ── Icon circle ──────────────────────────────────────────── */
 .iconWrap {
-    width: 88px;
-    height: 88px;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
     border: 2px solid;
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: iconCrash 0.55s cubic-bezier(0.22, 1.5, 0.36, 1) 0.1s both,
-        iconPulse 2.0s ease-in-out 0.7s infinite;
+    animation:
+        iconCrash 0.58s cubic-bezier(0.22, 1.5, 0.36, 1) 0.08s both,
+        iconPulse 2.4s ease-in-out 0.70s infinite;
 }
 
 @keyframes iconCrash {
-    from {
-        transform: scale(0.25);
+    0% {
+        transform: scale(0.2);
         opacity: 0;
     }
 
-    60% {
-        transform: scale(1.18);
+    55% {
+        transform: scale(1.2);
         opacity: 1;
     }
 
-    to {
+    80% {
+        transform: scale(0.95);
+    }
+
+    100% {
         transform: scale(1);
     }
 }
@@ -141,32 +184,32 @@
     }
 
     50% {
-        transform: scale(1.06);
+        transform: scale(1.07);
     }
 }
 
-/* ── SIEGE LAUNCHED ───────────────────────────────────────── */
+/* ── "Siege Launched" label ───────────────────────────────── */
 .siegeLabel {
     font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.2em;
-    color: #a1a1aa;
-    animation: riseUp 0.35s ease 0.35s both;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    animation: riseUp 0.32s ease 0.32s both;
 }
 
-/* ── Attack name ──────────────────────────────────────────── */
+/* ── Attack name (large) ──────────────────────────────────── */
 .attackName {
-    font-size: 36px;
+    font-size: 40px;
     font-weight: 900;
     letter-spacing: 0.02em;
-    margin: 0;
     line-height: 1;
-    animation: nameSlam 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) 0.48s both;
+    margin: 0;
+    animation: nameSlam 0.42s cubic-bezier(0.22, 1.35, 0.36, 1) 0.44s both;
 }
 
 @keyframes nameSlam {
     from {
-        transform: scale(1.35);
+        transform: scale(1.32);
         opacity: 0;
         letter-spacing: 0.14em;
     }
@@ -178,77 +221,117 @@
     }
 }
 
+/* ── Effect pill ──────────────────────────────────────────── */
+.effectPill {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 999px;
+    border: 1px solid;
+    letter-spacing: 0.02em;
+    animation: riseUp 0.3s ease 0.58s both;
+}
+
 /* ── Body ─────────────────────────────────────────────────── */
 .body {
-    padding: 20px 24px 8px;
+    padding: 14px 20px 8px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
 }
 
-/* ── Target row ───────────────────────────────────────────── */
-.targetRow {
+/* ── Detail row ───────────────────────────────────────────── */
+.detailRow {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
-    animation: riseUp 0.35s ease 0.62s both;
+    padding: 10px 0;
+    animation: riseUp 0.32s ease both;
 }
 
-.targetIconWrap {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: #f4f4f5;
+.detailIcon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
 }
 
-.targetText {
+.detailText {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
+    min-width: 0;
 }
 
-.targetName {
-    font-size: 18px;
-    font-weight: 700;
-    color: #18181b;
-    line-height: 1.2;
-}
-
-.ownerName {
-    font-size: 13px;
+.detailLabel {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     color: #a1a1aa;
+    text-transform: uppercase;
 }
 
-/* ── Separator ────────────────────────────────────────────── */
-.sep {
+.detailValue {
+    font-size: 15px;
+    font-weight: 600;
+    color: #18181b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Thin divider between rows ────────────────────────────── */
+.rowDivider {
     height: 1px;
-    border-radius: 1px;
-    animation: riseUp 0.3s ease 0.72s both;
+    background: rgba(24, 24, 27, 0.06);
+    margin-left: 46px;
+    /* indent under text */
 }
 
-/* ── Defense bar ──────────────────────────────────────────── */
-.defenseSection {
+/* ── Defense box ──────────────────────────────────────────── */
+.defenseBox {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid;
+    animation: riseUp 0.32s ease both;
+}
+
+.defenseHeader {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    animation: riseUp 0.35s ease 0.82s both;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.defenseTitle {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #71717a;
+}
+
+.defenseTimer {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
 }
 
 .defenseTrack {
-    height: 4px;
-    background: #f4f4f5;
-    border-radius: 2px;
+    height: 5px;
+    background: rgba(24, 24, 27, 0.07);
+    border-radius: 3px;
     overflow: hidden;
+    margin-bottom: 8px;
 }
 
 .defenseBarFill {
     height: 100%;
-    border-radius: 2px;
-    animation: barFill 2.0s ease-out 1.0s both;
+    border-radius: 3px;
+    animation: barFill 2.2s ease-out 1.1s both;
 }
 
 @keyframes barFill {
@@ -263,24 +346,22 @@
 
 .defenseHint {
     font-size: 11px;
-    font-weight: 600;
-    color: #a1a1aa;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    color: #71717a;
+    line-height: 1.5;
 }
 
 /* ── Action row ───────────────────────────────────────────── */
 .actions {
-    padding: 12px 24px 20px;
+    padding: 12px 20px 20px;
     display: flex;
     gap: 10px;
-    animation: riseUp 0.35s ease 1.0s both;
+    animation: riseUp 0.3s ease 1.05s both;
 }
 
 .shareBtn {
     flex: 0 0 auto;
-    min-width: 100px;
-    height: 48px;
+    min-width: 110px;
+    height: 46px;
     padding: 0 18px;
     border-radius: 12px;
     border: 1.5px solid;
@@ -291,16 +372,22 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.15s ease, transform 0.12s ease;
 }
 
 .shareBtn:active {
     opacity: 0.65;
+    transform: scale(0.97);
+}
+
+.shareBtnBusy {
+    opacity: 0.55;
+    cursor: wait;
 }
 
 .doneBtn {
     flex: 1;
-    height: 48px;
+    height: 46px;
     border-radius: 12px;
     background: #18181b;
     color: #ffffff;
@@ -308,14 +395,15 @@
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.15s ease, transform 0.12s ease;
 }
 
 .doneBtn:active {
-    opacity: 0.75;
+    opacity: 0.78;
+    transform: scale(0.98);
 }
 
-/* ── Shared entrance ──────────────────────────────────────── */
+/* ── Shared entrance keyframe ─────────────────────────────── */
 @keyframes riseUp {
     from {
         transform: translateY(12px);

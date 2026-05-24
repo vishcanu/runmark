@@ -56,7 +56,7 @@ export function Home() {
   const [showSiegePanel, setShowSiegePanel] = useState(false);
   const [attackTarget, setAttackTarget] = useState<WorldTerritory | null>(null);
   const [enemyTerritories, setEnemyTerritories] = useState<WorldTerritory[]>([]);
-  const [strike, setStrike] = useState<{ type: AttackType; targetName: string; ownerName: string } | null>(null);
+  const [strike, setStrike] = useState<{ type: AttackType; targetName: string; ownerName: string; attackerName: string } | null>(null);
   const [attackedId, setAttackedId] = useState<string | null>(null);
   const { charges, addCharges, spendCharges } = useSiegeCharges();
   const user = useUserProfile();
@@ -156,7 +156,7 @@ export function Home() {
     // Show siege launch card — user must dismiss manually
     const displayName = newName?.trim() || target.name;
     setAttackedId(target.id);
-    setStrike({ type, targetName: displayName, ownerName: target.ownerName });
+    setStrike({ type, targetName: displayName, ownerName: target.ownerName, attackerName: user.name });
   }, [attackTarget, spendCharges, addCharges, user.id, charges, loadEnemyTerritories]);
 
   const handleStart = useCallback((type: ActivityType = 'run') => {
@@ -489,6 +489,7 @@ export function Home() {
           type={strike.type}
           targetName={strike.targetName}
           ownerName={strike.ownerName}
+          attackerName={strike.attackerName}
           onClose={() => { setStrike(null); setAttackedId(null); }}
         />
       )}
