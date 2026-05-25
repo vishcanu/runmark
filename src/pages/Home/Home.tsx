@@ -21,7 +21,7 @@ import { useActivityTracker } from '../../features/activity/hooks/useActivityTra
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
-import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing, simplifyRing, simplifyPath } from '../../features/map/utils/geo';
+import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing, simplifyRing, simplifyPath, closestPointOnSegment } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
@@ -80,6 +80,70 @@ const ROAD_QUERY_LAYERS = [
   'road-secondary-tertiary', 'road-street', 'road-street-low',
   'road-path', 'road-track',
 ];
+
+/**
+ * Re-snap every point in `path` to the closest point on actual road centerlines
+ * fetched from the map's rendered vector-tile features.
+ *
+ * Problem this solves: users walk on the footpath / road edge, not the center.
+ * OSRM sometimes snaps to the mapped footway, not the carriageway. This function
+ * corrects that by querying the map's road layers (not path/footway layers) and
+ * projecting each GPS point onto the nearest road centerline — giving us the
+ * true center of the road as the base for territory building.
+ *
+ * Falls back to the original path if the map is unavailable or no road features
+ * are found within MAX_SNAP_M metres.
+ */
+const CENTERLINE_ROAD_LAYERS = [
+  'road-motorway', 'road-trunk', 'road-primary',
+  'road-secondary-tertiary', 'road-street', 'road-street-low',
+];
+const MAX_SNAP_M = 30; // only snap if a road is within 30 m
+
+function snapPathToRoadCenterlines(path: Coordinate[]): Coordinate[] {
+  const map = getMapInstance();
+  if (!map) return path;
+
+  // Phase 1: sample up to 12 points to discover nearby road features
+  const sampleStep = Math.max(1, Math.floor(path.length / 12));
+  const seen = new Set<string>();
+  const roadSegs: [Coordinate, Coordinate][] = []; // all discovered road segments
+
+  for (let i = 0; i < path.length; i += sampleStep) {
+    try {
+      const px = map.project(path[i] as [number, number]);
+      const feats = map.queryRenderedFeatures(
+        [[px.x - 20, px.y - 20], [px.x + 20, px.y + 20]],
+        { layers: CENTERLINE_ROAD_LAYERS },
+      );
+      for (const feat of feats) {
+        if (feat.geometry.type !== 'LineString') continue;
+        const coords = feat.geometry.coordinates as Coordinate[];
+        // Dedup by first two vertices (avoids processing the same tile feature twice)
+        const key = coords[0]?.join(',') + '|' + coords[1]?.join(',');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        for (let j = 0; j < coords.length - 1; j++) {
+          roadSegs.push([coords[j], coords[j + 1]]);
+        }
+      }
+    } catch { /* off-screen */ }
+  }
+
+  if (roadSegs.length === 0) return path;
+
+  // Phase 2: snap every path point to the closest segment
+  return path.map(pt => {
+    let bestPt = pt;
+    let bestDist = MAX_SNAP_M;
+    for (const [a, b] of roadSegs) {
+      const snapped = closestPointOnSegment(pt, a, b);
+      const d = haversineDistance(pt, snapped);
+      if (d < bestDist) { bestDist = d; bestPt = snapped; }
+    }
+    return bestPt;
+  });
+}
 
 /**
  * Sample up to 8 points along the snapped path, query the map's rendered road
@@ -265,25 +329,29 @@ export function Home() {
     const snappedPath = await snapPathToRoads(currentPath, activityType);
     setIsSnapping(false);
 
+    // ── Align to actual road centerlines ───────────────────────────────
+    // OSRM may snap to a footway running parallel to the main road when the
+    // user walks on the footpath. This re-projects every point onto the nearest
+    // actual road centerline from the map tile data, so the territory is always
+    // centered on the carriageway — not on the footpath beside it.
+    const roadPath = snapPathToRoadCenterlines(snappedPath);
+
     // ── Corridor vs Zone ────────────────────────────────────────
-    // Road half-width: first try to read the actual road class from the map's
-    // rendered vector-tile features (gives accurate per-road-type widths).
-    // Falls back to activity-based defaults if the map or features aren't available.
+    // Road half-width: read actual road class from map tile features, giving
+    // accurate per-road-type widths. Falls back to activity-based defaults.
     const fallbackHalf = activityType === 'cycle' ? 10 : activityType === 'walk' ? 6 : 7;
-    const ROAD_HALF = queryRoadHalf(snappedPath, fallbackHalf);
-    const linear  = isLinearPath(snappedPath);
+    const ROAD_HALF = queryRoadHalf(roadPath, fallbackHalf);
+    const linear  = isLinearPath(roadPath);
     let coords: Coordinate[];
     let innerRing: Coordinate[] | undefined;
     if (linear) {
-      // Corridor: buffer both sides then clean up redundant straight-section vertices
-      coords = simplifyRing(bufferPath(snappedPath, ROAD_HALF), 5);
+      // Corridor: buffer the road centerline both sides
+      coords = simplifyRing(bufferPath(roadPath, ROAD_HALF), 5);
     } else {
       // Zone: road-ring donut.
-      // Re-simplify the centerline with a larger epsilon before building the ring.
-      // This collapses the multiple OSRM shape-points along each straight road segment
-      // down to just the corner vertices, so straight sides stay perfectly straight
-      // and the resulting ring follows the road geometry cleanly.
-      const zonePath = simplifyPath(snappedPath, 15);
+      // Strong simplification collapses straight segments to corner-only path
+      // so the ring sides are perfectly straight, matching the road geometry.
+      const zonePath = simplifyPath(roadPath, 15);
       const [rawOuter, rawInner] = buildRoadRing(zonePath, ROAD_HALF);
       coords    = simplifyRing(rawOuter, 5);
       innerRing = simplifyRing(rawInner, 5);
@@ -364,7 +432,7 @@ export function Home() {
         runs: 1,
         lastRunAt: Date.now(),
         shape:       linear ? 'corridor' : 'zone',
-        rawPath:     snappedPath,  // always keep centreline for stripe + share card
+        rawPath:     roadPath,     // road-aligned centreline for stripe + share card
         innerRing,                 // road-ring hole for zone territories (undefined for corridors)
         activityType,
         visitDays:   [Math.floor(Date.now() / 86_400_000) * 86_400_000],

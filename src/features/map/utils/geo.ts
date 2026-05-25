@@ -18,6 +18,26 @@ export function haversineDistance(a: Coordinate, b: Coordinate): number {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+/**
+ * Closest point on line segment A→B to point P.
+ * Returns the projected (clamped) [lng, lat] coordinate on the segment.
+ */
+export function closestPointOnSegment(
+  p: Coordinate,
+  a: Coordinate,
+  b: Coordinate,
+): Coordinate {
+  const avgLat = (p[1] + a[1] + b[1]) / 3;
+  const mPerLat = 111_320;
+  const mPerLng = 111_320 * Math.cos(avgLat * Math.PI / 180);
+  const px = (p[0] - a[0]) * mPerLng, py = (p[1] - a[1]) * mPerLat;
+  const bx = (b[0] - a[0]) * mPerLng, by = (b[1] - a[1]) * mPerLat;
+  const len2 = bx * bx + by * by;
+  if (len2 < 0.01) return a;
+  const t = Math.max(0, Math.min(1, (px * bx + py * by) / len2));
+  return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])] as Coordinate;
+}
+
 /** Total path distance in meters */
 export function totalPathDistance(path: Coordinate[]): number {
   if (path.length < 2) return 0;
