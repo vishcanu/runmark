@@ -24,6 +24,7 @@ const SRC        = 'territories-source';
 const SRC_FLOOR  = 'territories-floor-source';
 const SRC_LABELS = 'territories-labels-source';
 const SRC_ROADS  = 'territories-roads-source';
+const SRC_ROAD_SURFACE = 'territories-road-surface-source';
 const L_FILL     = 'territories-fill';
 const L_SHIMMER  = 'territories-shimmer';
 const L_WALLS    = 'territories-walls';
@@ -37,6 +38,10 @@ const L_ROAD_SLAB   = 'territories-road-slab';
 const L_ROAD_STRIPE = 'territories-road-stripe';
 // Cleared-ground overlay — subtle tint inside owned territory
 const L_GROUND     = 'territories-ground';
+// Road surface fill — zoom-adaptive line rendered on rawPath centreline.
+// Width grows with zoom exactly like the map's road layers, so the territory
+// always visually covers the road at any zoom level (Google Maps style).
+const L_ROAD_SURFACE = 'territories-road-surface';
 // City-unlock golden pulse ring
 const L_CITY_GLOW    = 'territories-city-glow';
 const L_UNDER_ATTACK = 'territories-under-attack';
@@ -196,6 +201,16 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
       };
     });
 
+    // Centerlines for road surface — ALL territories (zone + corridor)
+    // Used for the zoom-adaptive line layer that visually covers the road.
+    const roadSurfaceFeatures = territories
+      .filter((t) => t.rawPath && t.rawPath.length >= 2)
+      .map((t) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'LineString' as const, coordinates: t.rawPath! },
+        properties: { id: t.id, color: t.color, sel: t.id === selectedId ? 1 : 0, shape: t.shape ?? 'zone' },
+      }));
+
     // Centerlines for corridor territories (used for the road-stripe layer)
     const roadFeatures = territories
       .filter((t) => t.shape === 'corridor' && t.rawPath && t.rawPath.length >= 2)
@@ -215,18 +230,21 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
     const floorGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: floorFeatures };
     const labelGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: labelFeatures };
     const roadGeo:  GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: roadFeatures  };
+    const roadSurfaceGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: roadSurfaceFeatures };
 
     const existingSrc = map.getSource(SRC) as GeoJSONSource | undefined;
     if (existingSrc) {
       existingSrc.setData(polyGeo);
-      (map.getSource(SRC_FLOOR)  as GeoJSONSource)?.setData(floorGeo);
-      (map.getSource(SRC_LABELS) as GeoJSONSource)?.setData(labelGeo);
-      (map.getSource(SRC_ROADS)  as GeoJSONSource)?.setData(roadGeo);
+      (map.getSource(SRC_FLOOR)        as GeoJSONSource)?.setData(floorGeo);
+      (map.getSource(SRC_LABELS)       as GeoJSONSource)?.setData(labelGeo);
+      (map.getSource(SRC_ROADS)        as GeoJSONSource)?.setData(roadGeo);
+      (map.getSource(SRC_ROAD_SURFACE) as GeoJSONSource)?.setData(roadSurfaceGeo);
     } else {
-      map.addSource(SRC,        { type: 'geojson', data: polyGeo  });
-      map.addSource(SRC_FLOOR,  { type: 'geojson', data: floorGeo });
-      map.addSource(SRC_LABELS, { type: 'geojson', data: labelGeo });
-      map.addSource(SRC_ROADS,  { type: 'geojson', data: roadGeo  });
+      map.addSource(SRC,              { type: 'geojson', data: polyGeo  });
+      map.addSource(SRC_FLOOR,        { type: 'geojson', data: floorGeo });
+      map.addSource(SRC_LABELS,       { type: 'geojson', data: labelGeo });
+      map.addSource(SRC_ROADS,        { type: 'geojson', data: roadGeo  });
+      map.addSource(SRC_ROAD_SURFACE, { type: 'geojson', data: roadSurfaceGeo });
 
       // 0 ── Floor fill — opacity driven by tier (already boosted for selected in floorOpacity prop)
       map.addLayer({
@@ -250,6 +268,40 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
       map.addLayer({
         id: L_SHIMMER, type: 'fill', source: SRC_FLOOR,
         paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.04 },
+      });
+
+      // 2b ── Road surface fill — zoom-adaptive line on rawPath centreline.
+      //
+      // This is the primary road-fill visual (Google Maps style):
+      //   - Line follows the OSRM road centreline (= actual road centre)
+      //   - line-width uses the same exponential curve as OFM Liberty road layers
+      //     so at every zoom level the line visually covers the drawn road exactly
+      //   - Works for both zones (ring centreline) and corridors (straight path)
+      //
+      // Width calibration vs OFM Liberty road-street at Bangalore (~lat 13°):
+      //   zoom 12 →  1 px  (thin overview marker)
+      //   zoom 14 →  4 px  × 9.3 m/px  = 37 m drawn,  ~14 m real road on screen
+      //   zoom 15 →  7 px  × 4.7 m/px  = 33 m drawn,  matches visual road width
+      //   zoom 16 → 13 px  × 2.3 m/px  = 30 m drawn,  matches visual road width
+      //   zoom 17 → 22 px  × 1.2 m/px  = 26 m drawn,  close to physical (7–9 m)
+      //   zoom 18 → 38 px  × 0.6 m/px  = 23 m drawn,  physical road ≈ 20 m total
+      map.addLayer({
+        id: L_ROAD_SURFACE, type: 'line', source: SRC_ROAD_SURFACE,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color':   ['get', 'color'],
+          'line-width': [
+            'interpolate', ['exponential', 1.5], ['zoom'],
+            12,  1,
+            14,  4,
+            15,  7,
+            16, 13,
+            17, 22,
+            18, 38,
+            20, 80,
+          ],
+          'line-opacity': 0.82,
+        },
       });
 
       // 2 ── Solid colored walls (zones only)
