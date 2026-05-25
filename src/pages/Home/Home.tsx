@@ -52,6 +52,68 @@ function themeGrad(theme?: string, color?: string) {
   return THEME_GRADS[theme ?? ''] ?? `linear-gradient(135deg, ${color ?? '#0284c7'}, #1e3a5f)`;
 }
 
+// ── Adaptive road half-width ─────────────────────────────────────────────────
+// Maps the OFM Liberty road `class` property → real-world half-width in metres.
+// These values come from standard road widths (one carriageway side + kerb).
+const ROAD_CLASS_HALF_WIDTH: Record<string, number> = {
+  motorway:      10,   // dual carriageway
+  trunk:          8,   // major arterial
+  primary:        7,   // national/state highway within city
+  secondary:      5.5, // major collector road
+  tertiary:       4.5, // local collector
+  minor:          3.5,
+  street:         3.5, // residential / local street
+  service:        2.5, // access lane
+  driveway:       2,
+  alley:          2,
+  path:           1.5,
+  footway:        1.5,
+  pedestrian:     2.5,
+  cycleway:       2,
+  track:          2,
+  living_street:  3,
+  unclassified:   3,
+};
+
+const ROAD_QUERY_LAYERS = [
+  'road-motorway', 'road-trunk', 'road-primary',
+  'road-secondary-tertiary', 'road-street', 'road-street-low',
+  'road-path', 'road-track',
+];
+
+/**
+ * Sample up to 8 points along the snapped path, query the map's rendered road
+ * features at each point, and return the half-width for the dominant road class.
+ * Falls back to `fallback` if the map isn't ready or no features are found.
+ */
+function queryRoadHalf(path: Coordinate[], fallback: number): number {
+  const map = getMapInstance();
+  if (!map) return fallback;
+
+  const step = Math.max(1, Math.floor(path.length / 8));
+  const counts: Record<string, number> = {};
+
+  for (let i = 0; i < path.length; i += step) {
+    try {
+      const px = map.project(path[i] as [number, number]);
+      const feats = map.queryRenderedFeatures(
+        [[px.x - 8, px.y - 8], [px.x + 8, px.y + 8]],
+        { layers: ROAD_QUERY_LAYERS },
+      );
+      const cls = feats[0]?.properties?.class ?? feats[0]?.properties?.type;
+      if (cls) counts[cls] = (counts[cls] ?? 0) + 1;
+    } catch { /* off-screen or map not ready — skip */ }
+  }
+
+  let dominant: string | null = null;
+  let maxCount = 0;
+  for (const [cls, n] of Object.entries(counts)) {
+    if (n > maxCount) { maxCount = n; dominant = cls; }
+  }
+
+  return dominant ? (ROAD_CLASS_HALF_WIDTH[dominant] ?? fallback) : fallback;
+}
+
 export function Home() {
   const [victoryData, setVictoryData] = useState<VictoryData | null>(null);
   const [showSiegePanel, setShowSiegePanel] = useState(false);
@@ -204,19 +266,11 @@ export function Home() {
     setIsSnapping(false);
 
     // ── Corridor vs Zone ────────────────────────────────────────
-    // Road half-width per activity type (real Indian road widths):
-    //   walk / run : 6 / 7 m per side  → 12 / 14 m total (residential + footpath)
-    //   cycle      : 10 m per side     → 20 m total (main road / separated lane)
-    //
-    // Corridor (open / out-and-back path):
-    //   bufferPath(centerline, halfWidth) → flat road-strip polygon, both sides filled.
-    //
-    // Zone (closed loop — user walked around a block):
-    //   buildRoadRing(centerline, halfWidth) → [outerEdge, innerHole]
-    //   Outer edge = GPS ring expanded outward  (outer kerb, away from block)
-    //   Inner hole = GPS ring shrunk  inward    (inner kerb = block boundary)
-    //   Result: donut polygon — road filled, block interior (homes) empty.
-    const ROAD_HALF = activityType === 'cycle' ? 10 : activityType === 'walk' ? 6 : 7;
+    // Road half-width: first try to read the actual road class from the map's
+    // rendered vector-tile features (gives accurate per-road-type widths).
+    // Falls back to activity-based defaults if the map or features aren't available.
+    const fallbackHalf = activityType === 'cycle' ? 10 : activityType === 'walk' ? 6 : 7;
+    const ROAD_HALF = queryRoadHalf(snappedPath, fallbackHalf);
     const linear  = isLinearPath(snappedPath);
     let coords: Coordinate[];
     let innerRing: Coordinate[] | undefined;
