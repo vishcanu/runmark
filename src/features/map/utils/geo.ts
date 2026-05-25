@@ -333,41 +333,122 @@ export function bufferPath(path: Coordinate[], bufferM: number): Coordinate[] {
  * Using [outerRing, innerHole] as GeoJSON Polygon coordinates gives a donut:
  *   only the road strip is filled — the block interior (homes) stays empty.
  *
- * The centroid-based offset works correctly for any convex/near-convex block shape.
- * For an irregular shape the error is proportional to deviation from convexity — in
- * practice all real-world block perimeters are convex enough for this to look right.
+ * Uses per-segment perpendicular offset with miter joins at corners.
+ * This produces clean parallel edges that follow the road geometry precisely —
+ * rectangular blocks become clean rectangular rings, curved roads stay curved.
+ *
+ * At very sharp corners (miter ratio > MITER_LIMIT) a bevel join is used instead
+ * to prevent extreme spikes.
  */
 export function buildRoadRing(
   path: Coordinate[],
   halfWidthM: number,
 ): [Coordinate[], Coordinate[]] {
   const closed = pathToPolygon(path);
-  const n = closed.length;
+  const pts = closed.slice(0, -1); // unique vertices (last point == first, excluded)
+  const n = pts.length;
   if (n < 3) return [closed, []];
 
-  // Centroid of the closed ring (= approximate centre of the block)
+  const avgLat  = pts.reduce((s, p) => s + p[1], 0) / n;
+  const mPerLat = 111_320;
+  const mPerLng = 111_320 * Math.cos(avgLat * Math.PI / 180);
+  const dLatPerM = 1 / mPerLat;
+  const dLngPerM = 1 / mPerLng;
+
+  // Centroid — used only to determine outward vs inward direction for each vertex
   let cLng = 0, cLat = 0;
-  for (const [lng, lat] of closed) { cLng += lng; cLat += lat; }
+  for (const [lng, lat] of pts) { cLng += lng; cLat += lat; }
   cLng /= n; cLat /= n;
 
-  const mPerLat = 111_320;
-  const mPerLng = 111_320 * Math.cos((cLat * Math.PI) / 180);
+  // Miter limit: clip to this multiple of halfWidthM to avoid spikes at acute corners
+  const MITER_LIMIT = 4.0;
 
-  // sign = +1 → expand outward (outer road edge)
-  // sign = -1 → shrink inward  (inner road edge / block boundary)
-  function _offset(coords: Coordinate[], sign: number): Coordinate[] {
-    return coords.map(([lng, lat]) => {
-      const dLng  = lng - cLng;
-      const dLat  = lat - cLat;
-      const distM = Math.sqrt((dLng * mPerLng) ** 2 + (dLat * mPerLat) ** 2);
-      if (distM < 0.5) return [cLng, cLat] as Coordinate; // degenerate point
-      const scale = (distM + sign * halfWidthM) / distM;
-      return [cLng + dLng * scale, cLat + dLat * scale] as Coordinate;
-    });
+  /**
+   * Compute offset vertex/vertices for ring position i.
+   * sign = +1 → outward (outer road edge)
+   * sign = -1 → inward  (inner block boundary)
+   * Returns 1 point (miter join) or 2 points (bevel join at very sharp corners).
+   */
+  function _offsetVertex(sign: number, i: number): Coordinate[] {
+    const prev = pts[(i - 1 + n) % n];
+    const curr = pts[i];
+    const next = pts[(i + 1) % n];
+
+    // Incoming segment (prev→curr) in metres
+    const s1x = (curr[0] - prev[0]) * mPerLng;
+    const s1y = (curr[1] - prev[1]) * mPerLat;
+    const l1  = Math.sqrt(s1x * s1x + s1y * s1y);
+
+    // Outgoing segment (curr→next) in metres
+    const s2x = (next[0] - curr[0]) * mPerLng;
+    const s2y = (next[1] - curr[1]) * mPerLat;
+    const l2  = Math.sqrt(s2x * s2x + s2y * s2y);
+
+    if (l1 < 0.1 || l2 < 0.1) return [curr];
+
+    // Left normals (rotate segment direction 90° CCW)
+    const n1x = -s1y / l1, n1y = s1x / l1;
+    const n2x = -s2y / l2, n2y = s2x / l2;
+
+    // Determine if "left" of incoming segment points away from centroid (= outward)
+    const toCx = (cLng - curr[0]) * mPerLng;
+    const toCy = (cLat - curr[1]) * mPerLat;
+    const outwardSign = (n1x * toCx + n1y * toCy) < 0 ? 1 : -1;
+
+    // Outward unit normals for each segment
+    const o1x = outwardSign * n1x, o1y = outwardSign * n1y;
+    const o2x = outwardSign * n2x, o2y = outwardSign * n2y;
+
+    // Bisector of the two outward normals
+    const mx = o1x + o2x;
+    const my = o1y + o2y;
+    const ml = Math.sqrt(mx * mx + my * my);
+
+    if (ml < 1e-10) {
+      // Anti-parallel normals (hairpin) — bevel with both normals
+      return [
+        [curr[0] + sign * o1x * halfWidthM * dLngPerM,
+         curr[1] + sign * o1y * halfWidthM * dLatPerM] as Coordinate,
+        [curr[0] + sign * o2x * halfWidthM * dLngPerM,
+         curr[1] + sign * o2y * halfWidthM * dLatPerM] as Coordinate,
+      ];
+    }
+
+    // Miter scale = halfWidthM / sin(half-angle) = halfWidthM * 2 / |n1+n2|
+    // ml=2 (straight, 0° turn): miterM = halfWidthM ✓
+    // ml=√2 (90° turn):         miterM = halfWidthM * √2 ✓
+    const miterM = halfWidthM * 2 / ml;
+
+    if (miterM > MITER_LIMIT * halfWidthM) {
+      // Corner too sharp — bevel to avoid ugly spikes
+      return [
+        [curr[0] + sign * o1x * halfWidthM * dLngPerM,
+         curr[1] + sign * o1y * halfWidthM * dLatPerM] as Coordinate,
+        [curr[0] + sign * o2x * halfWidthM * dLngPerM,
+         curr[1] + sign * o2y * halfWidthM * dLatPerM] as Coordinate,
+      ];
+    }
+
+    // Miter: single point along the bisector at the correct perpendicular distance
+    const ux = mx / ml, uy = my / ml;
+    return [[
+      curr[0] + sign * ux * miterM * dLngPerM,
+      curr[1] + sign * uy * miterM * dLatPerM,
+    ] as Coordinate];
   }
 
-  const outerRing = _offset(closed, +1);           // outer road edge (away from block)
-  const innerHole = _offset(closed, -1).reverse();  // inner road edge (block boundary), reversed for GeoJSON hole
+  const outerPts: Coordinate[] = [];
+  const innerPts: Coordinate[] = [];
+
+  for (let i = 0; i < n; i++) {
+    outerPts.push(..._offsetVertex(+1, i));
+    innerPts.push(..._offsetVertex(-1, i));
+  }
+
+  // Close the rings; inner ring reversed for GeoJSON hole winding convention
+  const outerRing: Coordinate[] = [...outerPts, outerPts[0]];
+  const innerRevPts = [...innerPts].reverse();
+  const innerHole: Coordinate[] = [...innerRevPts, innerRevPts[0]];
 
   return [outerRing, innerHole];
 }

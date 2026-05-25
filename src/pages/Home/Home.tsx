@@ -21,7 +21,7 @@ import { useActivityTracker } from '../../features/activity/hooks/useActivityTra
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
-import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing, simplifyRing } from '../../features/map/utils/geo';
+import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing, simplifyRing, simplifyPath } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
@@ -224,8 +224,13 @@ export function Home() {
       // Corridor: buffer both sides then clean up redundant straight-section vertices
       coords = simplifyRing(bufferPath(snappedPath, ROAD_HALF), 5);
     } else {
-      // Zone: road-ring donut — simplify both outer edge and inner hole ring
-      const [rawOuter, rawInner] = buildRoadRing(snappedPath, ROAD_HALF);
+      // Zone: road-ring donut.
+      // Re-simplify the centerline with a larger epsilon before building the ring.
+      // This collapses the multiple OSRM shape-points along each straight road segment
+      // down to just the corner vertices, so straight sides stay perfectly straight
+      // and the resulting ring follows the road geometry cleanly.
+      const zonePath = simplifyPath(snappedPath, 15);
+      const [rawOuter, rawInner] = buildRoadRing(zonePath, ROAD_HALF);
       coords    = simplifyRing(rawOuter, 5);
       innerRing = simplifyRing(rawInner, 5);
     }
