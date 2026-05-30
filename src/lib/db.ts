@@ -79,7 +79,28 @@ export async function upsertProfile(
   if (error) console.warn('[db] upsertProfile error', error.message);
 }
 
-// ── Siege Charges ─────────────────────────────────────────────
+export async function fetchProfile(id: string): Promise<{
+  name: string; color: string; email: string | null; health: HealthProfile;
+} | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('name, color, email, age, weight_kg, height_cm, gender')
+    .eq('id', id)
+    .single();
+  if (error || !data) return null;
+  return {
+    name:  data.name  as string,
+    color: data.color as string,
+    email: (data.email as string | null) ?? null,
+    health: {
+      age:      (data.age       as number | null) ?? undefined,
+      weightKg: data.weight_kg  != null ? Number(data.weight_kg) : undefined,
+      heightCm: (data.height_cm as number | null) ?? undefined,
+      gender:   (data.gender    as HealthProfile['gender'] | null) ?? undefined,
+    },
+  };
+}
 
 export async function fetchCharges(userId: string): Promise<SiegeCharges> {
   if (!supabase) return { ...SIEGE_ZERO };

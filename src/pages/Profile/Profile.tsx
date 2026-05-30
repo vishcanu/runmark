@@ -1,10 +1,10 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import {
   Building2, Trophy, Map, TrendingUp, Clock, Check, LogOut, Mail,
   Flame, Zap, Wind, Droplets, Star, Activity, Bike, Footprints, Heart, Target, Pencil,
 } from "lucide-react";
 import { useTerritoryStore } from "../../features/territory/hooks/useTerritoryStore";
-import { useUserProfile, saveUserProfile } from "../../hooks/useUserProfile";
+import { useUserProfile, saveUserProfile, syncProfileFromRemote } from "../../hooks/useUserProfile";
 import { useSiegeCharges } from "../../hooks/useSiegeCharges";
 import { formatDistance, formatDuration } from "../../features/map/utils/geo";
 import {
@@ -70,6 +70,26 @@ export function Profile() {
   const [editOpen,    setEditOpen]    = useState(false);
   const [editWeight,  setEditWeight]  = useState('');
   const [editAge,     setEditAge]     = useState('');
+
+  // Backfill from Supabase if localStorage was empty (e.g. new device / cleared storage)
+  useEffect(() => {
+    const { weightKg, heightCm, age } = localHealth;
+    if (weightKg && heightCm && age) return;
+    syncProfileFromRemote().then((remote) => {
+      if (remote) setLocalHealth((prev) => ({ ...prev, ...remote }));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Backfill from Supabase if localStorage was empty (e.g. new device / cleared storage)
+  useEffect(() => {
+    const { weightKg, heightCm, age } = localHealth;
+    if (weightKg && heightCm && age) return;
+    syncProfileFromRemote().then((remote) => {
+      if (remote) setLocalHealth((prev) => ({ ...prev, ...remote }));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Aggregate totals ──────────────────────────────────────
   const totalDistance  = store.territories.reduce((s, t) => s + t.distance, 0);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { upsertProfile } from '../lib/db';
+import { upsertProfile, fetchProfile } from '../lib/db';
 
 // ── Types ─────────────────────────────────────────────────────
 export interface HealthProfile {
@@ -69,4 +69,26 @@ export function saveUserProfile(
   const id    = getUserId();
   const email = localStorage.getItem('rg_user_email');
   upsertProfile(id, name, color, health, email).catch(() => {/* offline — ignore */});
+}
+
+// ── Backfill from Supabase (called when localStorage health is empty) ──
+export async function syncProfileFromRemote(): Promise<HealthProfile | null> {
+  const id     = getUserId();
+  const remote = await fetchProfile(id);
+  if (!remote) return null;
+  const { health, name, color } = remote;
+  // Only write keys that are missing from localStorage to avoid overwriting edits
+  if (!localStorage.getItem('rg_user_weight') && health.weightKg != null)
+    localStorage.setItem('rg_user_weight', String(health.weightKg));
+  if (!localStorage.getItem('rg_user_height') && health.heightCm != null)
+    localStorage.setItem('rg_user_height', String(health.heightCm));
+  if (!localStorage.getItem('rg_user_age')    && health.age      != null)
+    localStorage.setItem('rg_user_age',    String(health.age));
+  if (!localStorage.getItem('rg_user_gender') && health.gender)
+    localStorage.setItem('rg_user_gender', health.gender);
+  if (!localStorage.getItem('rg_user_name'))
+    localStorage.setItem('rg_user_name',  name);
+  if (!localStorage.getItem('rg_user_color'))
+    localStorage.setItem('rg_user_color', color);
+  return health;
 }
