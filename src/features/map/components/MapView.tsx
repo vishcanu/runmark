@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react';
-import { Crosshair } from 'lucide-react';
+import { Crosshair, Sun, Moon, Sparkles } from 'lucide-react';
 import { useMap } from '../hooks/useMap';
+import type { MapTheme } from '../hooks/useMap';
 import { UserMarker } from './UserMarker';
 import { TerritoryLayer } from './TerritoryLayer';
 import { PathLayer } from './PathLayer';
@@ -45,7 +46,13 @@ export function MapView({
   attackedTerritoryId,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { map, isReady, flyTo } = useMap(containerRef);
+  const { map, isReady, flyTo, theme, setTheme, styleVersion } = useMap(containerRef);
+
+  const THEMES: MapTheme[] = ['light', 'dark', 'night'];
+  const cycleTheme = useCallback(() => {
+    const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    setTheme(next);
+  }, [theme, setTheme]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Center on user the moment first GPS fix arrives
   const hasCenteredRef = useRef(false);
@@ -83,11 +90,22 @@ export function MapView({
             enemyTerritories={enemyTerritories}
             onEnemyTerritoryClick={onEnemyTerritoryClick}
             attackedTerritoryId={attackedTerritoryId}
+            styleVersion={styleVersion}
           />
           <PathLayer map={map} path={activePath} />
           <BuildingLayer map={map} territories={territories} />
         </>
       )}
+      {/* Theme toggle — cycles Light → Dark → Night */}
+      <button
+        className={`${styles.themeBtn} ${theme !== 'light' ? styles.themeBtnDark : ''}`}
+        onClick={cycleTheme}
+        aria-label={`Map theme: ${theme}`}
+      >
+        {theme === 'light' ? <Sun size={17} strokeWidth={2} /> :
+         theme === 'dark'  ? <Moon size={17} strokeWidth={2} /> :
+         <Sparkles size={17} strokeWidth={2} />}
+      </button>
       {/* Re-center on user button */}
       {userPosition && (
         <button

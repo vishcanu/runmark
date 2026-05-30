@@ -139,9 +139,10 @@ interface Props {
   enemyTerritories?: WorldTerritory[];
   onEnemyTerritoryClick?: (t: WorldTerritory) => void;
   attackedTerritoryId?: string | null;
+  styleVersion?: number;
 }
 
-export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick, enemyTerritories = [], onEnemyTerritoryClick, attackedTerritoryId }: Props) {
+export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick, enemyTerritories = [], onEnemyTerritoryClick, attackedTerritoryId, styleVersion = 0 }: Props) {
   const rafRef              = useRef<number | null>(null);
   // Refs always point to the latest prop values so the one-time click handler
   // registered on source creation never becomes stale.
@@ -513,7 +514,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
     rafRef.current = requestAnimationFrame(animate);
 
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [map, territories, selectedId, onTerritoryClick]);
+  }, [map, territories, selectedId, onTerritoryClick, styleVersion]);
 
   // ── Ghost territory overlay (rival player's zones) ──────────
   const GHOST_SRC     = 'ghost-territories-source';
@@ -616,7 +617,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
     } else if (!ghost) {
       prevGhostId.current = null;
     }
-  }, [map, ghost]);
+  }, [map, ghost, styleVersion]);
 
   // ── Enemy territory layer (all other players' zones) ────────
   const ENEMY_SRC    = 'enemy-territories-source';
@@ -738,7 +739,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
     } catch (err) {
       console.warn('[TerritoryLayer] enemy layer error', err);
     }
-  }, [map, enemyTerritories, onEnemyTerritoryClick]);
+  }, [map, enemyTerritories, onEnemyTerritoryClick, styleVersion]);
 
   // ── Just-attacked territory pulse animation ───────────────
   // A dedicated pulsing layer over the territory the player just attacked.

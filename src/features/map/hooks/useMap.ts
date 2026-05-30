@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl, { Map } from 'maplibre-gl';
 import { setMapInstance } from '../mapSingleton';
 
@@ -6,17 +6,13 @@ const DEFAULT_CENTER: [number, number] = [77.5946, 12.9716]; // Bengaluru fallba
 const DEFAULT_ZOOM = 13;
 const DEFAULT_PITCH = 50; // 3D tilt angle (0 = top-down, 60 = max)
 
-// ── Map style — swap the active line to test ─────────────────────────────────
-//
-//  TEST 1 — CARTO Voyager   : warm cream base, terracotta roads, premium atlas feel
-//  TEST 2 — OFM Bright      : bold white land, vivid roads — game board feel
-//  TEST 3 — OFM Positron    : ultra-minimal white, your territories dominate visually
-//  ORIGINAL — OFM Liberty   : cool blue-grey, premium light (default)
+export type MapTheme = 'light' | 'dark' | 'night';
 
-//  const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'; // TEST 1 ← active
-// const MAP_STYLE = 'https://tiles.openfreemap.org/styles/bright';   // TEST 2
-// const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'; // TEST 3
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';  // ORIGINAL
+const THEME_STYLES: Record<MapTheme, string> = {
+  light: 'https://tiles.openfreemap.org/styles/liberty',
+  dark:  'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  night: 'https://tiles.openfreemap.org/styles/liberty',
+};
 
 // ── RunMark Tactical theme ───────────────────────────────────
 // Called once after style loads. Overrides paint properties on
@@ -105,29 +101,101 @@ export function applyRunMarkTheme(map: Map) {
   });
 }
 
+// ── Dark theme (CartoDB Dark Matter base) ────────────────────────────
+// CartoDB is already styled dark — just hide labels and buildings universally.
+function applyDarkTheme(map: Map) {
+  ['building', 'building-3d', 'building-extrusion'].forEach((l) => {
+    try { if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', 'none'); } catch { /* ok */ }
+  });
+  const OWN = ['territories-', 'ghost-territories-', 'active-path-', 'construction-', 'buildings-'];
+  (map.getStyle()?.layers ?? []).forEach((l) => {
+    if (l.type !== 'symbol') return;
+    if (OWN.some((p) => l.id.startsWith(p))) return;
+    try { map.setLayoutProperty(l.id, 'visibility', 'none'); } catch { /* ok */ }
+  });
+}
+
+// ── Night theme (OFM Liberty + deep-dark tactical overrides) ───────────
+function applyNightTheme(map: Map) {
+  applyRunMarkTheme(map); // inherit label hiding, building hiding, base structure
+  const set = (layer: string, prop: string, value: unknown) => {
+    try { if (map.getLayer(layer)) map.setPaintProperty(layer, prop, value); } catch { /* ok */ }
+  };
+  set('background',                    'background-color', '#09090f');
+  set('landcover-grass',               'fill-color',       '#0b1510');
+  set('landcover-wood',                'fill-color',       '#091210');
+  set('landcover-sand',                'fill-color',       '#0d0d08');
+  set('landcover-ice',                 'fill-color',       '#0c1025');
+  set('landuse-residential',           'fill-color',       '#0c0f1c');
+  set('landuse-commercial',            'fill-color',       '#0d1020');
+  set('landuse-industrial',            'fill-color',       '#0c0e1a');
+  set('landuse-retail',                'fill-color',       '#0b0d18');
+  set('landuse-cemetery',              'fill-color',       '#0a1412');
+  set('landuse-garages',               'fill-color',       '#0b0e18');
+  set('landuse-military',              'fill-color',       '#0e0c0a');
+  set('park',                          'fill-color',       '#091a10');
+  set('park-outline',                  'line-color',       '#0f2018');
+  set('nature-green',                  'fill-color',       '#091a0e');
+  set('hospital',                      'fill-color',       '#180a0a');
+  set('school',                        'fill-color',       '#100e08');
+  set('pitch',                         'fill-color',       '#0a1a0e');
+  set('stadium',                       'fill-color',       '#0c1c0c');
+  set('water-shadow',                  'fill-color',       '#040b22');
+  set('water',                         'fill-color',       '#050f2c');
+  set('road-path',                     'line-color',       '#141820');
+  set('road-track',                    'line-color',       '#141820');
+  set('road-service-link-tunnel',      'line-color',       '#161a26');
+  set('road-street',                   'line-color',       '#1c2038');
+  set('road-street-low',               'line-color',       '#1c2038');
+  set('road-street-case',              'line-color',       '#10141e');
+  set('road-secondary-tertiary',       'line-color',       '#202540');
+  set('road-secondary-tertiary-case',  'line-color',       '#141828');
+  set('road-primary',                  'line-color',       '#242e4a');
+  set('road-primary-case',             'line-color',       '#161c30');
+  set('road-trunk',                    'line-color',       '#222018');
+  set('road-trunk-case',               'line-color',       '#181510');
+  set('road-motorway',                 'line-color',       '#222018');
+  set('road-motorway-case',            'line-color',       '#181510');
+  set('road-motorway-trunk',           'line-color',       '#222018');
+  set('road-motorway-trunk-case',      'line-color',       '#181510');
+  set('road-rail',                     'line-color',       '#141820');
+  set('road-rail-tracks',              'line-color',       '#141820');
+}
+
 export function useMap(containerRef: React.RefObject<HTMLDivElement | null>) {
   const mapRef = useRef<Map | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [styleVersion, setStyleVersion] = useState(0);
+  const [theme, setThemeState] = useState<MapTheme>(
+    () => (localStorage.getItem('map-theme') as MapTheme | null) ?? 'light',
+  );
+  const themeRef = useRef<MapTheme>(theme);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: MAP_STYLE,
+      style: THEME_STYLES[themeRef.current],
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
       bearing: 0,
       pitch: DEFAULT_PITCH,
       attributionControl: false,
-      canvasContextAttributes: { preserveDrawingBuffer: true }, // required for toDataURL()
+      canvasContextAttributes: { preserveDrawingBuffer: true },
     });
 
-    map.on('load', () => {
-      // Apply RunMark colour theme over the base Liberty style
-      applyRunMarkTheme(map);
-      setMapInstance(map);
-      setIsReady(true);
+    let initialized = false;
+    map.on('style.load', () => {
+      if (themeRef.current === 'dark')        applyDarkTheme(map);
+      else if (themeRef.current === 'night') applyNightTheme(map);
+      else                                   applyRunMarkTheme(map);
+      if (!initialized) {
+        initialized = true;
+        setMapInstance(map);
+        setIsReady(true);
+      }
+      setStyleVersion((v) => v + 1);
     });
 
     mapRef.current = map;
@@ -138,11 +206,18 @@ export function useMap(containerRef: React.RefObject<HTMLDivElement | null>) {
       setMapInstance(null);
       setIsReady(false);
     };
-  }, [containerRef]);
+  }, [containerRef]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const flyTo = (center: [number, number], zoom?: number) => {
+  const setTheme = useCallback((newTheme: MapTheme) => {
+    themeRef.current = newTheme;
+    setThemeState(newTheme);
+    localStorage.setItem('map-theme', newTheme);
+    mapRef.current?.setStyle(THEME_STYLES[newTheme]);
+  }, []);
+
+  const flyTo = useCallback((center: [number, number], zoom?: number) => {
     mapRef.current?.flyTo({ center, zoom: zoom ?? DEFAULT_ZOOM, pitch: DEFAULT_PITCH, duration: 800 });
-  };
+  }, []);
 
-  return { map: mapRef.current, mapRef, isReady, flyTo };
+  return { map: mapRef.current, mapRef, isReady, flyTo, theme, setTheme, styleVersion };
 }
