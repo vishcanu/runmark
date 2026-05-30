@@ -419,17 +419,17 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
         id: L_LABEL, type: 'symbol', source: SRC_LABELS,
         layout: {
           'text-field':          ['get', 'name'],
-          'text-font':           ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
-          'text-size':           12,
+          'text-font':           ['Noto Sans Regular', 'Open Sans Regular', 'Arial Unicode MS Regular'],
+          'text-size':           10,
           'text-anchor':         'center',
-          'text-letter-spacing': 0.10,
+          'text-letter-spacing': 0.06,
           'text-max-width':      9,
         },
         paint: {
           'text-color':      '#ffffff',
           'text-halo-color': ['get', 'color'],
-          'text-halo-width': 2.5,
-          'text-halo-blur':  1,
+          'text-halo-width': 1.5,
+          'text-halo-blur':  0.5,
         },
       });
 
@@ -562,17 +562,17 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
         map.addLayer({ id: GHOST_LABEL, type: 'symbol', source: GHOST_SRC_LBL,
           layout: {
             'text-field':          ['get', 'name'],
-            'text-font':           ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
-            'text-size':           12,
+            'text-font':           ['Noto Sans Regular', 'Open Sans Regular', 'Arial Unicode MS Regular'],
+            'text-size':           10,
             'text-anchor':         'center',
-            'text-letter-spacing': 0.08,
+            'text-letter-spacing': 0.06,
             'text-max-width':      9,
           },
           paint: {
             'text-color':      '#ffffff',
             'text-halo-color': ['get', 'color'],
-            'text-halo-width': 2.5,
-            'text-halo-blur':  1,
+            'text-halo-width': 1.5,
+            'text-halo-blur':  0.5,
           } });
       }
     } catch (err) {
@@ -683,8 +683,8 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           id: L_ENEMY_LBL, type: 'symbol', source: ENEMY_SRC,
           layout: {
             'text-field':          ['concat', ['get', 'name'], '\n', ['get', 'owner']],
-            'text-font':           ['Noto Sans Bold', 'Open Sans Bold', 'Arial Unicode MS Bold'],
-            'text-size':           10,
+            'text-font':           ['Noto Sans Regular', 'Open Sans Regular', 'Arial Unicode MS Regular'],
+            'text-size':           9,
             'text-anchor':         'center',
             'text-max-width':      8,
             'text-line-height':    1.3,
@@ -692,8 +692,8 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           paint: {
             'text-color':      '#ffffff',
             'text-halo-color': attackColorExpr,
-            'text-halo-width': 2,
-            'text-halo-blur':  1,
+            'text-halo-width': 1.5,
+            'text-halo-blur':  0.5,
           },
         });
 
