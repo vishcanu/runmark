@@ -246,28 +246,51 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
       map.addSource(SRC_ROADS,        { type: 'geojson', data: roadGeo  });
       map.addSource(SRC_ROAD_SURFACE, { type: 'geojson', data: roadSurfaceGeo });
 
-      // 0 ── Floor fill — opacity driven by tier (already boosted for selected in floorOpacity prop)
+      // 0 ── Floor fill — zone only (corridors use the road-surface line instead)
       map.addLayer({
         id: L_FILL, type: 'fill', source: SRC_FLOOR,
+        filter: ['==', ['get', 'shape'], 'zone'],
         paint: {
           'fill-color':   ['get', 'color'],
           'fill-opacity': ['get', 'floorOpacity'],
         },
       });
 
-      // 1 ── Subtle tint overlay — keeps map readable while marking owned turf
+      // 1 ── Subtle tint overlay — zone only
       map.addLayer({
         id: L_GROUND, type: 'fill', source: SRC_FLOOR,
+        filter: ['==', ['get', 'shape'], 'zone'],
         paint: {
           'fill-color':   '#0d1e0d',
-          'fill-opacity': 0.22,   // reduced from 0.68 so map remains readable
+          'fill-opacity': 0.22,
         },
       });
 
-      // 2 ── Inner shimmer on floor (animated)
+      // 2 ── Inner shimmer on floor — zone only (animated)
       map.addLayer({
         id: L_SHIMMER, type: 'fill', source: SRC_FLOOR,
+        filter: ['==', ['get', 'shape'], 'zone'],
         paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.04 },
+      });
+
+      // 2a ── Corridor glow — soft blurred halo under the road line (Zepto style)
+      map.addLayer({
+        id: 'territories-corridor-glow', type: 'line', source: SRC_ROAD_SURFACE,
+        filter: ['==', ['get', 'shape'], 'corridor'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color':   ['get', 'color'],
+          'line-width': [
+            'interpolate', ['exponential', 1.5], ['zoom'],
+            12,  5,
+            14, 12,
+            15, 20,
+            16, 34,
+            17, 55,
+          ],
+          'line-opacity': 0.18,
+          'line-blur':    8,
+        },
       });
 
       // 2b ── Road surface fill — zoom-adaptive line on rawPath centreline.
@@ -329,18 +352,8 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
       });
 
       // ── CORRIDOR layers ───────────────────────────────────────
-      // Road strip extruded at wall height (same tier progression as zones).
-      // Looks like a raised road slab / barrier wall along the road.
-      map.addLayer({
-        id: L_ROAD_SLAB, type: 'fill-extrusion', source: SRC,
-        filter: ['==', ['get', 'shape'], 'corridor'],
-        paint: {
-          'fill-extrusion-color':   ['get', 'color'],
-          'fill-extrusion-height':  ['get', 'height'],  // tier-based wall height
-          'fill-extrusion-base':    0,
-          'fill-extrusion-opacity': 0.78,
-        },
-      });
+      // No 3D slab — corridors render as a thin line (glow + road-surface above).
+      // The fat buffer polygon is kept only for click hit-detection.
 
       // Road center stripe: dashed white line along the GPS centreline
       map.addLayer({
@@ -354,9 +367,10 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
         },
       });
 
-      // 4 ── Wide diffuse halo — width grows with tier
+      // 4 ── Wide diffuse halo — zone only (corridor halo is on the road-surface glow layer)
       map.addLayer({
         id: L_HALO, type: 'line', source: SRC_FLOOR,
+        filter: ['==', ['get', 'shape'], 'zone'],
         paint: {
           'line-color':   ['get', 'color'],
           'line-width':   ['get', 'haloWidth'],
@@ -365,9 +379,10 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
         },
       });
 
-      // 5 ── Crisp ground ring — width grows with tier
+      // 5 ── Crisp ground ring — zone only
       map.addLayer({
         id: L_BORDER, type: 'line', source: SRC_FLOOR,
+        filter: ['==', ['get', 'shape'], 'zone'],
         paint: {
           'line-color':   ['get', 'color'],
           'line-width':   ['get', 'borderWidth'],
@@ -375,16 +390,17 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
         },
       });
 
-      // 6 ── White energy flash (animated)
+      // 6 ── White energy flash — zone only (animated)
       map.addLayer({
         id: L_FLASH, type: 'line', source: SRC_FLOOR,
+        filter: ['==', ['get', 'shape'], 'zone'],
         paint: { 'line-color': '#ffffff', 'line-width': 1.5, 'line-opacity': 0.0 },
       });
 
-      // 6b ── City-unlock golden pulse ring — only visible when streak ≥ 3 and runs ≥ 3
+      // 6b ── City-unlock golden pulse ring — zone only, streak ≥ 3 and runs ≥ 3
       map.addLayer({
         id: L_CITY_GLOW, type: 'line', source: SRC_FLOOR,
-        filter: ['==', ['get', 'cityUnlocked'], 1],
+        filter: ['all', ['==', ['get', 'shape'], 'zone'], ['==', ['get', 'cityUnlocked'], 1]],
         paint: {
           'line-color':   '#fbbf24',  // golden amber
           'line-width':   8,

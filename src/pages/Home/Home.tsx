@@ -278,12 +278,13 @@ export function Home() {
       coords = simplifyRing(bufferPath(snappedPath, ROAD_HALF), 5);
     } else {
       // Zone: road-ring donut.
-      // Strong simplification collapses straight segments to corner-only path
-      // so the ring sides are perfectly straight, matching the road geometry.
-      const zonePath = simplifyPath(snappedPath, 15);
+      // Light simplification (3 m) removes only GPS jitter while keeping real
+      // road corners and curves. 15 m was too aggressive — it collapsed a 29-point
+      // block walk down to 5 irregular points that didn't follow the roads at all.
+      const zonePath = simplifyPath(snappedPath, 3);
       const [rawOuter, rawInner] = buildRoadRing(zonePath, ROAD_HALF);
-      coords    = simplifyRing(rawOuter, 5);
-      innerRing = simplifyRing(rawInner, 5);
+      coords    = simplifyRing(rawOuter, 2);
+      innerRing = simplifyRing(rawInner, 2);
     }
     const color    = colorFromId(sessionId);
     const duration = elapsed;
