@@ -358,7 +358,7 @@ export function Profile() {
             )}
 
             {/* ── 3-col metric summary + TDEE row ── */}
-            {(bmr != null || maxHR != null || totalCalories > 0) && (
+            {(bmr != null || maxHR != null) && (
               <div className={styles.insightList}>
 
                 {/* compact 3-column grid: at-rest cal | max HR | activity cal */}
@@ -383,7 +383,7 @@ export function Profile() {
                       <span className={styles.metricLabel}>Max heart rate</span>
                     </div>
                   )}
-                  {totalCalories > 0 && (
+                  {totalCalories > 0 ? (
                     <div className={styles.metricCell}>
                       <div className={styles.metricIcon} style={{ background: "#fff7ed" }}>
                         <Zap size={14} strokeWidth={2} style={{ color: "#f97316" }} />
@@ -395,6 +395,16 @@ export function Profile() {
                       </span>
                       <span className={styles.metricUnit}>kcal total</span>
                       <span className={styles.metricLabel}>Activity burn</span>
+                    </div>
+                  ) : (
+                    <div className={styles.metricCell}>
+                      <div className={styles.metricIcon} style={{ background: "var(--color-bg-primary)" }}>
+                        <Zap size={14} strokeWidth={2} style={{ color: "var(--color-text-muted)" }} />
+                      </div>
+                      <span className={styles.metricNumEmpty}>—</span>
+                      <span className={styles.metricUnit}>kcal total</span>
+                      <span className={styles.metricLabel}>Activity burn</span>
+                      <span className={styles.metricHint}>Start a run!</span>
                     </div>
                   )}
                 </div>

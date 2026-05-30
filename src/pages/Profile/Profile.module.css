@@ -1056,3 +1056,20 @@
     padding: 0 var(--space-1);
     margin-top: 2px;
 }
+
+.metricNumEmpty {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--color-text-muted);
+    line-height: 1;
+    opacity: 0.5;
+}
+
+.metricHint {
+    font-size: 9px;
+    color: var(--color-accent-primary);
+    font-weight: var(--font-semibold);
+    text-align: center;
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+}
