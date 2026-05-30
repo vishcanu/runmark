@@ -121,9 +121,21 @@ export function calcBMR(
   return Math.round(base + offset);
 }
 
-// ── TDEE — lightly active factor (1–3 sessions/week typical for this app) ──
-export function calcTDEE(bmr: number): number {
-  return Math.round(bmr * 1.375);
+// ── TDEE — multiply BMR by activity level multiplier ─────────
+export function calcTDEE(bmr: number, multiplier = 1.375): number {
+  return Math.round(bmr * multiplier);
+}
+
+// ── Activity level from sessions per week → TDEE multiplier ───
+export function getActivityMultiplier(sessionsPerWeek: number): {
+  multiplier: number;
+  label:      string;
+} {
+  if (sessionsPerWeek < 1) return { multiplier: 1.2,   label: 'Sedentary'        }; // little/no exercise
+  if (sessionsPerWeek < 3) return { multiplier: 1.375, label: 'Lightly active'   }; // 1-2 sessions/week
+  if (sessionsPerWeek < 5) return { multiplier: 1.55,  label: 'Moderately active'}; // 3-4 sessions/week
+  if (sessionsPerWeek < 7) return { multiplier: 1.725, label: 'Very active'      }; // 5-6 sessions/week
+  return                          { multiplier: 1.9,   label: 'Extremely active' }; // daily
 }
 
 // ── Ideal weight range for a height (BMI 18.5 – 24.9) ─────────

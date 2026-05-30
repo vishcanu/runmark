@@ -1,7 +1,7 @@
 ﻿import { useMemo } from "react";
 import {
   Building2, Trophy, Map, TrendingUp, Clock, Check, LogOut, Mail,
-  Flame, Zap, Wind, Droplets, Star, Activity, Bike, Footprints,
+  Flame, Zap, Wind, Droplets, Star, Activity, Bike, Footprints, Heart, Target,
 } from "lucide-react";
 import { useTerritoryStore } from "../../features/territory/hooks/useTerritoryStore";
 import { useUserProfile } from "../../hooks/useUserProfile";
@@ -9,7 +9,7 @@ import { useSiegeCharges } from "../../hooks/useSiegeCharges";
 import { formatDistance, formatDuration } from "../../features/map/utils/geo";
 import {
   calcCaloriesBurned, calcBMR, calcTDEE, idealWeightRange,
-  getBMILabel, maxHeartRate, estimateSteps,
+  getBMILabel, maxHeartRate, getActivityMultiplier,
 } from "../../features/activity/utils/health";
 import { computeDailyStreak } from "../../features/territory/utils/territoryTier";
 import { supabase } from "../../lib/supabase";
@@ -143,21 +143,24 @@ export function Profile() {
     return calcBMR(weightKg, heightCm, age, gender ?? 'other');
   }, [user.health]);
 
-  const tdee       = bmr != null ? calcTDEE(bmr) : null;
-  const idealRange = user.health.heightCm ? idealWeightRange(user.health.heightCm) : null;
-  const maxHR      = user.health.age ? maxHeartRate(user.health.age) : null;
+  // ── Sessions per week → dynamic activity level for TDEE ───────────
+  const sessionsPerWeek = useMemo(() => {
+    if (totalRuns === 0) return 0;
+    const allTs: number[] = [];
+    store.territories.forEach((t) => {
+      if (t.runLog && t.runLog.length > 0) t.runLog.forEach((r) => allTs.push(r.ts));
+      else allTs.push(t.createdAt);
+    });
+    if (allTs.length === 0) return 0;
+    const earliest    = Math.min(...allTs);
+    const weeksSince  = Math.max(1, (Date.now() - earliest) / (7 * 24 * 60 * 60 * 1000));
+    return totalRuns / weeksSince;
+  }, [store.territories, totalRuns]);
 
-  const totalSteps = useMemo(() => {
-    return store.territories.reduce((sum, t) => {
-      if (t.runLog && t.runLog.length > 0) {
-        return sum + t.runLog.reduce(
-          (s, r) => s + estimateSteps(r.dist, r.type, user.health.heightCm),
-          0,
-        );
-      }
-      return sum + estimateSteps(t.distance, t.activityType ?? 'walk', user.health.heightCm);
-    }, 0);
-  }, [store.territories, user.health.heightCm]);
+  const activityInfo = getActivityMultiplier(sessionsPerWeek);
+  const tdee         = bmr != null ? calcTDEE(bmr, activityInfo.multiplier) : null;
+  const idealRange   = user.health.heightCm ? idealWeightRange(user.health.heightCm) : null;
+  const maxHR      = user.health.age ? maxHeartRate(user.health.age) : null;
 
   // ── Achievement values ───────────────────────────────────
   const achieveValues = {
@@ -290,47 +293,95 @@ export function Profile() {
               )}
             </div>
 
-            {/* ── Derived health metrics ── */}
-            {(bmr != null || maxHR != null || totalSteps > 0) && (
-              <>
-              <div className={styles.derivedHeader}>
-                <span className={styles.derivedHeaderText}>Estimates from your profile</span>
-              </div>
-              <div className={styles.derivedGrid}>
+            {/* ── Health insight rows ── */}
+            {(bmr != null || maxHR != null || totalCalories > 0) && (
+              <div className={styles.insightList}>
+
                 {bmr != null && (
-                  <div className={styles.derivedItem}>
-                    <span className={styles.derivedVal}>{bmr.toLocaleString()}</span>
-                    <span className={styles.derivedLabel}>Resting Burn</span>
-                    <span className={styles.derivedSub}>kcal/day · inactive</span>
+                  <div className={styles.insightRow}>
+                    <div className={styles.insightIcon} style={{ background: "#fef3c7" }}>
+                      <Flame size={14} strokeWidth={2} style={{ color: "#f59e0b" }} />
+                    </div>
+                    <div className={styles.insightBody}>
+                      <span className={styles.insightTitle}>Calories burned at rest</span>
+                      <span className={styles.insightDesc}>Your body burns this much even while sleeping</span>
+                    </div>
+                    <div className={styles.insightValue}>
+                      <span className={styles.insightNum}>{bmr.toLocaleString()}</span>
+                      <span className={styles.insightUnit}>kcal / day</span>
+                    </div>
                   </div>
                 )}
+
                 {tdee != null && (
-                  <div className={styles.derivedItem}>
-                    <span className={styles.derivedVal}>{tdee.toLocaleString()}</span>
-                    <span className={styles.derivedLabel}>Daily Goal</span>
-                    <span className={styles.derivedSub}>kcal/day · maintain</span>
+                  <div className={[styles.insightRow, styles.insightRowExpanded].join(' ')}>
+                    <div className={styles.insightIcon} style={{ background: "#dcfce7" }}>
+                      <Target size={14} strokeWidth={2} style={{ color: "#22c55e" }} />
+                    </div>
+                    <div className={styles.insightBody}>
+                      <div className={styles.insightTitleRow}>
+                        <span className={styles.insightTitle}>Daily calorie need</span>
+                        <span className={styles.insightNumInline}>{tdee.toLocaleString()} kcal</span>
+                      </div>
+                      <span className={styles.insightDesc}>{activityInfo.label} · pick your goal below</span>
+                      <div className={styles.calorieGoals}>
+                        <div className={styles.calorieGoalChip}>
+                          <span className={styles.calorieGoalLabel}>Lose weight</span>
+                          <span className={styles.calorieGoalVal}>{(tdee - 400).toLocaleString()}</span>
+                          <span className={styles.calorieGoalUnit}>kcal/day</span>
+                        </div>
+                        <div className={[styles.calorieGoalChip, styles.calorieGoalMaintain].join(' ')}>
+                          <span className={styles.calorieGoalLabel}>Maintain</span>
+                          <span className={styles.calorieGoalVal}>{tdee.toLocaleString()}</span>
+                          <span className={styles.calorieGoalUnit}>kcal/day</span>
+                        </div>
+                        <div className={styles.calorieGoalChip}>
+                          <span className={styles.calorieGoalLabel}>Build muscle</span>
+                          <span className={styles.calorieGoalVal}>{(tdee + 250).toLocaleString()}</span>
+                          <span className={styles.calorieGoalUnit}>kcal/day</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
+
                 {maxHR != null && (
-                  <div className={styles.derivedItem}>
-                    <span className={styles.derivedVal}>{maxHR}</span>
-                    <span className={styles.derivedLabel}>Max Heart Rate</span>
-                    <span className={styles.derivedSub}>bpm · age-based</span>
+                  <div className={styles.insightRow}>
+                    <div className={styles.insightIcon} style={{ background: "#fee2e2" }}>
+                      <Heart size={14} strokeWidth={2} style={{ color: "#ef4444" }} />
+                    </div>
+                    <div className={styles.insightBody}>
+                      <span className={styles.insightTitle}>Max safe heart rate</span>
+                      <span className={styles.insightDesc}>Try not to go above this during intense runs</span>
+                    </div>
+                    <div className={styles.insightValue}>
+                      <span className={styles.insightNum}>{maxHR}</span>
+                      <span className={styles.insightUnit}>bpm</span>
+                    </div>
                   </div>
                 )}
-                {totalSteps > 0 && (
-                  <div className={styles.derivedItem}>
-                    <span className={styles.derivedVal}>
-                      {totalSteps > 9999
-                        ? `${(totalSteps / 1000).toFixed(1)}k`
-                        : totalSteps.toLocaleString()}
-                    </span>
-                    <span className={styles.derivedLabel}>Total Steps</span>
-                    <span className={styles.derivedSub}>all sessions</span>
+
+                {totalCalories > 0 && (
+                  <div className={styles.insightRow}>
+                    <div className={styles.insightIcon} style={{ background: "#fff7ed" }}>
+                      <Zap size={14} strokeWidth={2} style={{ color: "#f97316" }} />
+                    </div>
+                    <div className={styles.insightBody}>
+                      <span className={styles.insightTitle}>Calories burned through activity</span>
+                      <span className={styles.insightDesc}>Earned from all your runs, walks & territory claims</span>
+                    </div>
+                    <div className={styles.insightValue}>
+                      <span className={styles.insightNum}>
+                        {totalCalories > 9999
+                          ? `${(totalCalories / 1000).toFixed(1)}k`
+                          : totalCalories.toLocaleString()}
+                      </span>
+                      <span className={styles.insightUnit}>kcal total</span>
+                    </div>
                   </div>
                 )}
+
               </div>
-              </>
             )}
 
           </div>
