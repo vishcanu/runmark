@@ -49,13 +49,13 @@ const L_UNDER_ATTACK = 'territories-under-attack';
 const MS_PER_DAY = 86_400_000;
 
 // ── Height grows meaningfully with each run ───────────────────
-// Run 1 → 8m  (tiny curb — just claimed, barely there)
-// Run 2 → 26m (walls emerge — locked in)
-// Run 3 → 48m (fortress walls — fortified, city build unlocks)
-// Run 5 → 82m (tower — warlord)
-// Run 10→ 130m (unbreakable landmark)
+// Run 1 → 4m  (tiny curb — just claimed, barely there)
+// Run 2 → 12m (walls emerge — locked in)
+// Run 3 → 22m (fortress walls — fortified, city build unlocks)
+// Run 5 → 38m (tower — warlord)
+// Run 10→ 60m (unbreakable landmark)
 function baseHeight(runs: number): number {
-  const HEIGHTS = [0, 8, 26, 48, 65, 82, 92, 102, 112, 121, 130];
+  const HEIGHTS = [0, 4, 12, 22, 30, 38, 44, 50, 55, 58, 60];
   return HEIGHTS[Math.min(Math.max(runs, 1), HEIGHTS.length - 1)];
 }
 
@@ -84,16 +84,16 @@ function computeProps(t: Territory, selected: boolean) {
   const isCorr = t.shape === 'corridor';
 
   // Corridors: solid flat road slab — different visual weight than zone walls
-  const wallM        = isCorr ? 5 : tier.wallM + (selected ? 1 : 0);
+  const wallM        = isCorr ? 3 : tier.wallM + (selected ? 0.5 : 0);
   const floorOpacity = isCorr
     ? Math.min(0.50 + (selected ? 0.12 : 0), 0.65)
     : Math.min(tier.floorOpacity + (selected ? 0.10 : 0), 0.45);
   const borderWidth  = isCorr
-    ? (selected ? 3.5 : 2.5)
-    : tier.borderWidth + (selected ? 1.0 : 0);
+    ? (selected ? 2.5 : 1.5)
+    : tier.borderWidth + (selected ? 0.5 : 0);
   const haloWidth    = isCorr
-    ? (selected ? 14 : 7)
-    : tier.haloWidth   + (selected ? 6   : 0);
+    ? (selected ? 8 : 4)
+    : tier.haloWidth   + (selected ? 4   : 0);
   // City building unlocks when the user has run here 3+ times AND visited 3+ consecutive days
   const streak = computeDailyStreak(t.visitDays ?? [t.createdAt ?? Date.now()]);
   const cityUnlocked = runs >= 3 && streak >= 3;
@@ -293,14 +293,14 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           'line-width': [
             'interpolate', ['exponential', 1.5], ['zoom'],
             12,  1,
-            14,  4,
-            15,  7,
-            16, 13,
-            17, 22,
-            18, 38,
-            20, 80,
+            14,  3,
+            15,  5,
+            16,  9,
+            17, 15,
+            18, 26,
+            20, 55,
           ],
-          'line-opacity': 0.82,
+          'line-opacity': 0.85,
         },
       });
 

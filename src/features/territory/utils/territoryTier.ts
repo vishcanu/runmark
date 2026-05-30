@@ -18,36 +18,36 @@ const TIERS: Array<{ minRuns: number } & TierInfo> = [
   {
     minRuns: 10,
     name: 'CERTIFIED',
-    wallM: 8,   crownH: 18, crownColor: '#f97316',
-    floorOpacity: 0.35, haloWidth: 32, borderWidth: 3.5,
+    wallM: 4,   crownH: 10, crownColor: '#f97316',
+    floorOpacity: 0.35, haloWidth: 18, borderWidth: 2.5,
     uiColor: '#f97316',
   },
   {
     minRuns: 5,
     name: 'GOATED',
-    wallM: 7,   crownH: 13, crownColor: '#fbbf24',
-    floorOpacity: 0.28, haloWidth: 26, borderWidth: 3.0,
+    wallM: 3.5, crownH: 7,  crownColor: '#fbbf24',
+    floorOpacity: 0.28, haloWidth: 14, borderWidth: 2.2,
     uiColor: '#fbbf24',
   },
   {
     minRuns: 3,
     name: 'SLAPS',
-    wallM: 6,   crownH: 10, crownColor: '#fde68a',
-    floorOpacity: 0.22, haloWidth: 20, borderWidth: 2.8,
+    wallM: 3,   crownH: 5,  crownColor: '#fde68a',
+    floorOpacity: 0.22, haloWidth: 11, borderWidth: 2.0,
     uiColor: '#a3e635',
   },
   {
     minRuns: 2,
     name: 'COOKING',
-    wallM: 5,   crownH: 8,  crownColor: '#e2e8f0',
-    floorOpacity: 0.16, haloWidth: 16, borderWidth: 2.4,
+    wallM: 2.5, crownH: 4,  crownColor: '#e2e8f0',
+    floorOpacity: 0.16, haloWidth: 9,  borderWidth: 1.8,
     uiColor: '#60a5fa',
   },
   {
     minRuns: 1,
     name: 'LOWKEY',
-    wallM: 4,   crownH: 0,  crownColor: '#ffffff',  // crownH=0 → no crown on first run
-    floorOpacity: 0.12, haloWidth: 12, borderWidth: 2.0,
+    wallM: 2,   crownH: 0,  crownColor: '#ffffff',  // crownH=0 → no crown on first run
+    floorOpacity: 0.12, haloWidth: 7,  borderWidth: 1.5,
     uiColor: '#94a3b8',
   },
 ];

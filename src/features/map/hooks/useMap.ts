@@ -3,7 +3,7 @@ import maplibregl, { Map } from 'maplibre-gl';
 import { setMapInstance } from '../mapSingleton';
 
 const DEFAULT_CENTER: [number, number] = [77.5946, 12.9716]; // Bengaluru fallback — GPS will override immediately
-const DEFAULT_ZOOM = 14;
+const DEFAULT_ZOOM = 13;
 const DEFAULT_PITCH = 50; // 3D tilt angle (0 = top-down, 60 = max)
 
 // ── Map style — swap the active line to test ─────────────────────────────────
