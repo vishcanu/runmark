@@ -142,7 +142,7 @@ export const TurfShareCard = forwardRef<HTMLDivElement, Props>(({ territory, map
 
       {/* Brand */}
       <div className={styles.brand}>
-        <span className={styles.brandText}>RunMark</span>
+        <span className={styles.brandText}>Claim'X'</span>
       </div>
 
     </div>

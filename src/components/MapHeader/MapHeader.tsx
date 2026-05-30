@@ -41,7 +41,7 @@ export function MapHeader({ isActive = false, centerContent }: MapHeaderProps) {
         <div className={styles.brandIcon}>
           <Navigation2 size={14} strokeWidth={2.5} />
         </div>
-        <span className={styles.brandWord}>RunMark</span>
+        <span className={styles.brandWord}>Claim'X'</span>
       </div>
 
       {/* ── Center: recording pill or injected content ─────── */}

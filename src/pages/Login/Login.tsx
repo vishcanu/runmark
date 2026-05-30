@@ -37,7 +37,7 @@ export function Login({ onBack }: LoginProps) {
 
       <div className={styles.content}>
         <div className={styles.headingGroup} style={{ marginTop: 'auto' }}>
-          <h1 className={styles.heading}>Sign in to{'\n'}RunMark</h1>
+          <h1 className={styles.heading}>Sign in to{'\n'}Claim'X'</h1>
           <p className={styles.subtext}>
             Your territories, streaks and health data sync across all your devices.
           </p>

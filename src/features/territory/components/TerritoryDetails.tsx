@@ -445,7 +445,7 @@ async function buildShareCard(
   ctx.fillStyle = 'rgba(255,255,255,0.26)';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText('RUNMARK', W / 2, panelY + PANEL_H - 18);
+  ctx.fillText("CLAIM'X'", W / 2, panelY + PANEL_H - 18);
 
   return canvas.toDataURL('image/png');
 }
@@ -483,8 +483,8 @@ export function TerritoryDetails({ territory, onDelete, onUpdate }: TerritoryDet
         navigator.canShare({ files: [file] })
       ) {
         await navigator.share({
-          title: `${territory.name} \u2014 RunMark`,
-          text: territory.tagline ?? 'Check out my turf on RunMark!',
+          title: `${territory.name} \u2014 Claim'X'`,
+          text: territory.tagline ?? "Check out my turf on Claim'X'!",
           files: [file],
         });
       } else {
