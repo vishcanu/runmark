@@ -292,26 +292,30 @@ export function Profile() {
 
             {/* ── Derived health metrics ── */}
             {(bmr != null || maxHR != null || totalSteps > 0) && (
+              <>
+              <div className={styles.derivedHeader}>
+                <span className={styles.derivedHeaderText}>Estimates from your profile</span>
+              </div>
               <div className={styles.derivedGrid}>
                 {bmr != null && (
                   <div className={styles.derivedItem}>
                     <span className={styles.derivedVal}>{bmr.toLocaleString()}</span>
-                    <span className={styles.derivedLabel}>BMR kcal</span>
-                    <span className={styles.derivedSub}>at rest / day</span>
+                    <span className={styles.derivedLabel}>Resting Burn</span>
+                    <span className={styles.derivedSub}>kcal/day · inactive</span>
                   </div>
                 )}
                 {tdee != null && (
                   <div className={styles.derivedItem}>
                     <span className={styles.derivedVal}>{tdee.toLocaleString()}</span>
-                    <span className={styles.derivedLabel}>TDEE kcal</span>
-                    <span className={styles.derivedSub}>daily target</span>
+                    <span className={styles.derivedLabel}>Daily Goal</span>
+                    <span className={styles.derivedSub}>kcal/day · maintain</span>
                   </div>
                 )}
                 {maxHR != null && (
                   <div className={styles.derivedItem}>
                     <span className={styles.derivedVal}>{maxHR}</span>
-                    <span className={styles.derivedLabel}>Max HR</span>
-                    <span className={styles.derivedSub}>bpm est.</span>
+                    <span className={styles.derivedLabel}>Max Heart Rate</span>
+                    <span className={styles.derivedSub}>bpm · age-based</span>
                   </div>
                 )}
                 {totalSteps > 0 && (
@@ -321,11 +325,12 @@ export function Profile() {
                         ? `${(totalSteps / 1000).toFixed(1)}k`
                         : totalSteps.toLocaleString()}
                     </span>
-                    <span className={styles.derivedLabel}>Steps</span>
-                    <span className={styles.derivedSub}>total est.</span>
+                    <span className={styles.derivedLabel}>Total Steps</span>
+                    <span className={styles.derivedSub}>all sessions</span>
                   </div>
                 )}
               </div>
+              </>
             )}
 
           </div>
