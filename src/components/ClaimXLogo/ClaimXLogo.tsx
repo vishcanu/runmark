@@ -4,8 +4,9 @@ interface ClaimXLogoProps {
 }
 
 /**
- * Claim'X' brand logo mark — bold X with a centre target circle.
- * Represents "X marks the spot" territory claiming.
+ * Claim'X' brand mark — a bold typographic X formed by
+ * two filled diagonal bars, like a premium wordmark glyph.
+ * Works at every size from 14 px (header) to 80 px (splash).
  */
 export function ClaimXLogo({ size = 24, color = '#ffffff' }: ClaimXLogoProps) {
   return (
@@ -17,16 +18,10 @@ export function ClaimXLogo({ size = 24, color = '#ffffff' }: ClaimXLogoProps) {
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      {/* Top-left arm */}
-      <path d="M5.5 5.5L10.1 10.1" stroke={color} strokeWidth="2.8" strokeLinecap="round" />
-      {/* Bottom-right arm */}
-      <path d="M13.9 13.9L18.5 18.5" stroke={color} strokeWidth="2.8" strokeLinecap="round" />
-      {/* Top-right arm */}
-      <path d="M18.5 5.5L13.9 10.1" stroke={color} strokeWidth="2.8" strokeLinecap="round" />
-      {/* Bottom-left arm */}
-      <path d="M10.1 13.9L5.5 18.5" stroke={color} strokeWidth="2.8" strokeLinecap="round" />
-      {/* Centre pin dot */}
-      <circle cx="12" cy="12" r="2.6" fill={color} />
+      {/* Bar: top-left → bottom-right */}
+      <path d="M3.5 2H9L20.5 22H15Z" fill={color} />
+      {/* Bar: top-right → bottom-left */}
+      <path d="M20.5 2H15L3.5 22H9Z" fill={color} />
     </svg>
   );
 }

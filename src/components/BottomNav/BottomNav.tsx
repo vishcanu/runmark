@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { Crosshair, Activity, Shield, User } from 'lucide-react';
+import { Compass, Activity, Shield, User } from 'lucide-react';
 import styles from './BottomNav.module.css';
 
 const NAV_ITEMS = [
-  { to: '/',        icon: Crosshair, label: 'Explore'  },
-  { to: '/activity', icon: Activity, label: 'Activity' },
-  { to: '/arena',   icon: Shield,   label: 'Arena'    },
-  { to: '/profile', icon: User,     label: 'Profile'  },
+  { to: '/',         icon: Compass,   label: 'Explore'  },
+  { to: '/activity', icon: Activity,  label: 'Activity' },
+  { to: '/arena',    icon: Shield,    label: 'Arena'    },
+  { to: '/profile',  icon: User,      label: 'Profile'  },
 ] as const;
 
 export function BottomNav() {
