@@ -96,16 +96,6 @@ export function MapView({
           <BuildingLayer map={map} territories={territories} />
         </>
       )}
-      {/* Theme toggle — cycles Light → Dark → Night */}
-      <button
-        className={`${styles.themeBtn} ${theme !== 'light' ? styles.themeBtnDark : ''}`}
-        onClick={cycleTheme}
-        aria-label={`Map theme: ${theme}`}
-      >
-        {theme === 'light' ? <Sun size={17} strokeWidth={2} /> :
-         theme === 'dark'  ? <Moon size={17} strokeWidth={2} /> :
-         <Sparkles size={17} strokeWidth={2} />}
-      </button>
       {/* Re-center on user button */}
       {userPosition && (
         <button
@@ -116,6 +106,16 @@ export function MapView({
           <Crosshair size={20} strokeWidth={2} />
         </button>
       )}
+      {/* Theme toggle — cycles Light → Dark → Night, sits right of locate btn */}
+      <button
+        className={`${styles.themeBtn} ${theme !== 'light' ? styles.themeBtnDark : ''}`}
+        onClick={cycleTheme}
+        aria-label={`Map theme: ${theme}`}
+      >
+        {theme === 'light' ? <Sun size={17} strokeWidth={2} /> :
+         theme === 'dark'  ? <Moon size={17} strokeWidth={2} /> :
+         <Sparkles size={17} strokeWidth={2} />}
+      </button>
     </div>
   );
 }
