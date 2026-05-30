@@ -1,10 +1,10 @@
-﻿import { useMemo } from "react";
+﻿import { useMemo, useState } from "react";
 import {
   Building2, Trophy, Map, TrendingUp, Clock, Check, LogOut, Mail,
-  Flame, Zap, Wind, Droplets, Star, Activity, Bike, Footprints, Heart, Target,
+  Flame, Zap, Wind, Droplets, Star, Activity, Bike, Footprints, Heart, Target, Pencil,
 } from "lucide-react";
 import { useTerritoryStore } from "../../features/territory/hooks/useTerritoryStore";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useUserProfile, saveUserProfile } from "../../hooks/useUserProfile";
 import { useSiegeCharges } from "../../hooks/useSiegeCharges";
 import { formatDistance, formatDuration } from "../../features/map/utils/geo";
 import {
@@ -65,6 +65,12 @@ export function Profile() {
   const user   = useUserProfile();
   const { charges, loaded: chargesLoaded } = useSiegeCharges();
 
+  // ── Local mutable health state (supports in-page weight/age updates) ──
+  const [localHealth, setLocalHealth] = useState(() => user.health);
+  const [editOpen,    setEditOpen]    = useState(false);
+  const [editWeight,  setEditWeight]  = useState('');
+  const [editAge,     setEditAge]     = useState('');
+
   // ── Aggregate totals ──────────────────────────────────────
   const totalDistance  = store.territories.reduce((s, t) => s + t.distance, 0);
   const totalDuration  = store.territories.reduce((s, t) => s + t.duration, 0);
@@ -90,13 +96,13 @@ export function Profile() {
     return store.territories.reduce((sum, t) => {
       if (t.runLog && t.runLog.length > 0) {
         return sum + t.runLog.reduce(
-          (s, r) => s + calcCaloriesBurned(r.dist, r.dur, r.type, user.health.weightKg),
+          (s, r) => s + calcCaloriesBurned(r.dist, r.dur, r.type, localHealth.weightKg),
           0,
         );
       }
-      return sum + calcCaloriesBurned(t.distance, t.duration, t.activityType ?? "walk", user.health.weightKg);
+      return sum + calcCaloriesBurned(t.distance, t.duration, t.activityType ?? "walk", localHealth.weightKg);
     }, 0);
-  }, [store.territories, user.health.weightKg]);
+  }, [store.territories, localHealth.weightKg]);
 
   // ── Activity breakdown ───────────────────────────────────
   const activityBreakdown = useMemo(() => {
@@ -126,11 +132,11 @@ export function Profile() {
 
   // ── BMI ─────────────────────────────────────────────────
   const bmi = useMemo(() => {
-    const { weightKg, heightCm } = user.health;
+    const { weightKg, heightCm } = localHealth;
     if (!weightKg || !heightCm) return null;
     const h = heightCm / 100;
     return Math.round((weightKg / (h * h)) * 10) / 10;
-  }, [user.health]);
+  }, [localHealth]);
 
   const bmiInfo  = bmi != null ? getBMILabel(bmi) : null;
   const bmiLabel = bmiInfo?.label ?? null;
@@ -138,10 +144,10 @@ export function Profile() {
 
   // ── Derived health metrics ───────────────────────────────
   const bmr = useMemo(() => {
-    const { weightKg, heightCm, age, gender } = user.health;
+    const { weightKg, heightCm, age, gender } = localHealth;
     if (!weightKg || !heightCm || !age) return null;
     return calcBMR(weightKg, heightCm, age, gender ?? 'other');
-  }, [user.health]);
+  }, [localHealth]);
 
   // ── Sessions per week → dynamic activity level for TDEE ───────────
   const sessionsPerWeek = useMemo(() => {
@@ -159,8 +165,8 @@ export function Profile() {
 
   const activityInfo = getActivityMultiplier(sessionsPerWeek);
   const tdee         = bmr != null ? calcTDEE(bmr, activityInfo.multiplier) : null;
-  const idealRange   = user.health.heightCm ? idealWeightRange(user.health.heightCm) : null;
-  const maxHR      = user.health.age ? maxHeartRate(user.health.age) : null;
+  const idealRange   = localHealth.heightCm ? idealWeightRange(localHealth.heightCm) : null;
+  const maxHR        = localHealth.age ? maxHeartRate(localHealth.age) : null;
 
   // ── Achievement values ───────────────────────────────────
   const achieveValues = {
@@ -171,7 +177,18 @@ export function Profile() {
     streak:      globalStreak,
   };
 
-  const hasHealth = !!(user.health.age || user.health.weightKg || user.health.heightCm);
+  const hasHealth = !!(localHealth.age || localHealth.weightKg || localHealth.heightCm);
+
+  function handleSaveHealth() {
+    const w = parseFloat(editWeight);
+    const a = parseInt(editAge, 10);
+    const updated = { ...localHealth };
+    if (!isNaN(w) && w > 0) updated.weightKg = w;
+    if (!isNaN(a) && a > 0) updated.age = a;
+    setLocalHealth(updated);
+    saveUserProfile(user.name, user.color, updated);
+    setEditOpen(false);
+  }
 
   return (
     <div className={styles.page}>
@@ -264,55 +281,125 @@ export function Profile() {
             )}
 
             {/* ── Body stats grid ── */}
+            <div className={styles.healthSubHeader}>
+              <span className={styles.healthSubLabel}>Measurements</span>
+              <button
+                className={styles.editHealthBtn}
+                onClick={() => {
+                  setEditWeight(localHealth.weightKg ? String(localHealth.weightKg) : '');
+                  setEditAge(localHealth.age ? String(localHealth.age) : '');
+                  setEditOpen((o) => !o);
+                }}
+              >
+                <Pencil size={11} strokeWidth={2} />
+                {editOpen ? 'Cancel' : 'Update'}
+              </button>
+            </div>
             <div className={styles.healthGrid}>
-              {user.health.age && (
+              {localHealth.age && (
                 <div className={styles.healthItem}>
-                  <span className={styles.healthItemVal}>{user.health.age}</span>
+                  <span className={styles.healthItemVal}>{localHealth.age}</span>
                   <span className={styles.healthItemLabel}>Age</span>
                 </div>
               )}
-              {user.health.weightKg && (
+              {localHealth.weightKg && (
                 <div className={styles.healthItem}>
-                  <span className={styles.healthItemVal}>{user.health.weightKg}</span>
+                  <span className={styles.healthItemVal}>{localHealth.weightKg}</span>
                   <span className={styles.healthItemLabel}>Weight kg</span>
                 </div>
               )}
-              {user.health.heightCm && (
+              {localHealth.heightCm && (
                 <div className={styles.healthItem}>
-                  <span className={styles.healthItemVal}>{user.health.heightCm}</span>
+                  <span className={styles.healthItemVal}>{localHealth.heightCm}</span>
                   <span className={styles.healthItemLabel}>Height cm</span>
                 </div>
               )}
-              {user.health.gender && (
+              {localHealth.gender && (
                 <div className={styles.healthItem}>
                   <span className={styles.healthItemVal} style={{ textTransform: "capitalize" }}>
-                    {user.health.gender}
+                    {localHealth.gender}
                   </span>
                   <span className={styles.healthItemLabel}>Gender</span>
                 </div>
               )}
             </div>
+            {editOpen && (
+              <div className={styles.editHealthPanel}>
+                <div className={styles.editHealthRow}>
+                  <label className={styles.editHealthLabel}>Weight (kg)</label>
+                  <input
+                    className={styles.editHealthInput}
+                    type="number"
+                    value={editWeight}
+                    onChange={e => setEditWeight(e.target.value)}
+                    placeholder="kg"
+                    min={20}
+                    max={300}
+                  />
+                </div>
+                <div className={styles.editHealthRow}>
+                  <label className={styles.editHealthLabel}>Age (years)</label>
+                  <input
+                    className={styles.editHealthInput}
+                    type="number"
+                    value={editAge}
+                    onChange={e => setEditAge(e.target.value)}
+                    placeholder="years"
+                    min={10}
+                    max={120}
+                  />
+                </div>
+                <div className={styles.editHealthActions}>
+                  <button className={styles.editHealthSave} onClick={handleSaveHealth}>
+                    Save changes
+                  </button>
+                </div>
+              </div>
+            )}
 
-            {/* ── Health insight rows ── */}
+            {/* ── 3-col metric summary + TDEE row ── */}
             {(bmr != null || maxHR != null || totalCalories > 0) && (
               <div className={styles.insightList}>
 
-                {bmr != null && (
-                  <div className={styles.insightRow}>
-                    <div className={styles.insightIcon} style={{ background: "#fef3c7" }}>
-                      <Flame size={14} strokeWidth={2} style={{ color: "#f59e0b" }} />
+                {/* compact 3-column grid: at-rest cal | max HR | activity cal */}
+                <div className={styles.metricGrid}>
+                  {bmr != null && (
+                    <div className={styles.metricCell}>
+                      <div className={styles.metricIcon} style={{ background: "#fef3c7" }}>
+                        <Flame size={14} strokeWidth={2} style={{ color: "#f59e0b" }} />
+                      </div>
+                      <span className={styles.metricNum}>{bmr.toLocaleString()}</span>
+                      <span className={styles.metricUnit}>kcal/day</span>
+                      <span className={styles.metricLabel}>Calories at rest</span>
                     </div>
-                    <div className={styles.insightBody}>
-                      <span className={styles.insightTitle}>Calories burned at rest</span>
-                      <span className={styles.insightDesc}>Your body burns this much even while sleeping</span>
+                  )}
+                  {maxHR != null && (
+                    <div className={styles.metricCell}>
+                      <div className={styles.metricIcon} style={{ background: "#fee2e2" }}>
+                        <Heart size={14} strokeWidth={2} style={{ color: "#ef4444" }} />
+                      </div>
+                      <span className={styles.metricNum}>{maxHR}</span>
+                      <span className={styles.metricUnit}>bpm</span>
+                      <span className={styles.metricLabel}>Max heart rate</span>
                     </div>
-                    <div className={styles.insightValue}>
-                      <span className={styles.insightNum}>{bmr.toLocaleString()}</span>
-                      <span className={styles.insightUnit}>kcal / day</span>
+                  )}
+                  {totalCalories > 0 && (
+                    <div className={styles.metricCell}>
+                      <div className={styles.metricIcon} style={{ background: "#fff7ed" }}>
+                        <Zap size={14} strokeWidth={2} style={{ color: "#f97316" }} />
+                      </div>
+                      <span className={styles.metricNum}>
+                        {totalCalories > 9999
+                          ? `${(totalCalories / 1000).toFixed(1)}k`
+                          : totalCalories.toLocaleString()}
+                      </span>
+                      <span className={styles.metricUnit}>kcal total</span>
+                      <span className={styles.metricLabel}>Activity burn</span>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
+                {/* TDEE full-width row with calorie goal chips */}
                 {tdee != null && (
                   <div className={[styles.insightRow, styles.insightRowExpanded].join(' ')}>
                     <div className={styles.insightIcon} style={{ background: "#dcfce7" }}>
@@ -341,42 +428,6 @@ export function Profile() {
                           <span className={styles.calorieGoalUnit}>kcal/day</span>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                )}
-
-                {maxHR != null && (
-                  <div className={styles.insightRow}>
-                    <div className={styles.insightIcon} style={{ background: "#fee2e2" }}>
-                      <Heart size={14} strokeWidth={2} style={{ color: "#ef4444" }} />
-                    </div>
-                    <div className={styles.insightBody}>
-                      <span className={styles.insightTitle}>Max safe heart rate</span>
-                      <span className={styles.insightDesc}>Try not to go above this during intense runs</span>
-                    </div>
-                    <div className={styles.insightValue}>
-                      <span className={styles.insightNum}>{maxHR}</span>
-                      <span className={styles.insightUnit}>bpm</span>
-                    </div>
-                  </div>
-                )}
-
-                {totalCalories > 0 && (
-                  <div className={styles.insightRow}>
-                    <div className={styles.insightIcon} style={{ background: "#fff7ed" }}>
-                      <Zap size={14} strokeWidth={2} style={{ color: "#f97316" }} />
-                    </div>
-                    <div className={styles.insightBody}>
-                      <span className={styles.insightTitle}>Calories burned through activity</span>
-                      <span className={styles.insightDesc}>Earned from all your runs, walks & territory claims</span>
-                    </div>
-                    <div className={styles.insightValue}>
-                      <span className={styles.insightNum}>
-                        {totalCalories > 9999
-                          ? `${(totalCalories / 1000).toFixed(1)}k`
-                          : totalCalories.toLocaleString()}
-                      </span>
-                      <span className={styles.insightUnit}>kcal total</span>
                     </div>
                   </div>
                 )}
