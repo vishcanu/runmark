@@ -21,20 +21,22 @@ export type TerritoryStoreContextType = TerritoryStoreState & TerritoryStoreActi
 export const TerritoryStoreContext = createContext<TerritoryStoreContextType | null>(null);
 
 // ── localStorage helpers ──────────────────────────────────────
-const LS_KEY = 'rg_territories_v2';
+function lsKey(uid: string): string {
+  return `rg_territories_v2_${uid}`;
+}
 
-function loadFromStorage(): Territory[] {
+function loadFromStorage(uid: string): Territory[] {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = localStorage.getItem(lsKey(uid));
     return raw ? (JSON.parse(raw) as Territory[]) : [];
   } catch {
     return [];
   }
 }
 
-function saveToStorage(territories: Territory[]): void {
+function saveToStorage(uid: string, territories: Territory[]): void {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(territories));
+    localStorage.setItem(lsKey(uid), JSON.stringify(territories));
   } catch { /* storage full — ignore */ }
 }
 
@@ -44,14 +46,15 @@ function getUserId(): string {
 
 // ── Store ─────────────────────────────────────────────────────
 export function useTerritoryStoreState(): TerritoryStoreContextType {
-  const [territories, setTerritories] = useState<Territory[]>(() => loadFromStorage());
+  const userId = getUserId();
+  const [territories, setTerritories] = useState<Territory[]>(() => loadFromStorage(userId));
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
   const [syncing,     setSyncing]      = useState(false);
 
   // ── Persist to localStorage on every change ────────────────
   useEffect(() => {
-    saveToStorage(territories);
-  }, [territories]);
+    saveToStorage(userId, territories);
+  }, [territories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load from Supabase on mount (background sync) ──────────
   useEffect(() => {
