@@ -136,14 +136,14 @@ export function Home() {
   // Set of claimed park IDs for context
   const claimedParkIds = useMemo(() => new Set<string>(), []);
 
-  const { parks, loading: parksLoading } = useParkSearch(geo.position, claimedParkIds);
+  const { parks, loading: parksLoading, error: parksError } = useParkSearch(geo.position, claimedParkIds);
 
   // Closest park for map highlight
   const closestPark = parks.length > 0 && parks[0].distance <= 5000 ? parks[0] : null;
 
   const showParksTray =
     !parkCardDismissed &&
-    (parks.length > 0 || (parksLoading && geo.position !== null)) &&
+    (parks.length > 0 || (parksLoading && geo.position !== null) || !!parksError) &&
     tracker.session.status === 'idle' &&
     selectedPark === null;
 
@@ -496,7 +496,9 @@ export function Home() {
             )}
           </div>
           <div className={styles.parksTrayScroll}>
-            {parksLoading
+            {parksError && parks.length === 0
+              ? <span className={styles.parksTrayError}>Couldn't load nearby places — retrying…</span>
+              : parksLoading
               ? [1, 2, 3].map((i) => <div key={i} className={styles.parkChipSkeleton} />)
               : parks.slice(0, 8).map((park) => {
                   const isLake = park.placeType === 'lake';

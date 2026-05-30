@@ -252,6 +252,13 @@
     display: none;
 }
 
+.parksTrayError {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    padding: 6px 4px;
+    white-space: nowrap;
+}
+
 /* ─── Individual park chip card ──────────────────────────── */
 .parkChip {
     display: flex;
