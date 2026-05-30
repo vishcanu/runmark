@@ -168,6 +168,62 @@ export function Profile() {
   const idealRange   = localHealth.heightCm ? idealWeightRange(localHealth.heightCm) : null;
   const maxHR        = localHealth.age ? maxHeartRate(localHealth.age) : null;
 
+  // ── Calorie goal chips — driven by BMI category ─────────
+  const calorieGoalConfig = useMemo(() => {
+    if (tdee == null) return null;
+    const chip = (label: string, delta: number, highlight = false) =>
+      ({ label, kcal: tdee + delta, highlight });
+    // No BMI data
+    if (bmi == null) return {
+      iconBg: '#dcfce7', iconColor: '#22c55e',
+      desc: `${activityInfo.label} · pick your goal below`,
+      warning: null as string | null,
+      chips: [chip('Lose weight', -400), chip('Maintain', 0, true), chip('Build muscle', +250)],
+    };
+    // Critically underweight
+    if (bmi < 16) return {
+      iconBg: '#fef3c7', iconColor: '#f59e0b',
+      desc: `${activityInfo.label} · you need to gain weight`,
+      warning: 'BMI is critically low — consult a doctor first' as string | null,
+      chips: [chip('Gain weight', +500, true), chip('Slow gain', +250), chip('Maintain', 0)],
+    };
+    // Underweight
+    if (bmi < 18.5) return {
+      iconBg: '#fef3c7', iconColor: '#f59e0b',
+      desc: `${activityInfo.label} · focus on gaining weight`,
+      warning: null as string | null,
+      chips: [chip('Gain weight', +400, true), chip('Slow gain', +200), chip('Maintain', 0)],
+    };
+    // Normal
+    if (bmi < 25) return {
+      iconBg: '#dcfce7', iconColor: '#22c55e',
+      desc: `${activityInfo.label} · healthy weight, pick your goal`,
+      warning: null as string | null,
+      chips: [chip('Lose fat', -300), chip('Maintain', 0, true), chip('Build muscle', +250)],
+    };
+    // Overweight
+    if (bmi < 30) return {
+      iconBg: '#fff7ed', iconColor: '#f97316',
+      desc: `${activityInfo.label} · aim to lose weight gradually`,
+      warning: null as string | null,
+      chips: [chip('Lose weight', -400, true), chip('Gentle loss', -200), chip('Maintain', 0)],
+    };
+    // Obese class I
+    if (bmi < 35) return {
+      iconBg: '#fee2e2', iconColor: '#ef4444',
+      desc: `${activityInfo.label} · weight loss recommended`,
+      warning: null as string | null,
+      chips: [chip('Lose weight', -500, true), chip('Gentle loss', -300), chip('Maintain', 0)],
+    };
+    // Obese class II+
+    return {
+      iconBg: '#fee2e2', iconColor: '#ef4444',
+      desc: `${activityInfo.label} · weight loss strongly recommended`,
+      warning: 'High BMI — consult a doctor before making diet changes' as string | null,
+      chips: [chip('Lose weight', -500, true), chip('Gentle loss', -300), chip('Maintain', 0)],
+    };
+  }, [bmi, tdee, activityInfo]);
+
   // ── Achievement values ───────────────────────────────────
   const achieveValues = {
     territories: store.territories.length,
@@ -409,34 +465,32 @@ export function Profile() {
                   )}
                 </div>
 
-                {/* TDEE full-width row with calorie goal chips */}
-                {tdee != null && (
+                {/* TDEE full-width row with BMI-aware calorie goal chips */}
+                {calorieGoalConfig != null && (
                   <div className={[styles.insightRow, styles.insightRowExpanded].join(' ')}>
-                    <div className={styles.insightIcon} style={{ background: "#dcfce7" }}>
-                      <Target size={14} strokeWidth={2} style={{ color: "#22c55e" }} />
+                    <div className={styles.insightIcon} style={{ background: calorieGoalConfig.iconBg }}>
+                      <Target size={14} strokeWidth={2} style={{ color: calorieGoalConfig.iconColor }} />
                     </div>
                     <div className={styles.insightBody}>
                       <div className={styles.insightTitleRow}>
                         <span className={styles.insightTitle}>Daily calorie need</span>
-                        <span className={styles.insightNumInline}>{tdee.toLocaleString()} kcal</span>
+                        <span className={styles.insightNumInline}>{tdee!.toLocaleString()} kcal</span>
                       </div>
-                      <span className={styles.insightDesc}>{activityInfo.label} · pick your goal below</span>
+                      <span className={styles.insightDesc}>{calorieGoalConfig.desc}</span>
+                      {calorieGoalConfig.warning && (
+                        <span className={styles.calorieWarning}>{calorieGoalConfig.warning}</span>
+                      )}
                       <div className={styles.calorieGoals}>
-                        <div className={styles.calorieGoalChip}>
-                          <span className={styles.calorieGoalLabel}>Lose weight</span>
-                          <span className={styles.calorieGoalVal}>{(tdee - 400).toLocaleString()}</span>
-                          <span className={styles.calorieGoalUnit}>kcal/day</span>
-                        </div>
-                        <div className={[styles.calorieGoalChip, styles.calorieGoalMaintain].join(' ')}>
-                          <span className={styles.calorieGoalLabel}>Maintain</span>
-                          <span className={styles.calorieGoalVal}>{tdee.toLocaleString()}</span>
-                          <span className={styles.calorieGoalUnit}>kcal/day</span>
-                        </div>
-                        <div className={styles.calorieGoalChip}>
-                          <span className={styles.calorieGoalLabel}>Build muscle</span>
-                          <span className={styles.calorieGoalVal}>{(tdee + 250).toLocaleString()}</span>
-                          <span className={styles.calorieGoalUnit}>kcal/day</span>
-                        </div>
+                        {calorieGoalConfig.chips.map((c) => (
+                          <div
+                            key={c.label}
+                            className={[styles.calorieGoalChip, c.highlight ? styles.calorieGoalMaintain : ''].filter(Boolean).join(' ')}
+                          >
+                            <span className={styles.calorieGoalLabel}>{c.label}</span>
+                            <span className={styles.calorieGoalVal}>{c.kcal.toLocaleString()}</span>
+                            <span className={styles.calorieGoalUnit}>kcal/day</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
