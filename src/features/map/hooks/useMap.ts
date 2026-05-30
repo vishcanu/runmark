@@ -88,18 +88,19 @@ export function applyRunMarkTheme(map: Map) {
   hide('building');
   hide('building-3d');
 
-  // ── Kill ALL base-map text labels & icons ────────────────────────────────
-  // We only show territory names (our own MapLibre symbol layers).
-  // Walk every layer in the loaded style and hide anything of type 'symbol'
-  // that does NOT belong to our own layers.  Catches every road label,
-  // neighbourhood label, POI icon, shield, water name, etc. in one pass.
+  // ── Hide road names, POI icons, neighbourhood labels ─────────────────────
+  // Keep: water names (lakes, rivers, ocean), park labels — useful for
+  // navigation context. Hide: road labels, shields, POI, place names.
   const OWN_PREFIXES = [
     'territories-', 'ghost-territories-',
     'active-path-', 'construction-', 'buildings-',
   ];
+  // Layer-id prefixes/substrings we want to KEEP visible from the base style
+  const KEEP_PREFIXES = ['water-name', 'park'];
   (map.getStyle()?.layers ?? []).forEach((l) => {
     if (l.type !== 'symbol') return;
     if (OWN_PREFIXES.some((p) => l.id.startsWith(p))) return;
+    if (KEEP_PREFIXES.some((p) => l.id.startsWith(p))) return;
     try { map.setLayoutProperty(l.id, 'visibility', 'none'); } catch { /* skip */ }
   });
 }
