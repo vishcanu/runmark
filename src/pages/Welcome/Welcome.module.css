@@ -51,17 +51,19 @@
 
 /* ─── Logo mark ─────────────────────────────────────────── */
 .logoMark {
-    width: 64px;
-    height: 64px;
-    background: var(--gradient-park);
-    border-radius: 20px;
+    width: 72px;
+    height: 72px;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    border-radius: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 8px 32px rgba(2, 132, 199, 0.45), 0 2px 8px rgba(2, 132, 199, 0.2);
     position: relative;
     z-index: 1;
+    /* Subtle inner highlight */
+    border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .heroText {
@@ -74,9 +76,14 @@
     font-size: var(--text-3xl);
     font-weight: var(--font-extrabold);
     color: var(--color-text-primary);
-    letter-spacing: -0.04em;
+    letter-spacing: -0.05em;
     line-height: var(--leading-tight);
     margin-bottom: var(--space-2);
+    /* Gradient text for the brand name */
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 60%, #075985 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .heroSub {
