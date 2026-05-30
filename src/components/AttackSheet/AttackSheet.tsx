@@ -14,15 +14,15 @@ const POWERS: {
   effect: string;
   durationLabel: string;
 }[] = [
-  { key: 'inferno', label: 'Inferno', Icon: Flame,    color: '#ef4444',
+  { key: 'inferno', label: 'Blaze', Icon: Flame,    color: '#ef4444',
     effect: 'Walls shrink 60% for a day',    durationLabel: '24h' },
-  { key: 'cyclone', label: 'Cyclone', Icon: Wind,     color: '#0ea5e9',
+  { key: 'cyclone', label: 'Whirl', Icon: Wind,     color: '#0ea5e9',
     effect: 'Owner locked out of territory', durationLabel: '12h' },
-  { key: 'tremor',  label: 'Tremor',  Icon: Mountain, color: '#f59e0b',
+  { key: 'tremor',  label: 'Quake', Icon: Mountain, color: '#f59e0b',
     effect: 'Collapses zone back to Tier 1', durationLabel: 'Permanent' },
-  { key: 'deluge',  label: 'Deluge',  Icon: Waves,    color: '#06b6d4',
+  { key: 'deluge',  label: 'Seep',  Icon: Waves,    color: '#06b6d4',
     effect: 'Decay rate tripled',            durationLabel: '48h' },
-  { key: 'vortex',  label: 'Vortex',  Icon: Zap,      color: '#8b5cf6',
+  { key: 'vortex',  label: 'Rift',  Icon: Zap,      color: '#8b5cf6',
     effect: 'Full unclaim — anyone can take it', durationLabel: '2h' },
 ];
 

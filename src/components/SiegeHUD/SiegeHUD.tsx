@@ -8,7 +8,7 @@ import styles from './SiegeHUD.module.css';
 const POWERS = [
   {
     key: 'inferno' as const,
-    label: 'Inferno',
+    label: 'Blaze',
     Icon: Flame,
     color: '#ef4444',
     description: 'Cover distance',
@@ -16,7 +16,7 @@ const POWERS = [
   },
   {
     key: 'cyclone' as const,
-    label: 'Cyclone',
+    label: 'Whirl',
     Icon: Wind,
     color: '#0ea5e9',
     description: 'Complete any activity',
@@ -24,7 +24,7 @@ const POWERS = [
   },
   {
     key: 'tremor' as const,
-    label: 'Tremor',
+    label: 'Quake',
     Icon: Mountain,
     color: '#f59e0b',
     description: 'Revisit a zone you own',
@@ -32,7 +32,7 @@ const POWERS = [
   },
   {
     key: 'deluge' as const,
-    label: 'Deluge',
+    label: 'Seep',
     Icon: Waves,
     color: '#06b6d4',
     description: 'Stay active every day',
@@ -40,7 +40,7 @@ const POWERS = [
   },
   {
     key: 'vortex' as const,
-    label: 'Vortex',
+    label: 'Rift',
     Icon: Zap,
     color: '#8b5cf6',
     description: 'Hold 5+ territories',

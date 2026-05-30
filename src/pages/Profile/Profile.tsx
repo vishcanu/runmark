@@ -41,11 +41,11 @@ const SIEGE_POWERS: {
   color: string;
   hint: string;
 }[] = [
-  { key: "inferno", label: "Inferno", icon: <Flame    size={14} strokeWidth={2} />, color: "#ef4444", hint: "Earned per km covered"        },
-  { key: "cyclone", label: "Cyclone", icon: <Wind     size={14} strokeWidth={2} />, color: "#8b5cf6", hint: "Earned per session"            },
-  { key: "tremor",  label: "Tremor",  icon: <Zap      size={14} strokeWidth={2} />, color: "#f59e0b", hint: "Earned revisiting territories"  },
-  { key: "deluge",  label: "Deluge",  icon: <Droplets size={14} strokeWidth={2} />, color: "#0ea5e9", hint: "Earned by daily streak"         },
-  { key: "vortex",  label: "Vortex",  icon: <Star     size={14} strokeWidth={2} />, color: "#6366f1", hint: "Earned at every 5 territories"  },
+  { key: "inferno", label: "Blaze", icon: <Flame    size={14} strokeWidth={2} />, color: "#ef4444", hint: "Earned per km covered"        },
+  { key: "cyclone", label: "Whirl", icon: <Wind     size={14} strokeWidth={2} />, color: "#8b5cf6", hint: "Earned per session"            },
+  { key: "tremor",  label: "Quake", icon: <Zap      size={14} strokeWidth={2} />, color: "#f59e0b", hint: "Earned revisiting territories"  },
+  { key: "deluge",  label: "Seep",  icon: <Droplets size={14} strokeWidth={2} />, color: "#0ea5e9", hint: "Earned by daily streak"         },
+  { key: "vortex",  label: "Rift",  icon: <Star     size={14} strokeWidth={2} />, color: "#6366f1", hint: "Earned at every 5 territories"  },
 ];
 
 function formatAchieveProgress(

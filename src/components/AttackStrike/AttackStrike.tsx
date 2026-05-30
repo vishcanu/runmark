@@ -14,11 +14,11 @@ const CFG: Record<AttackType, {
   duration: string;
   emoji:    string;   // used on canvas share card
 }> = {
-  inferno: { Icon: Flame,    label: 'Inferno', color: '#ef4444', accent: '#dc2626', tint: '#fef2f2', effect: 'Walls shrink 60%',        duration: '24 hours',  emoji: '🔥' },
-  cyclone: { Icon: Wind,     label: 'Cyclone', color: '#8b5cf6', accent: '#7c3aed', tint: '#f5f3ff', effect: 'Owner locked out',        duration: '12 hours',  emoji: '🌀' },
-  tremor:  { Icon: Mountain, label: 'Tremor',  color: '#d97706', accent: '#b45309', tint: '#fffbeb', effect: 'Collapses to Tier 1',     duration: 'Permanent', emoji: '⛰️' },
-  deluge:  { Icon: Waves,    label: 'Deluge',  color: '#0ea5e9', accent: '#0284c7', tint: '#f0f9ff', effect: 'Decay rate ×3',           duration: '48 hours',  emoji: '🌊' },
-  vortex:  { Icon: Zap,      label: 'Vortex',  color: '#7c3aed', accent: '#6d28d9', tint: '#f5f3ff', effect: 'Full unclaim — open turf', duration: '2 hours',   emoji: '⚡' },
+  inferno: { Icon: Flame,    label: 'Blaze', color: '#ef4444', accent: '#dc2626', tint: '#fef2f2', effect: 'Walls shrink 60%',        duration: '24 hours',  emoji: '🔥' },
+  cyclone: { Icon: Wind,     label: 'Whirl', color: '#8b5cf6', accent: '#7c3aed', tint: '#f5f3ff', effect: 'Owner locked out',        duration: '12 hours',  emoji: '🌀' },
+  tremor:  { Icon: Mountain, label: 'Quake', color: '#d97706', accent: '#b45309', tint: '#fffbeb', effect: 'Collapses to Tier 1',     duration: 'Permanent', emoji: '⛰️' },
+  deluge:  { Icon: Waves,    label: 'Seep',  color: '#0ea5e9', accent: '#0284c7', tint: '#f0f9ff', effect: 'Decay rate ×3',           duration: '48 hours',  emoji: '🌊' },
+  vortex:  { Icon: Zap,      label: 'Rift',  color: '#7c3aed', accent: '#6d28d9', tint: '#f5f3ff', effect: 'Full unclaim — open turf', duration: '2 hours',   emoji: '⚡' },
 };
 
 // ── Floating particle data (computed once) ─────────────────────
