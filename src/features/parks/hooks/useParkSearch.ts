@@ -2,6 +2,287 @@
 import type { Park } from '../types';
 import { enrichPark } from '../utils/parkUtils';
 import type { Coordinate } from '../../../types';
+import { getMapInstance } from '../../map/mapSingleton';
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Strategy: map tiles FIRST, Overpass API second.
+//
+//  The OFM Liberty map already has park/water polygons rendered on screen.
+//  queryRenderedFeatures() reads them instantly — no network, no timeout.
+//  Overpass API runs in the background and refreshes the cache when it succeeds.
+//
+//  Flow on GPS lock:
+//    t=0      → map query fires after 1 s (map has flown to position, tiles loaded)
+//    t=1-2 s  → parks appear instantly from map tiles
+//    t=10-60s → Overpass completes in background → richer data stored in cache
+//    next visit → localStorage cache served immediately
+// ─────────────────────────────────────────────────────────────────────────────
+
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
+];
+
+const SEARCH_RADIUS_M         = 5000;
+const CACHE_TTL_MS            = 24 * 60 * 60 * 1000; // 24 h
+const LS_CACHE_KEY            = 'parks_cache_v2';
+const PER_ENDPOINT_TIMEOUT_MS = 20_000;
+const MAP_QUERY_DELAY_MS      = 1_200; // wait for flyTo + tile load to settle
+
+// ── Map tile query layers (OFM Liberty / OpenFreeMap) ────────────────────────
+const MAP_PARK_LAYERS  = ['park', 'nature-green', 'pitch'];
+const MAP_WATER_LAYERS = ['water'];
+
+// Query parks/water already rendered on screen — zero network cost.
+function queryParksFromMap(): Omit<Park, 'distance' | 'walkMinutes' | 'isClaimed'>[] {
+  const map = getMapInstance();
+  if (!map) return [];
+  try {
+    const features = map.queryRenderedFeatures(undefined, {
+      layers: [...MAP_PARK_LAYERS, ...MAP_WATER_LAYERS],
+    });
+    const seen    = new Set<string>();
+    const results: Omit<Park, 'distance' | 'walkMinutes' | 'isClaimed'>[] = [];
+
+    for (const feat of features) {
+      const name = (feat.properties?.name ?? feat.properties?.['name:en']) as string | undefined;
+      if (!name?.trim()) continue;
+      const key = name.toLowerCase().trim();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      // Centroid from (possibly clipped) rendered geometry
+      let cLng = 0, cLat = 0, valid = false;
+      const { geometry } = feat as unknown as { geometry: GeoJSON.Geometry };
+      if (geometry.type === 'Polygon' && (geometry as GeoJSON.Polygon).coordinates[0].length > 0) {
+        const ring = (geometry as GeoJSON.Polygon).coordinates[0];
+        cLng = ring.reduce((s, c) => s + c[0], 0) / ring.length;
+        cLat = ring.reduce((s, c) => s + c[1], 0) / ring.length;
+        valid = true;
+      } else if (geometry.type === 'MultiPolygon') {
+        const ring = (geometry as GeoJSON.MultiPolygon).coordinates[0]?.[0];
+        if (ring?.length) {
+          cLng = ring.reduce((s, c) => s + c[0], 0) / ring.length;
+          cLat = ring.reduce((s, c) => s + c[1], 0) / ring.length;
+          valid = true;
+        }
+      } else if (geometry.type === 'Point') {
+        [cLng, cLat] = (geometry as GeoJSON.Point).coordinates;
+        valid = true;
+      }
+      if (!valid) continue;
+
+      const isWater = MAP_WATER_LAYERS.includes(feat.layer.id);
+      results.push({
+        id:        `map-${key.replace(/[^a-z0-9]/g, '-')}`,
+        name:      name.trim(),
+        lat:       cLat,
+        lng:       cLng,
+        placeType: isWater ? 'lake'
+                 : (feat.properties?.leisure === 'garden') ? 'garden'
+                 : 'park',
+      });
+    }
+    return results.slice(0, 20);
+  } catch { return []; }
+}
+
+// ── localStorage helpers ─────────────────────────────────────────────────────
+interface CacheEntry {
+  parks: Omit<Park, 'distance' | 'walkMinutes' | 'isClaimed'>[];
+  timestamp: number;
+  lat: number;
+  lng: number;
+}
+
+function loadCacheFromLS(): CacheEntry | null {
+  try {
+    const raw = localStorage.getItem(LS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CacheEntry;
+    // Guard against corrupted entries
+    if (!Array.isArray(parsed.parks) || typeof parsed.timestamp !== 'number') return null;
+    return parsed;
+  } catch { return null; }
+}
+
+function saveCacheToLS(entry: CacheEntry): void {
+  try { localStorage.setItem(LS_CACHE_KEY, JSON.stringify(entry)); }
+  catch { /* storage full */ }
+}
+
+let cache: CacheEntry | null = loadCacheFromLS();
+let _lastKnownParks: Park[] = [];
+let _lastKnownPosition: { lat: number; lng: number } | null = null;
+
+function isCacheValid(lat: number, lng: number): boolean {
+  if (!cache) return false;
+  if (Date.now() - cache.timestamp > CACHE_TTL_MS) return false;
+  const dlat = Math.abs(cache.lat - lat) * 111_320;
+  const dlng = Math.abs(cache.lng - lng) * 111_320;
+  return Math.sqrt(dlat ** 2 + dlng ** 2) < 500;
+}
+
+// ── Overpass fetch (background refresh only) ─────────────────────────────────
+async function fetchParksFromOSM(
+  lat: number,
+  lng: number,
+): Promise<Omit<Park, 'distance' | 'walkMinutes' | 'isClaimed'>[]> {
+  const query = `
+    [out:json][timeout:18];
+    (
+      way[leisure=park](around:${SEARCH_RADIUS_M},${lat},${lng});
+      relation[leisure=park](around:${SEARCH_RADIUS_M},${lat},${lng});
+      way[leisure=garden](around:${SEARCH_RADIUS_M},${lat},${lng});
+      way[natural=water][name](around:${SEARCH_RADIUS_M},${lat},${lng});
+      relation[natural=water][name](around:${SEARCH_RADIUS_M},${lat},${lng});
+    );
+    out center tags;
+  `;
+
+  type OsmData = {
+    elements: {
+      id: number; type: string;
+      center?: { lat: number; lon: number };
+      lat?: number; lon?: number;
+      tags?: { name?: string; leisure?: string; natural?: string };
+    }[];
+  };
+
+  let lastError: unknown;
+  for (const url of OVERPASS_ENDPOINTS) {
+    const controller = new AbortController();
+    const timerId = setTimeout(() => controller.abort(), PER_ENDPOINT_TIMEOUT_MS);
+    try {
+      const resp = await fetch(url, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:    `data=${encodeURIComponent(query)}`,
+        signal:  controller.signal,
+      });
+      clearTimeout(timerId);
+      if (!resp.ok) { lastError = new Error(`HTTP ${resp.status}`); continue; }
+      const data = (await resp.json()) as OsmData;
+      return data.elements
+        .filter((el) => el.tags?.name && (el.center || (el.lat && el.lon)))
+        .map((el) => ({
+          id:        `osm-${el.id}`,
+          name:      el.tags!.name!,
+          lat:       el.center?.lat ?? el.lat!,
+          lng:       el.center?.lon ?? el.lon!,
+          placeType: el.tags?.natural === 'water'  ? ('lake'   as const)
+                   : el.tags?.leisure === 'garden' ? ('garden' as const)
+                                                   : ('park'   as const),
+        }));
+    } catch (err) {
+      clearTimeout(timerId);
+      lastError = err;
+    }
+  }
+  throw lastError ?? new Error('All Overpass endpoints failed');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ParkSearchState {
+  parks: Park[];
+  loading: boolean;
+  error: string | null;
+}
+
+export function useParkSearch(
+  userPosition: Coordinate | null,
+  claimedParkIds?: Set<string>
+): ParkSearchState {
+  const claimedKey = useMemo(
+    () => (claimedParkIds ? [...claimedParkIds].sort().join(',') : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [claimedParkIds ? [...claimedParkIds].sort().join(',') : '']
+  );
+
+  const [state, setState] = useState<ParkSearchState>(() => ({
+    parks:   _lastKnownParks,
+    loading: _lastKnownParks.length === 0,
+    error:   null,
+  }));
+
+  const mapQueryTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overpassRunningRef = useRef(false);
+  const positionRef       = useRef<Coordinate | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (mapQueryTimerRef.current) clearTimeout(mapQueryTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!userPosition) return;
+    positionRef.current = userPosition;
+
+    const [lng, lat] = userPosition;
+
+    // ── 1. Serve from localStorage cache immediately (any valid cache) ────────
+    if (isCacheValid(lat, lng) && cache!.parks.length > 0) {
+      const enriched = cache!.parks
+        .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 10);
+      _lastKnownParks    = enriched;
+      _lastKnownPosition = { lat, lng };
+      setState({ parks: enriched, loading: false, error: null });
+      return; // fresh enough — no need to re-fetch
+    }
+
+    // ── 2. Query map tiles after flyTo settles (instant, no network) ──────────
+    if (mapQueryTimerRef.current) clearTimeout(mapQueryTimerRef.current);
+    mapQueryTimerRef.current = setTimeout(() => {
+      const mapParks = queryParksFromMap();
+      if (mapParks.length > 0) {
+        const enriched = mapParks
+          .map((p) => enrichPark(p, lat, lng, claimedParkIds ?? new Set()))
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 10);
+        _lastKnownParks    = enriched;
+        _lastKnownPosition = { lat, lng };
+        setState({ parks: enriched, loading: false, error: null });
+      }
+
+      // ── 3. Overpass in background for richer/more-complete data ────────────
+      if (overpassRunningRef.current) return;
+      overpassRunningRef.current = true;
+
+      fetchParksFromOSM(lat, lng)
+        .then((raw) => {
+          if (!positionRef.current) return;
+          const [curLng, curLat] = positionRef.current;
+          cache = { parks: raw, timestamp: Date.now(), lat: curLat, lng: curLng };
+          saveCacheToLS(cache);
+          const enriched = raw
+            .map((p) => enrichPark(p, curLat, curLng, claimedParkIds ?? new Set()))
+            .sort((a, b) => a.distance - b.distance)
+            .slice(0, 10);
+          _lastKnownParks    = enriched;
+          _lastKnownPosition = { lat: curLat, lng: curLng };
+          setState({ parks: enriched, loading: false, error: null });
+        })
+        .catch(() => {
+          // Overpass failed — keep whatever we have (map tiles or stale cache)
+          if (_lastKnownParks.length === 0) {
+            setState((s) => ({ ...s, loading: false, error: 'Could not load nearby places' }));
+          }
+        })
+        .finally(() => { overpassRunningRef.current = false; });
+    }, MAP_QUERY_DELAY_MS);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userPosition, claimedKey]);
+
+  return state;
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Improvements over original:
