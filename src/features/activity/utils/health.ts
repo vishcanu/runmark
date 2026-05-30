@@ -105,3 +105,32 @@ export function weeklyCalorieGoal(weightKg: number): number {
   // WHO: 150–300 min moderate activity/week ≈ 1000–2000 kcal/week for 70kg
   return Math.round(weightKg * 14.3); // scales with body weight
 }
+
+// ── BMR — Mifflin-St Jeor (most accurate non-wearable formula) ─
+// male:   10×kg + 6.25×cm − 5×age + 5
+// female: 10×kg + 6.25×cm − 5×age − 161
+// other:  average of both
+export function calcBMR(
+  weightKg: number,
+  heightCm: number,
+  age:      number,
+  gender:   'male' | 'female' | 'other' = 'other',
+): number {
+  const base   = 10 * weightKg + 6.25 * heightCm - 5 * age;
+  const offset = gender === 'male' ? 5 : gender === 'female' ? -161 : -78;
+  return Math.round(base + offset);
+}
+
+// ── TDEE — lightly active factor (1–3 sessions/week typical for this app) ──
+export function calcTDEE(bmr: number): number {
+  return Math.round(bmr * 1.375);
+}
+
+// ── Ideal weight range for a height (BMI 18.5 – 24.9) ─────────
+export function idealWeightRange(heightCm: number): { min: number; max: number } {
+  const h = heightCm / 100;
+  return {
+    min: Math.round(18.5 * h * h * 10) / 10,
+    max: Math.round(24.9 * h * h * 10) / 10,
+  };
+}

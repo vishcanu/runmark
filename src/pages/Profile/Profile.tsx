@@ -1,13 +1,16 @@
 ﻿import { useMemo } from "react";
 import {
   Building2, Trophy, Map, TrendingUp, Clock, Check, LogOut, Mail,
-  Flame, Zap, Wind, Droplets, Star, Activity, Bike, Footprints, Shield,
+  Flame, Zap, Wind, Droplets, Star, Activity, Bike, Footprints,
 } from "lucide-react";
 import { useTerritoryStore } from "../../features/territory/hooks/useTerritoryStore";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import { useSiegeCharges } from "../../hooks/useSiegeCharges";
 import { formatDistance, formatDuration } from "../../features/map/utils/geo";
-import { calcCaloriesBurned } from "../../features/activity/utils/health";
+import {
+  calcCaloriesBurned, calcBMR, calcTDEE, idealWeightRange,
+  getBMILabel, maxHeartRate, estimateSteps,
+} from "../../features/activity/utils/health";
 import { computeDailyStreak } from "../../features/territory/utils/territoryTier";
 import { supabase } from "../../lib/supabase";
 import type { ActivityType } from "../../types";
@@ -129,12 +132,32 @@ export function Profile() {
     return Math.round((weightKg / (h * h)) * 10) / 10;
   }, [user.health]);
 
-  const bmiLabel =
-    bmi == null      ? null
-    : bmi < 18.5     ? "Underweight"
-    : bmi < 25       ? "Healthy"
-    : bmi < 30       ? "Overweight"
-    :                  "Obese";
+  const bmiInfo  = bmi != null ? getBMILabel(bmi) : null;
+  const bmiLabel = bmiInfo?.label ?? null;
+  const bmiColor = bmiInfo?.color ?? 'var(--color-accent-primary)';
+
+  // ── Derived health metrics ───────────────────────────────
+  const bmr = useMemo(() => {
+    const { weightKg, heightCm, age, gender } = user.health;
+    if (!weightKg || !heightCm || !age) return null;
+    return calcBMR(weightKg, heightCm, age, gender ?? 'other');
+  }, [user.health]);
+
+  const tdee       = bmr != null ? calcTDEE(bmr) : null;
+  const idealRange = user.health.heightCm ? idealWeightRange(user.health.heightCm) : null;
+  const maxHR      = user.health.age ? maxHeartRate(user.health.age) : null;
+
+  const totalSteps = useMemo(() => {
+    return store.territories.reduce((sum, t) => {
+      if (t.runLog && t.runLog.length > 0) {
+        return sum + t.runLog.reduce(
+          (s, r) => s + estimateSteps(r.dist, r.type, user.health.heightCm),
+          0,
+        );
+      }
+      return sum + estimateSteps(t.distance, t.activityType ?? 'walk', user.health.heightCm);
+    }, 0);
+  }, [store.territories, user.health.heightCm]);
 
   // ── Achievement values ───────────────────────────────────
   const achieveValues = {
@@ -201,15 +224,43 @@ export function Profile() {
         <div className={styles.section}>
           <div className={styles.sectionTitle}>Health Profile</div>
           <div className={styles.healthCard}>
+
+            {/* ── Enhanced BMI with gauge ── */}
             {bmi != null && (
-              <div className={styles.healthBmiRow}>
-                <Shield size={14} strokeWidth={2} style={{ color: "var(--color-accent-primary)" }} />
-                <div className={styles.healthBmiInner}>
-                  <span className={styles.healthBmiValue}>{bmi}</span>
-                  <span className={styles.healthBmiLabel}>BMI · {bmiLabel}</span>
+              <div className={styles.bmiSection}>
+                <div className={styles.bmiTopRow}>
+                  <div className={styles.bmiLeft}>
+                    <span className={styles.bmiValue} style={{ color: bmiColor }}>{bmi}</span>
+                    <div className={styles.bmiLabels}>
+                      <span className={styles.bmiStatus} style={{ color: bmiColor }}>{bmiLabel}</span>
+                      <span className={styles.bmiSubtitle}>Body Mass Index</span>
+                    </div>
+                  </div>
+                  {idealRange && (
+                    <div className={styles.bmiIdealBlock}>
+                      <span className={styles.bmiIdealVal}>{idealRange.min}–{idealRange.max} kg</span>
+                      <span className={styles.bmiIdealLabel}>Ideal weight</span>
+                    </div>
+                  )}
+                </div>
+                <div className={styles.bmiGaugeWrap}>
+                  <div className={styles.bmiGaugeBar}>
+                    <div
+                      className={styles.bmiGaugePin}
+                      style={{ left: `${Math.min(97, Math.max(3, ((bmi - 15) / 25) * 100))}%` }}
+                    />
+                  </div>
+                  <div className={styles.bmiGaugeScale}>
+                    <span>Under</span>
+                    <span style={{ color: "#22c55e" }}>Healthy</span>
+                    <span>Over</span>
+                    <span>Obese</span>
+                  </div>
                 </div>
               </div>
             )}
+
+            {/* ── Body stats grid ── */}
             <div className={styles.healthGrid}>
               {user.health.age && (
                 <div className={styles.healthItem}>
@@ -238,6 +289,45 @@ export function Profile() {
                 </div>
               )}
             </div>
+
+            {/* ── Derived health metrics ── */}
+            {(bmr != null || maxHR != null || totalSteps > 0) && (
+              <div className={styles.derivedGrid}>
+                {bmr != null && (
+                  <div className={styles.derivedItem}>
+                    <span className={styles.derivedVal}>{bmr.toLocaleString()}</span>
+                    <span className={styles.derivedLabel}>BMR kcal</span>
+                    <span className={styles.derivedSub}>at rest / day</span>
+                  </div>
+                )}
+                {tdee != null && (
+                  <div className={styles.derivedItem}>
+                    <span className={styles.derivedVal}>{tdee.toLocaleString()}</span>
+                    <span className={styles.derivedLabel}>TDEE kcal</span>
+                    <span className={styles.derivedSub}>daily target</span>
+                  </div>
+                )}
+                {maxHR != null && (
+                  <div className={styles.derivedItem}>
+                    <span className={styles.derivedVal}>{maxHR}</span>
+                    <span className={styles.derivedLabel}>Max HR</span>
+                    <span className={styles.derivedSub}>bpm est.</span>
+                  </div>
+                )}
+                {totalSteps > 0 && (
+                  <div className={styles.derivedItem}>
+                    <span className={styles.derivedVal}>
+                      {totalSteps > 9999
+                        ? `${(totalSteps / 1000).toFixed(1)}k`
+                        : totalSteps.toLocaleString()}
+                    </span>
+                    <span className={styles.derivedLabel}>Steps</span>
+                    <span className={styles.derivedSub}>total est.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
       )}
