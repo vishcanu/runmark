@@ -56,23 +56,23 @@ function themeGrad(theme?: string, color?: string) {
 // Maps the OFM Liberty road `class` property → real-world half-width in metres.
 // These values come from standard road widths (one carriageway side + kerb).
 const ROAD_CLASS_HALF_WIDTH: Record<string, number> = {
-  motorway:      10,   // dual carriageway
-  trunk:          8,   // major arterial
-  primary:        7,   // national/state highway within city
-  secondary:      5.5, // major collector road
-  tertiary:       4.5, // local collector
-  minor:          3.5,
-  street:         3.5, // residential / local street
-  service:        2.5, // access lane
-  driveway:       2,
-  alley:          2,
-  path:           1.5,
-  footway:        1.5,
-  pedestrian:     2.5,
-  cycleway:       2,
-  track:          2,
-  living_street:  3,
-  unclassified:   3,
+  motorway:      7,    // dual carriageway
+  trunk:         5.5,  // major arterial
+  primary:       4.5,  // national/state highway within city
+  secondary:     3.5,  // major collector road
+  tertiary:      3.0,  // local collector
+  minor:         2.5,
+  street:        2.5,  // residential / local street
+  service:       2.0,  // access lane
+  driveway:      1.5,
+  alley:         1.5,
+  path:          1.2,
+  footway:       1.2,
+  pedestrian:    2.0,
+  cycleway:      1.5,
+  track:         1.5,
+  living_street: 2.0,
+  unclassified:  2.5,
 };
 
 const ROAD_QUERY_LAYERS = [
@@ -268,7 +268,7 @@ export function Home() {
     // ── Corridor vs Zone ────────────────────────────────────────
     // Road half-width: read actual road class from map tile features, giving
     // accurate per-road-type widths. Falls back to activity-based defaults.
-    const fallbackHalf = activityType === 'cycle' ? 10 : activityType === 'walk' ? 6 : 7;
+    const fallbackHalf = activityType === 'cycle' ? 3.5 : activityType === 'walk' ? 3.0 : 3.5;
     const ROAD_HALF = queryRoadHalf(snappedPath, fallbackHalf);
     const linear  = isLinearPath(snappedPath);
     let coords: Coordinate[];

@@ -365,23 +365,37 @@ export function buildRoadRing(
   halfWidthM: number,
 ): [Coordinate[], Coordinate[]] {
   const closed = pathToPolygon(path);
-  const pts = closed.slice(0, -1); // unique vertices (last point == first, excluded)
-  const n = pts.length;
-  if (n < 3) return [closed, []];
+  const rawPts = closed.slice(0, -1);
+  if (rawPts.length < 3) return [closed, []];
 
-  const avgLat  = pts.reduce((s, p) => s + p[1], 0) / n;
+  const avgLat  = rawPts.reduce((s, p) => s + p[1], 0) / rawPts.length;
   const mPerLat = 111_320;
   const mPerLng = 111_320 * Math.cos(avgLat * Math.PI / 180);
   const dLatPerM = 1 / mPerLat;
   const dLngPerM = 1 / mPerLng;
+
+  // Deduplicate: drop consecutive points closer than halfWidthM * 0.5.
+  // GPS near corners records many points 1-3m apart; these create near-zero-length
+  // segments whose normals are numerically unstable, producing miter spikes.
+  const minSegM = Math.max(halfWidthM * 0.5, 2.0);
+  const pts: Coordinate[] = [rawPts[0]];
+  for (let i = 1; i < rawPts.length; i++) {
+    const prev = pts[pts.length - 1];
+    const dx = (rawPts[i][0] - prev[0]) * mPerLng;
+    const dy = (rawPts[i][1] - prev[1]) * mPerLat;
+    if (Math.sqrt(dx * dx + dy * dy) >= minSegM) pts.push(rawPts[i]);
+  }
+  const n = pts.length;
+  if (n < 3) return [closed, []];
 
   // Centroid — used only to determine outward vs inward direction for each vertex
   let cLng = 0, cLat = 0;
   for (const [lng, lat] of pts) { cLng += lng; cLat += lat; }
   cLng /= n; cLat /= n;
 
-  // Miter limit: clip to this multiple of halfWidthM to avoid spikes at acute corners
-  const MITER_LIMIT = 4.0;
+  // Miter limit: 2.0 = bevel sooner → clean road corners, no large spikes.
+  // (was 4.0, which allowed 14m spikes at near-acute GPS pseudo-corners)
+  const MITER_LIMIT = 2.0;
 
   /**
    * Compute offset vertex/vertices for ring position i.
@@ -404,7 +418,8 @@ export function buildRoadRing(
     const s2y = (next[1] - curr[1]) * mPerLat;
     const l2  = Math.sqrt(s2x * s2x + s2y * s2y);
 
-    if (l1 < 0.1 || l2 < 0.1) return [curr];
+    // Skip segments shorter than 25% of halfWidthM — numerically unstable normals
+    if (l1 < halfWidthM * 0.25 || l2 < halfWidthM * 0.25) return [curr];
 
     // Left normals (rotate segment direction 90° CCW)
     const n1x = -s1y / l1, n1y = s1x / l1;
