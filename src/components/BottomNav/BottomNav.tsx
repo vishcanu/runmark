@@ -27,6 +27,7 @@ export function BottomNav() {
               <Icon size={22} strokeWidth={2} />
             </span>
             <span className={styles.label}>{label}</span>
+            <span className={styles.dot} aria-hidden="true" />
           </NavLink>
         ))}
       </div>

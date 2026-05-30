@@ -1,5 +1,7 @@
 ﻿/* ─────────────────────────────────────────────────────────
-   BottomNav — premium full-width tab bar
+   BottomNav — ecommerce-style icon-grows pattern
+   Active: larger bolder colored icon + spring-in dot below label
+   No pill · No line · No background fill
    ───────────────────────────────────────────────────────── */
 
 .nav {
@@ -8,11 +10,9 @@
     left: 0;
     right: 0;
     z-index: var(--z-nav);
-    background: rgba(255, 255, 255, 0.97);
+    background: #ffffff;
     border-top: 1px solid rgba(24, 24, 27, 0.07);
-    box-shadow: 0 -8px 32px rgba(18, 18, 20, 0.07), 0 -1px 0 rgba(18, 18, 20, 0.04);
-    backdrop-filter: saturate(200%) blur(24px);
-    -webkit-backdrop-filter: saturate(200%) blur(24px);
+    box-shadow: 0 -4px 24px rgba(18, 18, 20, 0.07);
     padding-bottom: var(--safe-area-bottom);
 }
 
@@ -20,7 +20,7 @@
 .inner {
     display: flex;
     align-items: stretch;
-    height: 64px;
+    height: 60px;
 }
 
 /* ─── Tab item ───────────────────────────────────────────── */
@@ -30,30 +30,16 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    color: var(--color-text-muted);
+    gap: 3px;
+    color: #a1a1aa;
     text-decoration: none;
-    position: relative;
-    transition: color var(--transition-base);
     -webkit-tap-highlight-color: transparent;
+    transition: color 200ms ease;
 }
 
-/* top indicator line — hidden by default */
-.item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%) scaleX(0);
-    width: 28px;
-    height: 2px;
-    border-radius: 0 0 2px 2px;
-    background: linear-gradient(90deg, #38bdf8, #0284c7);
-    transition: transform var(--transition-slow);
-}
-
+/* press feedback */
 .item:active .iconWrap {
-    transform: scale(0.88);
+    transform: scale(0.82);
 }
 
 /* ─── Icon wrapper ───────────────────────────────────────── */
@@ -61,9 +47,19 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 30px;
-    transition: transform var(--transition-base);
+    transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* icon defaults: small + thin */
+.iconWrap svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 1.6;
+    transition:
+        width 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+        height 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+        stroke-width 200ms ease,
+        filter 200ms ease;
 }
 
 /* ─── Active state ───────────────────────────────────────── */
@@ -71,23 +67,44 @@
     color: #0284c7;
 }
 
-.active::before {
-    transform: translateX(-50%) scaleX(1);
+/* icon: grow + bolder stroke + glow */
+.active .iconWrap svg {
+    width: 26px;
+    height: 26px;
+    stroke-width: 2.2;
+    filter: drop-shadow(0 2px 8px rgba(2, 132, 199, 0.38));
 }
 
-.active .iconWrap svg {
-    filter: drop-shadow(0 1px 6px rgba(2, 132, 199, 0.35));
+/* ─── Dot indicator — springs in below label ─────────────── */
+.dot {
+    display: block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #0284c7;
+    opacity: 0;
+    transform: scale(0);
+    margin-top: 1px;
+    transition:
+        opacity 200ms ease,
+        transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.active .dot {
+    opacity: 1;
+    transform: scale(1);
 }
 
 /* ─── Label ──────────────────────────────────────────────── */
 .label {
     font-size: 10px;
-    font-weight: var(--font-medium);
+    font-weight: 500;
     line-height: 1;
     letter-spacing: 0.01em;
+    transition: font-weight 200ms ease, color 200ms ease;
 }
 
 .active .label {
-    font-weight: var(--font-semibold);
+    font-weight: 700;
     color: #0284c7;
 }
