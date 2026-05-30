@@ -88,17 +88,19 @@ export function applyRunMarkTheme(map: Map) {
   hide('building');
   hide('building-3d');
 
-  // Labels — dark slate for readability
-  const labelColor = '#334155';
-  const labelHalo  = 'rgba(255,255,255,0.85)';
-  [
-    'place-city', 'place-town', 'place-village', 'place-suburb',
-    'place-neighbourhood', 'road-label', 'road-label-small',
-    'poi-level-1', 'poi-level-2', 'poi-level-3',
-    'water-name-lakeline', 'water-name-ocean', 'water-name-other',
-  ].forEach((l) => {
-    set(l, 'text-color', labelColor);
-    set(l, 'text-halo-color', labelHalo);
+  // ── Kill ALL base-map text labels & icons ────────────────────────────────
+  // We only show territory names (our own MapLibre symbol layers).
+  // Walk every layer in the loaded style and hide anything of type 'symbol'
+  // that does NOT belong to our own layers.  Catches every road label,
+  // neighbourhood label, POI icon, shield, water name, etc. in one pass.
+  const OWN_PREFIXES = [
+    'territories-', 'ghost-territories-',
+    'active-path-', 'construction-', 'buildings-',
+  ];
+  (map.getStyle()?.layers ?? []).forEach((l) => {
+    if (l.type !== 'symbol') return;
+    if (OWN_PREFIXES.some((p) => l.id.startsWith(p))) return;
+    try { map.setLayoutProperty(l.id, 'visibility', 'none'); } catch { /* skip */ }
   });
 }
 
