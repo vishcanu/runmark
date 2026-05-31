@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ClaimX</string>
+    <string name="title_activity_main">ClaimX</string>
+    <string name="package_name">com.claimx.app</string>
+    <string name="custom_url_scheme">com.claimx.app</string>
+</resources>

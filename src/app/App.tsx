@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useRoutes, BrowserRouter } from 'react-router-dom';
+import { useRoutes, HashRouter } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
+import { App as CapApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { supabase } from '../lib/supabase';
 import { upsertProfile } from '../lib/db';
 import { TerritoryStoreProvider } from '../features/territory/hooks/TerritoryStoreProvider';
@@ -116,6 +118,21 @@ export function App() {
       }
     });
 
+    // Handle deep link redirect from Google OAuth (Android)
+    const deepLinkListener = CapApp.addListener('appUrlOpen', async ({ url }) => {
+      if (!url.includes('login-callback')) return;
+      // Supabase returns tokens in the URL fragment: #access_token=...&refresh_token=...
+      const fragment = url.split('#')[1] ?? '';
+      const params = new URLSearchParams(fragment);
+      const access_token  = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      if (access_token && refresh_token && supabase) {
+        await Browser.close();
+        const { data: { session } } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (session?.user) handleAuthUser(session.user);
+      }
+    });
+
     // Instant sign-out via custom event (fired before Supabase network round-trip)
     const handleInstantLogout = () => setScreen('welcome');
     window.addEventListener('app-logout', handleInstantLogout);
@@ -123,6 +140,7 @@ export function App() {
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('app-logout', handleInstantLogout);
+      deepLinkListener.then((l) => l.remove());
     };
   }, [handleAuthUser]);
 
@@ -141,12 +159,12 @@ export function App() {
   }
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <TerritoryStoreProvider>
         <AppRoutes />
         <BottomNav />
       </TerritoryStoreProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

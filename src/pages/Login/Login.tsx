@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { Browser } from '@capacitor/browser';
 import { supabase } from '../../lib/supabase';
 import styles from './Login.module.css';
 
@@ -15,18 +16,23 @@ export function Login({ onBack }: LoginProps) {
     if (!supabase) return;
     setLoading(true);
     setError('');
-    const { error: authError } = await supabase.auth.signInWithOAuth({
+    const { data, error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: 'com.claimx.app://login-callback',
+        skipBrowserRedirect: true,
         queryParams: { access_type: 'offline', prompt: 'select_account' },
       },
     });
     if (authError) {
       setError(authError.message);
       setLoading(false);
+      return;
     }
-    // On success: browser redirects to Google — no further action needed here
+    if (data?.url) {
+      await Browser.open({ url: data.url });
+    }
+    setLoading(false);
   };
 
   return (
