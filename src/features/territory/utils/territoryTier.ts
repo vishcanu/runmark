@@ -18,35 +18,35 @@ const TIERS: Array<{ minRuns: number } & TierInfo> = [
   {
     minRuns: 10,
     name: 'CERTIFIED',
-    wallM: 4,   crownH: 10, crownColor: '#f97316',
+    wallM: 2.5, crownH: 10, crownColor: '#f97316',
     floorOpacity: 0.22, haloWidth: 11, borderWidth: 2.5,
     uiColor: '#f97316',
   },
   {
     minRuns: 5,
     name: 'GOATED',
-    wallM: 3.5, crownH: 7,  crownColor: '#fbbf24',
+    wallM: 2.2, crownH: 7,  crownColor: '#fbbf24',
     floorOpacity: 0.18, haloWidth:  9, borderWidth: 2.2,
     uiColor: '#fbbf24',
   },
   {
     minRuns: 3,
     name: 'SLAPS',
-    wallM: 3,   crownH: 5,  crownColor: '#fde68a',
+    wallM: 2,   crownH: 5,  crownColor: '#fde68a',
     floorOpacity: 0.13, haloWidth:  7, borderWidth: 2.0,
     uiColor: '#a3e635',
   },
   {
     minRuns: 2,
     name: 'COOKING',
-    wallM: 2.5, crownH: 4,  crownColor: '#e2e8f0',
+    wallM: 1.8, crownH: 4,  crownColor: '#e2e8f0',
     floorOpacity: 0.09, haloWidth:  5, borderWidth: 1.8,
     uiColor: '#60a5fa',
   },
   {
     minRuns: 1,
     name: 'LOWKEY',
-    wallM: 2,   crownH: 0,  crownColor: '#ffffff',  // crownH=0 → no crown on first run
+    wallM: 1.5, crownH: 0,  crownColor: '#ffffff',  // crownH=0 → no crown on first run
     floorOpacity: 0.06, haloWidth:  4, borderWidth: 1.5,
     uiColor: '#94a3b8',
   },

@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo, useEffect } from 'react';
+import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { Trees, Waves, MapPin, X, Play, Navigation } from 'lucide-react';
 import { useSiegeCharges, computeEarnedCharges } from '../../hooks/useSiegeCharges';
 import { useUserProfile } from '../../hooks/useUserProfile';
@@ -21,7 +21,7 @@ import { useActivityTracker } from '../../features/activity/hooks/useActivityTra
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
-import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing, simplifyRing, simplifyPath, projectToRenderedRoads } from '../../features/map/utils/geo';
+import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing, simplifyRing, simplifyPath, projectToRenderedRoads, snapPointToRoad } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
@@ -159,20 +159,22 @@ export function Home() {
 
   // Feed every GPS fix into the tracker while a run is active.
   // 1. Filter poor accuracy (> 25 m) — avoids criss-cross paths in Indian urban areas.
-  // 2. Project each new point onto the nearest rendered road segment IMMEDIATELY,
-  //    while the map is still centered on the user's current position.
-  //    This is the reliable fix: the map is guaranteed to show this exact area
-  //    right now, so queryRenderedFeatures finds road features for this point.
+  // 2. Snap each new point onto the nearest rendered road segment IMMEDIATELY,
+  //    using path-continuity scoring to avoid jumping to parallel roads.
+  const lastSnappedRef = useRef<Coordinate | null>(null);
   useEffect(() => {
     if (tracker.session.status === 'active' && geo.position) {
       if (geo.accuracy === null || geo.accuracy <= 25) {
         const pos: Coordinate = geo.position;
         const mapInst = getMapInstance();
         const roadPt = mapInst
-          ? (projectToRenderedRoads([pos], mapInst)[0] ?? pos)
+          ? snapPointToRoad(pos, mapInst, lastSnappedRef.current)
           : pos;
+        lastSnappedRef.current = roadPt;
         tracker.addPosition(roadPt);
       }
+    } else if (tracker.session.status !== 'active') {
+      lastSnappedRef.current = null; // reset on stop/idle
     }
   }, [geo.position, tracker.session.status]);  // eslint-disable-line react-hooks/exhaustive-deps
 

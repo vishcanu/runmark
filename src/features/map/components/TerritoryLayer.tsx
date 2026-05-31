@@ -84,7 +84,7 @@ function computeProps(t: Territory, selected: boolean) {
   const isCorr = t.shape === 'corridor';
 
   // Corridors: solid flat road slab — different visual weight than zone walls
-  const wallM        = isCorr ? 3 : tier.wallM + (selected ? 0.5 : 0);
+  const wallM        = isCorr ? 2 : tier.wallM + (selected ? 0.3 : 0);
   const floorOpacity = isCorr
     ? Math.min(0.50 + (selected ? 0.12 : 0), 0.65)
     : Math.min(tier.floorOpacity + (selected ? 0.10 : 0), 0.45);
