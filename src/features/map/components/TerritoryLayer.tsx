@@ -263,7 +263,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
         filter: ['==', ['get', 'shape'], 'zone'],
         paint: {
           'fill-color':   '#0d1e0d',
-          'fill-opacity': 0.22,
+          'fill-opacity': 0.10,
         },
       });
 
@@ -283,14 +283,14 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           'line-color':   ['get', 'color'],
           'line-width': [
             'interpolate', ['exponential', 1.5], ['zoom'],
-            12,  5,
-            14, 12,
-            15, 20,
-            16, 34,
-            17, 55,
+            12,  2,
+            14,  5,
+            15,  9,
+            16, 15,
+            17, 22,
           ],
-          'line-opacity': 0.18,
-          'line-blur':    8,
+          'line-opacity': 0.12,
+          'line-blur':    6,
         },
       });
 
@@ -309,6 +309,12 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
       //   zoom 16 → 13 px  × 2.3 m/px  = 30 m drawn,  matches visual road width
       //   zoom 17 → 22 px  × 1.2 m/px  = 26 m drawn,  close to physical (7–9 m)
       //   zoom 18 → 38 px  × 0.6 m/px  = 23 m drawn,  physical road ≈ 20 m total
+      // Width calibration — matches the road casing width on OFM Liberty tiles.
+      // At Bangalore (lat ~13°, cos = 0.974):
+      //   zoom 15 → 4.66 m/px : 3 px = 14 m drawn  (thin visible line)
+      //   zoom 16 → 2.33 m/px : 5 px = 12 m drawn  (matches street casing)
+      //   zoom 17 → 1.16 m/px : 7 px =  8 m drawn  (matches 2-lane road)
+      //   zoom 18 → 0.58 m/px : 12 px = 7 m drawn  (physical road ≈ 6–8 m)
       map.addLayer({
         id: L_ROAD_SURFACE, type: 'line', source: SRC_ROAD_SURFACE,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -317,14 +323,14 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           'line-width': [
             'interpolate', ['exponential', 1.5], ['zoom'],
             12,  1,
-            14,  3,
-            15,  5,
-            16,  9,
-            17, 15,
-            18, 26,
-            20, 55,
+            14,  2,
+            15,  3,
+            16,  5,
+            17,  7,
+            18, 12,
+            20, 22,
           ],
-          'line-opacity': 0.85,
+          'line-opacity': 1.0,
         },
       });
 
@@ -336,7 +342,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           'fill-extrusion-color':   ['get', 'color'],
           'fill-extrusion-height':  ['get', 'height'],
           'fill-extrusion-base':    0,
-          'fill-extrusion-opacity': 0.80,
+          'fill-extrusion-opacity': 0.42,
         },
       });
 
@@ -348,7 +354,7 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
           'fill-extrusion-color':   ['get', 'crownColor'],
           'fill-extrusion-height':  ['get', 'height'],
           'fill-extrusion-base':    ['get', 'crownBase'],
-          'fill-extrusion-opacity': 0.92,
+          'fill-extrusion-opacity': 0.58,
         },
       });
 
@@ -375,8 +381,8 @@ export function TerritoryLayer({ map, territories, selectedId, onTerritoryClick,
         paint: {
           'line-color':   ['get', 'color'],
           'line-width':   ['get', 'haloWidth'],
-          'line-opacity': 0.28,
-          'line-blur':    12,
+          'line-opacity': 0.14,
+          'line-blur':    8,
         },
       });
 
