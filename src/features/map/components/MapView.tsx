@@ -16,6 +16,7 @@ interface MapViewProps {
   userPosition: Coordinate | null;
   userHeading?: number | null;
   userAccuracy?: number | null;
+  sessionActive?: boolean;
   territories: Territory[];
   activePath: Coordinate[];
   selectedTerritoryId: string | null;
@@ -33,6 +34,7 @@ export function MapView({
   userPosition,
   userHeading,
   userAccuracy,
+  sessionActive = false,
   territories,
   activePath,
   selectedTerritoryId,
@@ -53,6 +55,18 @@ export function MapView({
     const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
     setTheme(next);
   }, [theme, setTheme]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-follow user while a session is active — keeps the map centered so that
+  // real-time GPS road-snapping always has road tile features available.
+  const isFollowingRef = useRef(false);
+  useEffect(() => {
+    if (sessionActive && userPosition && map && isReady) {
+      isFollowingRef.current = true;
+      map.easeTo({ center: userPosition as [number, number], duration: 600, essential: true });
+    } else {
+      isFollowingRef.current = false;
+    }
+  }, [userPosition, sessionActive, map, isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Center on user the moment first GPS fix arrives
   const hasCenteredRef = useRef(false);

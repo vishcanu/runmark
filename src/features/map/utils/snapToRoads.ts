@@ -79,7 +79,7 @@ export async function snapPathToRoads(
     const url   = `https://router.project-osrm.org/match/v1/${profile}/${coordStr}?overview=full&geometries=geojson&radiuses=${radii}`;
 
     const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const timer = setTimeout(() => ctrl.abort(), 12000);
 
     const res = await fetch(url, { signal: ctrl.signal });
     clearTimeout(timer);

@@ -158,11 +158,20 @@ export function Home() {
     : null;
 
   // Feed every GPS fix into the tracker while a run is active.
-  // Skip positions with poor accuracy (> 35 m) — they cause jitter and criss-cross paths.
+  // 1. Filter poor accuracy (> 25 m) — avoids criss-cross paths in Indian urban areas.
+  // 2. Project each new point onto the nearest rendered road segment IMMEDIATELY,
+  //    while the map is still centered on the user's current position.
+  //    This is the reliable fix: the map is guaranteed to show this exact area
+  //    right now, so queryRenderedFeatures finds road features for this point.
   useEffect(() => {
     if (tracker.session.status === 'active' && geo.position) {
-      if (geo.accuracy === null || geo.accuracy <= 35) {
-        tracker.addPosition(geo.position);
+      if (geo.accuracy === null || geo.accuracy <= 25) {
+        const pos: Coordinate = geo.position;
+        const mapInst = getMapInstance();
+        const roadPt = mapInst
+          ? (projectToRenderedRoads([pos], mapInst)[0] ?? pos)
+          : pos;
+        tracker.addPosition(roadPt);
       }
     }
   }, [geo.position, tracker.session.status]);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -477,6 +486,7 @@ export function Home() {
         userPosition={geo.position}
         userHeading={geo.heading}
         userAccuracy={geo.accuracy}
+        sessionActive={tracker.session.status === 'active'}
         territories={store.territories}
         activePath={tracker.session.path}
         selectedTerritoryId={store.selectedId}

@@ -507,43 +507,43 @@ export function colorFromId(id: string): string {
   return COLORS[hash % COLORS.length];
 }
 
-// ── Road layer names in OFM Liberty style ─────────────────────────────────
-const _ROAD_SNAP_LAYERS = [
-  'road-motorway', 'road-trunk', 'road-primary',
-  'road-secondary-tertiary', 'road-street', 'road-street-low',
-  'road-service-link', 'road-path', 'road-track',
-];
+// ── Road snapping via rendered map tile geometry ──────────────────────────
 
 /**
  * Snap every GPS/OSRM point onto the nearest rendered road segment in the map tiles.
  *
- * Why this is the right fallback:
- *   - OSRM times out from India → raw GPS is 10–30 m off the road → zig-zag territory
- *   - Map tiles already contain actual OSM road geometry (rendered at the current view)
- *   - For each path point, we query rendered road features within 30 px and project
- *     the GPS coordinate onto the closest road segment using `closestPointOnSegment`
- *   - This anchors every point exactly on a visible road, fixing both scatter and diagonals
+ * Why this works:
+ *   - Map tiles contain precise OSM road geometry (the same beautiful lines you see)
+ *   - For each path point, we query ALL rendered transportation features nearby
+ *     and project the GPS coordinate onto the closest road segment
+ *   - This anchors every point exactly on a visible road
+ *   - Works across ALL themes (light/dark/night) — no hard-coded layer names
+ *   - Handles both LineString and MultiLineString geometries
  *
  * Constraints:
- *   - Only snaps if the nearest road segment is within 35 m (prevents snapping to wrong road)
+ *   - Only snaps if the nearest road segment is within 35 m (prevents wrong-road snap)
  *   - Silently keeps the original point if no road feature is found nearby
- *   - Works completely offline — no network dependency
- *   - Requires the map to be showing the walked area (it always is right after a run)
+ *   - Requires the map viewport to be showing the point's area
  */
 export function projectToRenderedRoads(
   path: Coordinate[],
   map: MapLibreMap,
 ): Coordinate[] {
   const MAX_SNAP_M = 35; // don't snap if nearest road is > 35 m away
-  const PX_RADIUS  = 28; // pixel search box half-size
+  const PX_RADIUS  = 40; // pixel search box half-size
 
   return path.map((point) => {
     try {
       const px = map.project(point as [number, number]);
-      const features = map.queryRenderedFeatures(
+      // Query ALL features in the box — works across all themes/styles
+      const allFeatures = map.queryRenderedFeatures(
         [[px.x - PX_RADIUS, px.y - PX_RADIUS],
          [px.x + PX_RADIUS, px.y + PX_RADIUS]],
-        { layers: _ROAD_SNAP_LAYERS },
+      );
+      // Filter to transportation line features only (source-layer from OpenMapTiles schema)
+      const features = allFeatures.filter(f =>
+        f.sourceLayer === 'transportation' &&
+        (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString')
       );
       if (!features.length) return point;
 
@@ -551,20 +551,26 @@ export function projectToRenderedRoads(
       let bestDist = Infinity;
 
       for (const feat of features) {
-        if (feat.geometry.type !== 'LineString') continue;
-        const coords = feat.geometry.coordinates as number[][];
-        for (let i = 0; i < coords.length - 1; i++) {
-          const a = coords[i]   as Coordinate;
-          const b = coords[i+1] as Coordinate;
-          const proj = closestPointOnSegment(point, a, b);
-          const d    = haversineDistance(point, proj);
-          if (d < bestDist) { bestDist = d; best = proj; }
+        const geom = feat.geometry as { type: string; coordinates: number[][] | number[][][] };
+        // Handle both LineString and MultiLineString
+        const lines: number[][][] = geom.type === 'MultiLineString'
+          ? (geom.coordinates as number[][][])
+          : [geom.coordinates as number[][]];
+
+        for (const coords of lines) {
+          for (let i = 0; i < coords.length - 1; i++) {
+            const a = coords[i]   as Coordinate;
+            const b = coords[i+1] as Coordinate;
+            const proj = closestPointOnSegment(point, a, b);
+            const d    = haversineDistance(point, proj);
+            if (d < bestDist) { bestDist = d; best = proj; }
+          }
         }
       }
 
       return bestDist <= MAX_SNAP_M ? best : point;
     } catch {
-      return point; // off-screen or style mismatch — keep original
+      return point; // off-screen or render issue — keep original
     }
   });
 }
