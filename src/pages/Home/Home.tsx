@@ -21,7 +21,7 @@ import { useActivityTracker } from '../../features/activity/hooks/useActivityTra
 import { useTerritoryStore } from '../../features/territory/hooks/useTerritoryStore';
 import { useParkSearch } from '../../features/parks/hooks/useParkSearch';
 import { formatParkDistance, navigateToPark } from '../../features/parks/utils/parkUtils';
-import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing, simplifyRing, simplifyPath } from '../../features/map/utils/geo';
+import { colorFromId, polyCentroid, haversineDistance, bufferPath, isLinearPath, buildRoadRing, simplifyRing, simplifyPath, projectToRenderedRoads } from '../../features/map/utils/geo';
 import { snapPathToRoads } from '../../features/map/utils/snapToRoads';
 import { calcPoints } from '../../features/activity/utils/points';
 import type { Park } from '../../features/parks/types';
@@ -262,7 +262,19 @@ export function Home() {
     // Shows "Mapping territory…" while OSRM resolves (max 6s).
     // Falls back to raw GPS path automatically on any failure.
     setIsSnapping(true);
-    const snappedPath = await snapPathToRoads(currentPath, activityType);
+    const osrmPath = await snapPathToRoads(currentPath, activityType);
+
+    // ── Client-side road projection ───────────────────────────
+    // Project every GPS/OSRM point onto the nearest rendered road segment
+    // in the map tiles. This fixes 10–30 m GPS scatter and OSRM drift so
+    // the path follows actual road geometry even when OSRM times out.
+    // getMapInstance() is always valid here — the map is still centered on
+    // the user's last position from the run.
+    const mapInst = getMapInstance();
+    const snappedPath = mapInst
+      ? projectToRenderedRoads(osrmPath, mapInst)
+      : osrmPath;
+
     setIsSnapping(false);
 
     // ── Corridor vs Zone ────────────────────────────────────────
