@@ -1,5 +1,4 @@
 import { Trees, Footprints, Building2, ArrowRight } from 'lucide-react';
-import { ClaimXLogo } from '../../components/ClaimXLogo/ClaimXLogo';
 import styles from './Welcome.module.css';
 
 interface WelcomeProps { onContinue: () => void; }
@@ -14,11 +13,12 @@ export function Welcome({ onContinue }: WelcomeProps) {
   return (
     <div className={styles.page}>
       <div className={styles.hero}>
-        <div className={styles.logoMark}><ClaimXLogo size={32} /></div>
-        <div className={styles.heroText}>
-          <h1 className={styles.heroTitle}>Claim'X'</h1>
-          <p className={styles.heroSub}>Health as a Game. Life as a Victory.</p>
-        </div>
+        <img
+          src="/brand/logo-light.svg"
+          alt="ClaimX"
+          className={styles.brandLogo}
+        />
+        <p className={styles.heroSub}>Health as a Game. Life as a Victory.</p>
       </div>
       <div className={styles.sheet}>
         <div className={styles.featureList}>

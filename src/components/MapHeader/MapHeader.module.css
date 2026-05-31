@@ -31,24 +31,11 @@
     flex: 1;
 }
 
-.brandIcon {
-    width: 28px;
+.brandLogoImg {
     height: 28px;
-    border-radius: 8px;
-    background: var(--color-accent-primary);
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: auto;
+    display: block;
     flex-shrink: 0;
-}
-
-.brandWord {
-    font-size: var(--text-base);
-    font-weight: var(--font-extrabold);
-    color: var(--color-text-primary);
-    letter-spacing: -0.04em;
-    line-height: 1;
 }
 
 /* ─── Center: recording pill or siege trigger ────────────── */

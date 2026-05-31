@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-label="ClaimX app icon">
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#020408"/>
+  <!-- Subtle inner border -->
+  <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="rgba(0,212,255,0.15)" stroke-width="2"/>
+  <!-- Radial glow behind icon -->
+  <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#00D4FF" stop-opacity="0.08"/>
+    <stop offset="100%" stop-color="#00D4FF" stop-opacity="0"/>
+  </radialGradient>
+  <rect width="512" height="512" rx="112" fill="url(#bgGlow)"/>
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="iconGrad" x1="80" y1="80" x2="432" y2="432" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D4FF"/>
+      <stop offset="1" stop-color="#00FFE7"/>
+    </linearGradient>
+  </defs>
+  <!-- X icon — original 24×24 paths scaled to 352×352, centered with 80px padding -->
+  <g transform="translate(80, 80) scale(14.667)">
+    <path stroke="url(#iconGrad)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+      d="M15.24 10.233A4.619 4.619 0 0 0 12 8.89c-1.204 0-2.39.492-3.24 1.344l-6.244 6.243c-1.32 1.38-1.296 3.63.054 4.981 1.351 1.35 3.602 1.375 4.981.054l4.45-4.449 4.448 4.45c1.38 1.32 3.63 1.296 4.98-.055 1.351-1.35 1.376-3.6.055-4.98l-6.243-6.244Z"/>
+    <path stroke="url(#iconGrad)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+      d="M6.993 12 2.516 7.524c-1.32-1.38-1.296-3.63.054-4.981 1.351-1.35 3.602-1.375 4.981-.054l4.45 4.449 4.448-4.45c1.38-1.32 3.63-1.296 4.98.055 1.351 1.35 1.376 3.6.055 4.98L17.007 12"/>
+    <path stroke="url(#iconGrad)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+      d="M17.007 12 12 17.064 6.993 12"/>
+  </g>
+</svg>

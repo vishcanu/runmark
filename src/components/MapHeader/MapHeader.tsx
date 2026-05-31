@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { LogOut, ChevronDown } from 'lucide-react';
-import { ClaimXLogo } from '../ClaimXLogo/ClaimXLogo';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { supabase } from '../../lib/supabase';
 import styles from './MapHeader.module.css';
@@ -39,10 +38,7 @@ export function MapHeader({ isActive = false, centerContent }: MapHeaderProps) {
 
       {/* ── Logo mark + wordmark ─────────────────────────── */}
       <div className={styles.brand}>
-        <div className={styles.brandIcon}>
-          <ClaimXLogo size={16} />
-        </div>
-        <span className={styles.brandWord}>Claim'X'</span>
+        <img src="/brand/logo-light.svg" alt="ClaimX" className={styles.brandLogoImg} />
       </div>
 
       {/* ── Center: recording pill or injected content ─────── */}

@@ -92,6 +92,15 @@
     border: 1px solid rgba(255, 255, 255, 0.16);
 }
 
+/* ── Brand logo (replaces logoMark + heroTitle) ───────── */
+.brandLogo {
+    width: clamp(160px, 55vw, 210px);
+    height: auto;
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+}
+
 /* ── Hero text ────────────────────────────────────────── */
 .heroText {
     text-align: center;
